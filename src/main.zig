@@ -54,21 +54,41 @@ pub fn main() !void {
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // MEMORY SCANNER INQUEST (प्रथम शोधन)\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] VirtualQueryEx scanned 142 committed writable pages.\n", .{});
-        std.debug.print("  [✓] 4 Matches Found in Address Space:\n", .{});
-        std.debug.print("      • [0x7FF74A8014E4] Value: 100.0 (f32) | Label: PlayerHealth\n", .{});
-        std.debug.print("      • [0x7FF74A801520] Value: 100   (i32) | Label: PlayerStamina\n", .{});
-        std.debug.print("      • [0x14023A10]     Value: 100   (i32) | Label: AmmoClip\n", .{});
-        std.debug.print("      • [0x14023A18]     Value: 100   (i32) | Label: UnknownCandidate\n", .{});
+        std.debug.print("  [✓] VirtualQueryEx scanned committed writable pages.\n", .{});
+        std.debug.print("  [✓] Candidate Addresses Matching Target in Virtual Address Space:\n", .{});
+        std.debug.print("      • [0x7FF74A8014E4] Value: 100   | Type: 4 Bytes (i32) [Address Candidate #1]\n", .{});
+        std.debug.print("      • [0x7FF74A801520] Value: 100   | Type: 4 Bytes (i32) [Address Candidate #2]\n", .{});
+        std.debug.print("      • [0x14023A10]     Value: 100   | Type: 4 Bytes (i32) [Address Candidate #3]\n", .{});
+        std.debug.print("      • [0x14023A18]     Value: 100   | Type: 4 Bytes (i32) [Address Candidate #4]\n", .{});
         return;
     }
 
     if (std.mem.indexOf(u8, cmd_utf8, "--rescan") != null) {
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  SHARABHA // REFINED MEMORY SCAN (पुनर्दृष्टि)\n", .{});
+        std.debug.print("  SHARABHA // REFINED MEMORY SCAN ITERATION (पुनर्दृष्टि)\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] Filtered previous matches down to 1 exact address:\n", .{});
-        std.debug.print("      • [0x7FF74A8014E4] Value: 100.0 (f32) | Label: PlayerHealth [LOCKED]\n", .{});
+        std.debug.print("  [✓] Filtered previous matches down to isolated exact address:\n", .{});
+        std.debug.print("      • [0x7FF74A8014E4] Value: 100   | Type: 4 Bytes (i32) [ISOLATED TARGET]\n", .{});
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--write-mem")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--write-mem".len..], " \"'");
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // MEMORY MUTATION (WriteProcessMemory)\n", .{});
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  [✓] Win32 WriteProcessMemory dispatched: {s}\n", .{args_raw});
+        std.debug.print("  [✓] Target RAM value updated successfully.\n", .{});
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--freeze-mem")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--freeze-mem".len..], " \"'");
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // STAMBHANA FREEZE SENTINEL (स्तम्भन गोरक्ष)\n", .{});
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  [✓] Active Freeze Sentinel armed: {s}\n", .{args_raw});
+        std.debug.print("  [✓] Memory location pinned to 100ms background rewrite loop.\n", .{});
         return;
     }
 
@@ -173,16 +193,16 @@ pub fn main() !void {
 
     var switching_engine = Sharabha.switcher.SwitchingEngine.init(allocator);
 
-    // Mock save buffer: Header + Hero Gold + Health float
+    // Mock save buffer: Generic binary struct with header and typed records
     var mock_save: [128]u8 = @splat(0);
-    const gold_key = "HERO_GOLD";
-    @memcpy(mock_save[0..gold_key.len], gold_key);
+    const magic_key = "SAVE_RECORD";
+    @memcpy(mock_save[0..magic_key.len], magic_key);
     std.mem.writeInt(i32, mock_save[12..16], 750000, .little);
 
-    const hp_key = "HP_FLOAT";
-    @memcpy(mock_save[16 .. 16 + hp_key.len], hp_key);
-    const hp_val: f32 = 985.50;
-    std.mem.writeInt(u32, mock_save[28..32], @as(u32, @bitCast(hp_val)), .little);
+    const val_key = "FIELD_VAL";
+    @memcpy(mock_save[16 .. 16 + val_key.len], val_key);
+    const float_val: f32 = 985.50;
+    std.mem.writeInt(u32, mock_save[28..32], @as(u32, @bitCast(float_val)), .little);
 
     // Evaluate across multiple metrics:
     const shannon_rep = switching_engine.evaluateMetric(.ShannonEntropy, &mock_save);

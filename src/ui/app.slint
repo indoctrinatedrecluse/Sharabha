@@ -488,6 +488,107 @@ export component DocsArticleTile inherits Rectangle {
     }
 }
 
+export component ProcessPickerRow inherits Rectangle {
+    in property <string> proc_name: "";
+    in property <int> pid: 0;
+    in property <string> win_title: "";
+    in property <string> memory_str: "";
+    in property <string> arch: "x64";
+    in property <bool> is_selected: false;
+    callback clicked();
+
+    height: 46px;
+    background: is_selected ? #1e3a5fcc : (touch.has_hover ? #17253ecc : #0d1524aa);
+    border-radius: 6px;
+    border-width: is_selected ? 1.5px : 1px;
+    border-color: is_selected ? #38bdf8 : #1e293b;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+
+            Text {
+                text: "⚙";
+                font-size: 14px;
+                color: is_selected ? #38bdf8 : #64748b;
+                vertical-alignment: center;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: root.proc_name;
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: is_selected ? #ffffff : #f1f5f9;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "PID " + root.pid;
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #ff7b00;
+                        vertical-alignment: center;
+                    }
+                }
+
+                if root.win_title != "": Text {
+                    text: root.win_title;
+                    font-size: 10px;
+                    color: #94a3b8;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: center;
+
+            Rectangle {
+                height: 20px;
+                background: #0284c722;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: #0284c755;
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: root.arch;
+                        font-size: 9px;
+                        font-weight: 800;
+                        color: #38bdf8;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.memory_str;
+                font-size: 10px;
+                color: #64748b;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
     min-width: 1180px;
@@ -504,6 +605,10 @@ export component MainWindow inherits Window {
                 return accept;
             }
             if event.text == Key.Escape {
+                if root.show_process_modal {
+                    root.show_process_modal = false;
+                    return accept;
+                }
                 if root.show_command_palette {
                     root.show_command_palette = false;
                     return accept;
@@ -1039,26 +1144,120 @@ export component MainWindow inherits Window {
     in-out property <int> selected_process_idx: 0;
     in-out property <bool> process_bound: false;
     in-out property <string> process_bind_status: "STANDBY // Unattached";
+    in-out property <string> rudra_status_text: "Win32 Netra Active // Ready for Inquest";
+
+    // Process Picker Modal (सम्पूर्ण प्रक्रिया सूची)
+    in-out property <bool> show_process_modal: false;
+    in-out property <string> process_modal_search: "";
+    in-out property <int> modal_selected_proc_idx: 0;
+
+    // Generic Memory Scanner State (बहु-शोधन परिशोधन)
+    in-out property <int> scan_iteration: 0; // 0 = first scan ready, 1+ = rescan iterations
     in-out property <string> scan_target_value: "100";
-    in-out property <string> scan_result_count_str: "4 MATCHES";
+    in-out property <string> scan_result_count_str: "READY (सज्ज)";
+    in-out property <int> selected_scan_type: 0; // 0: Exact, 1: Bigger Than, 2: Smaller Than, 3: Between, 4: Unknown Initial
+    in-out property <string> scan_type_name: "EXACT VALUE (सटीक मान)";
+    in-out property <int> selected_rescan_type: 0; // 0: Exact, 1: Increased, 2: Decreased, 3: Changed, 4: Unchanged
+    in-out property <string> rescan_type_name: "EXACT VALUE (सटीक मान)";
+    in-out property <int> selected_data_type: 0; // 0: 4 Bytes (i32), 1: 4 Bytes (u32), 2: 8 Bytes (i64), 3: Float (f32), 4: Double (f64), 5: 1 Byte (i8), 6: 2 Bytes (i16), 7: String (Text), 8: Array of Bytes
+    in-out property <string> data_type_name: "4 Bytes (i32)";
+
+    // Upper Table: Found Addresses (परिणाम शोधन)
+    in-out property <bool> found_freeze_0: false;
+    in-out property <string> found_addr_0: "0x7FF74A8014E4";
+    in-out property <string> found_val_0: "100";
+    in-out property <string> found_prev_0: "100";
+    in-out property <string> found_type_0: "4 Bytes";
+
+    in-out property <bool> found_freeze_1: false;
+    in-out property <string> found_addr_1: "0x7FF74A801520";
+    in-out property <string> found_val_1: "100";
+    in-out property <string> found_prev_1: "100";
+    in-out property <string> found_type_1: "4 Bytes";
+
+    in-out property <bool> found_freeze_2: false;
+    in-out property <string> found_addr_2: "0x14023A10";
+    in-out property <string> found_val_2: "100";
+    in-out property <string> found_prev_2: "85";
+    in-out property <string> found_type_2: "4 Bytes";
+
+    in-out property <bool> found_freeze_3: false;
+    in-out property <string> found_addr_3: "0x14023A18";
+    in-out property <string> found_val_3: "100";
+    in-out property <string> found_prev_3: "120";
+    in-out property <string> found_type_3: "4 Bytes";
+
+    in-out property <int> found_count: 4;
     in-out property <bool> freeze_row1: false;
     in-out property <bool> freeze_row2: false;
-    in-out property <string> rudra_status_text: "Win32 Netra Active // Ready for Inquest";
+
+    // Lower Table: Saved Address List / Cheat Table (संरक्षित स्मृति तालिका)
+    in-out property <bool> table_active_0: true;
+    in-out property <string> table_desc_0: "Target_Variable_01";
+    in-out property <string> table_addr_0: "0x7FF74A8014E4";
+    in-out property <string> table_type_0: "4 Bytes (i32)";
+    in-out property <string> table_val_0: "100";
+
+    in-out property <bool> table_active_1: false;
+    in-out property <string> table_desc_1: "Counter_Register";
+    in-out property <string> table_addr_1: "0x7FF74A801520";
+    in-out property <string> table_type_1: "4 Bytes (i32)";
+    in-out property <string> table_val_1: "100";
+
+    in-out property <bool> table_active_2: false;
+    in-out property <string> table_desc_2: "Resource_Capacity";
+    in-out property <string> table_addr_2: "0x14023A10";
+    in-out property <string> table_type_2: "4 Bytes (i32)";
+    in-out property <string> table_val_2: "100";
+
+    in-out property <int> table_row_count: 3;
 
     // Kalyana Sthiti Interactive State
     in-out property <int> current_save_idx: 0;
     in-out property <string> save_commit_feedback: "Sthiti Kavacha Active: Ready to Commit";
+
+    // Generic Dynamic Save Fields (यथार्थ क्षेत्र विश्लेषक)
+    in-out property <string> save_field_0_tag: "RECORD [0x000C]";
+    in-out property <string> save_field_0_type: "i32 (Little Endian)";
+    in-out property <string> save_field_0_hex: "F0 7E 0E 00";
+    in-out property <string> save_field_0_val: "950000";
+
+    in-out property <string> save_field_1_tag: "RECORD [0x0010]";
+    in-out property <string> save_field_1_type: "i32 (Little Endian)";
+    in-out property <string> save_field_1_hex: "AF 00 00 00";
+    in-out property <string> save_field_1_val: "175";
+
+    in-out property <string> save_field_2_tag: "RECORD [0x0014]";
+    in-out property <string> save_field_2_type: "i32 (Little Endian)";
+    in-out property <string> save_field_2_hex: "3C 00 00 00";
+    in-out property <string> save_field_2_val: "60";
+
+    in-out property <string> save_field_3_tag: "RECORD [0x0018]";
+    in-out property <string> save_field_3_type: "i32 (Little Endian)";
+    in-out property <string> save_field_3_hex: "D0 D0 03 00";
+    in-out property <string> save_field_3_val: "250000";
+
+    in-out property <string> save_field_4_tag: "RECORD [0x0020]";
+    in-out property <string> save_field_4_type: "f32 (Float IEEE 754)";
+    in-out property <string> save_field_4_hex: "00 60 76 44";
+    in-out property <string> save_field_4_val: "985.50";
+
+    in-out property <string> save_field_5_tag: "RECORD [0x0028]";
+    in-out property <string> save_field_5_type: "ASCII String [8]";
+    in-out property <string> save_field_5_hex: "53 41 56 45 5F 52 45 43";
+    in-out property <string> save_field_5_val: "SAVE_REC";
+
+    // Legacy Save Aliases for backwards compatibility
+    in-out property <string> save_runes_val: "950,000";
+    in-out property <string> save_level_val: "175";
+    in-out property <string> save_vigor_val: "60";
+    in-out property <string> save_gold_val: "250,000";
 
     // Jnana Kosha Interactive State
     in-out property <string> jnana_status_msg: "SurrealDB Embedded Knowledge Graph Online";
     in-out property <string> jnana_search_query: "";
 
     // Engine State Properties
-    in-out property <int> selected_scan_type: 0;
-    in-out property <string> scan_type_name: "EXACT (सटीक मान)";
-    in-out property <int> selected_data_type: 0;
-    in-out property <string> data_type_name: "Type: i32";
-
     in-out property <int> selected_metric: 0;
     in-out property <string> metric_display_name: "AUTO-DETECT (सर्वज्ञ मान)";
     in-out property <string> metric_score_value: "4.812 bits/byte";
@@ -1082,13 +1281,9 @@ export component MainWindow inherits Window {
 
     // Dual-Mode Save Editor Properties (Agama vs. Pravaha)
     in-out property <int> save_view_mode: 0; // 0=Agama Deterministic, 1=Pravaha Fuzzy Raw Table
-    in-out property <string> save_game_title: "ELDEN RING (हिरण्यगर्भ आगम)";
+    in-out property <string> save_game_title: "GENERIC SAVE VESSEL (माया संचय)";
     in-out property <string> save_filename: "ER0000.sl2";
     in-out property <string> save_checksum_info: "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
-    in-out property <string> save_runes_val: "950,000";
-    in-out property <string> save_level_val: "175";
-    in-out property <string> save_vigor_val: "60";
-    in-out property <string> save_gold_val: "250,000";
 
     // Interactive Lua Altar Properties
     in-out property <string> lua_script_input: "sharabha.write_u32(0x7FF74A8014E4, 999999); print('Mudra Awakened!')";
@@ -1101,6 +1296,8 @@ export component MainWindow inherits Window {
     callback rescan_memory(string);
     callback cycle_scan_type();
     callback cycle_data_type();
+    callback write_memory_address(string, string);
+    callback toggle_freeze_address(string, bool);
     callback open_save_file();
     callback execute_fuzzy_parse();
     callback cycle_metric();
@@ -1425,6 +1622,22 @@ export component MainWindow inherits Window {
                             }
                         }
 
+                        ThematicActionButton {
+                            text: "PROCESS LIST DIALOG...";
+                            devanagari: "सम्पूर्ण प्रक्रिया सूची";
+                            btn_width: 0px;
+                            btn_height: 38px;
+                            bg_color: #1e3a5f;
+                            hover_color: #2563eb;
+                            tooltip_down: true;
+                            sanskrit_title: "सम्पूर्ण प्रक्रिया सूची // PROCESS LIST DIALOG";
+                            feature_name: "Feature: System Process Inquest Dialog";
+                            explanation: "Opens a full-screen searchable process selector dialog listing all active OS tasks, window titles, and memory footprints.";
+                            clicked => {
+                                root.show_process_modal = true;
+                            }
+                        }
+
                         LineEdit {
                             placeholder-text: "Filter process name or PID (e.g. game.exe)...";
                             height: 36px;
@@ -1617,7 +1830,7 @@ export component MainWindow inherits Window {
 
                             LineEdit {
                                 text <=> root.scan_target_value;
-                                placeholder-text: "Target value (e.g. 500, 999999)...";
+                                placeholder-text: "Target value (e.g. 100, 999999)...";
                                 horizontal-stretch: 3;
                                 min-width: 130px;
                                 height: 42px;
@@ -1635,23 +1848,38 @@ export component MainWindow inherits Window {
                                 TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => {
-                                        root.selected_scan_type = Math.mod(root.selected_scan_type + 1, 5);
-                                        if root.selected_scan_type == 0 {
-                                            root.scan_type_name = "EXACT (सटीक मान)";
-                                        } else if root.selected_scan_type == 1 {
-                                            root.scan_type_name = "INCREASED (वर्धित)";
-                                        } else if root.selected_scan_type == 2 {
-                                            root.scan_type_name = "DECREASED (ह्रासित)";
-                                        } else if root.selected_scan_type == 3 {
-                                            root.scan_type_name = "CHANGED (परिवर्तित)";
+                                        if root.scan_iteration == 0 {
+                                            root.selected_scan_type = Math.mod(root.selected_scan_type + 1, 5);
+                                            if root.selected_scan_type == 0 {
+                                                root.scan_type_name = "EXACT (सटीक मान)";
+                                            } else if root.selected_scan_type == 1 {
+                                                root.scan_type_name = "BIGGER THAN (अधिकतम >)";
+                                            } else if root.selected_scan_type == 2 {
+                                                root.scan_type_name = "SMALLER THAN (न्यूनतम <)";
+                                            } else if root.selected_scan_type == 3 {
+                                                root.scan_type_name = "VALUE BETWEEN (मध्यवर्ती)";
+                                            } else {
+                                                root.scan_type_name = "UNKNOWN INITIAL (अज्ञात)";
+                                            }
                                         } else {
-                                            root.scan_type_name = "UNCHANGED (अपरिवर्तित)";
+                                            root.selected_rescan_type = Math.mod(root.selected_rescan_type + 1, 5);
+                                            if root.selected_rescan_type == 0 {
+                                                root.rescan_type_name = "EXACT VALUE (सटीक)";
+                                            } else if root.selected_rescan_type == 1 {
+                                                root.rescan_type_name = "INCREASED (वर्धित >)";
+                                            } else if root.selected_rescan_type == 2 {
+                                                root.rescan_type_name = "DECREASED (ह्रासित <)";
+                                            } else if root.selected_rescan_type == 3 {
+                                                root.rescan_type_name = "CHANGED (परिवर्तित !=)";
+                                            } else {
+                                                root.rescan_type_name = "UNCHANGED (अपरिवर्तित ==)";
+                                            }
                                         }
                                         root.cycle_scan_type();
                                     }
                                 }
                                 Text {
-                                    text: root.scan_type_name;
+                                    text: root.scan_iteration == 0 ? root.scan_type_name : root.rescan_type_name;
                                     font-size: 10px;
                                     font-weight: 700;
                                     color: #ff7b00;
@@ -1661,7 +1889,7 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            // Data Type Cycle Selector (i32, u32, i64, u64, f32, f64, Text)
+                            // Data Type Cycle Selector
                             Rectangle {
                                 horizontal-stretch: 1;
                                 min-width: 80px;
@@ -1673,19 +1901,23 @@ export component MainWindow inherits Window {
                                 TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => {
-                                        root.selected_data_type = Math.mod(root.selected_data_type + 1, 6);
+                                        root.selected_data_type = Math.mod(root.selected_data_type + 1, 8);
                                         if root.selected_data_type == 0 {
-                                            root.data_type_name = "Type: i32";
+                                            root.data_type_name = "4 Bytes (i32)";
                                         } else if root.selected_data_type == 1 {
-                                            root.data_type_name = "Type: u32";
+                                            root.data_type_name = "4 Bytes (u32)";
                                         } else if root.selected_data_type == 2 {
-                                            root.data_type_name = "Type: i64";
+                                            root.data_type_name = "8 Bytes (i64)";
                                         } else if root.selected_data_type == 3 {
-                                            root.data_type_name = "Type: f32";
+                                            root.data_type_name = "Float (f32)";
                                         } else if root.selected_data_type == 4 {
-                                            root.data_type_name = "Type: f64";
+                                            root.data_type_name = "Double (f64)";
+                                        } else if root.selected_data_type == 5 {
+                                            root.data_type_name = "1 Byte (i8)";
+                                        } else if root.selected_data_type == 6 {
+                                            root.data_type_name = "2 Bytes (i16)";
                                         } else {
-                                            root.data_type_name = "Type: Text";
+                                            root.data_type_name = "String (Text)";
                                         }
                                         root.cycle_data_type();
                                     }
@@ -1712,10 +1944,16 @@ export component MainWindow inherits Window {
                                 tooltip_down: true;
                                 sanskrit_title: "प्रथम दृष्टि // FIRST INQUEST";
                                 feature_name: "Feature: Initial RAM Value Scanner";
-                                explanation: "Queries VirtualQueryEx for committed writable pages and scans entire address space for the target value.";
+                                explanation: "Queries VirtualQueryEx for committed writable pages and cataloges all addresses matching the target.";
                                 clicked => {
-                                    root.scan_result_count_str = "4 MATCHES";
-                                    root.rudra_status_text = "First Scan Complete: 4 occurrences of '" + root.scan_target_value + "' found";
+                                    root.scan_iteration = 1;
+                                    root.found_count = 4;
+                                    root.found_val_0 = root.scan_target_value;
+                                    root.found_val_1 = root.scan_target_value;
+                                    root.found_val_2 = root.scan_target_value;
+                                    root.found_val_3 = root.scan_target_value;
+                                    root.scan_result_count_str = "4 MATCHES (आविष्कृत 4)";
+                                    root.rudra_status_text = "First Scan Complete: 4 candidate addresses found matching '" + root.scan_target_value + "'";
                                     root.start_memory_scan(root.scan_target_value, root.data_type_name);
                                 }
                             }
@@ -1731,90 +1969,69 @@ export component MainWindow inherits Window {
                                 tooltip_down: true;
                                 sanskrit_title: "पुनर्दृष्टि // REFINED INQUEST";
                                 feature_name: "Feature: Next Scan Address Filter";
-                                explanation: "Re-reads only previously matched memory locations to isolate values that changed, increased, or stayed exact.";
+                                explanation: "Re-reads only previously matched memory locations and discards any addresses whose value does not match.";
                                 clicked => {
-                                    root.scan_result_count_str = "1 MATCH";
-                                    root.rudra_status_text = "Refined Scan Complete: Isolated to 0x7FF74A8014E4";
+                                    root.scan_iteration = root.scan_iteration + 1;
+                                    root.found_count = 1;
+                                    root.found_prev_0 = root.found_val_0;
+                                    root.found_val_0 = root.scan_target_value;
+                                    root.scan_result_count_str = "1 MATCH (परिशोधित 1)";
+                                    root.rudra_status_text = "Refined Iteration #" + root.scan_iteration + " Complete: Isolated to 0x7FF74A8014E4";
                                     root.rescan_memory(root.scan_target_value);
                                 }
                             }
-                        }
 
-                        // Results Header
-                        Rectangle {
-                            height: 38px;
-                            background: #080d16a8;
-                            border-radius: 4px;
-
-                            HorizontalLayout {
-                                padding-left: 12px;
-                                padding-right: 12px;
-                                spacing: 12px;
-
-                                ThematicColumnHeader {
-                                    title: "STAMBHANA";
-                                    devanagari: "Freeze (स्तम्भन)";
-                                    col_width: 85px;
-                                    text_color: #64748b;
-                                    sanskrit_title: "स्तम्भन सिद्धि // IMMOBILIZE";
-                                    feature_name: "Feature: Memory Freeze Lock";
-                                    explanation: "Periodically writes back the chosen value on a 100ms timer to keep HP, Mana, or Gold locked.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "KSHETRA";
-                                    devanagari: "Address (क्षेत्र)";
-                                    col_width: 130px;
-                                    text_color: #ff7b00;
-                                    sanskrit_title: "क्षेत्र // MEMORY FIELD";
-                                    feature_name: "Feature: Virtual Memory Address";
-                                    explanation: "The 64-bit virtual memory address pointer in the target process where this variable resides.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "TATVA";
-                                    devanagari: "Value (तत्त्व)";
-                                    col_width: 120px;
-                                    text_color: #f8fafc;
-                                    sanskrit_title: "तत्त्व // ELEMENTAL ESSENCE";
-                                    feature_name: "Feature: Live Address Value";
-                                    explanation: "The current numerical or textual value read directly from the target process's RAM.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "PURVA";
-                                    devanagari: "Previous (पूर्व)";
-                                    col_width: 110px;
-                                    text_color: #64748b;
-                                    sanskrit_title: "पूर्व // PRIOR STATE";
-                                    feature_name: "Feature: Previous Scan Value";
-                                    explanation: "The value held at this address during the preceding scan inquest cycle.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "RUPA";
-                                    devanagari: "Type (रूप)";
-                                    col_width: 80px;
-                                    text_color: #94a3b8;
-                                    sanskrit_title: "रूप // DATA FORM";
-                                    feature_name: "Feature: Primitive Data Type";
-                                    explanation: "The binary interpretation format: i32, u32, i64, u64, f32, f64, or string.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "NAMA & SUTRA";
-                                    devanagari: "Label / Pointer (नाम व सूत्र)";
-                                    col_width: 200px;
-                                    text_color: #64748b;
-                                    sanskrit_title: "नाम व सूत्र // LABEL & POINTER";
-                                    feature_name: "Feature: Variable Label & Pointer Chain";
-                                    explanation: "User-assigned label and multi-level base+offset pointer resolution path.";
+                            ThematicActionButton {
+                                text: "NEW SCAN (नूतन)";
+                                devanagari: "नूतन शोधन";
+                                horizontal-stretch: 1;
+                                btn_width: 0px;
+                                btn_height: 42px;
+                                bg_color: #334155;
+                                hover_color: #475569;
+                                tooltip_down: true;
+                                sanskrit_title: "नूतन शोधन // RESET SCANNER";
+                                feature_name: "Feature: Reset Memory Inquest";
+                                explanation: "Clears previous scan address cache and resets iteration state to 0 for a new target search.";
+                                clicked => {
+                                    root.scan_iteration = 0;
+                                    root.found_count = 0;
+                                    root.scan_result_count_str = "READY (नूतन अन्वेषण)";
+                                    root.rudra_status_text = "Scanner Reset: Ready for fresh memory inquest";
                                 }
                             }
                         }
 
-                        // Mock Matches Table
+                        // Telemetry & Status Indicator Strip
                         Rectangle {
+                            height: 24px;
+                            background: #080d1688;
+                            border-radius: 4px;
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                alignment: space-between;
+                                Text {
+                                    text: "Iteration #" + root.scan_iteration + " • Status: " + root.scan_result_count_str;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    color: root.scan_iteration > 0 ? #22c55e : #64748b;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: "Type: " + root.data_type_name + " • Align: 4 Bytes • Range: 0x00000000..0x7FFFFFFF";
+                                    font-size: 10px;
+                                    color: #94a3b8;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // -------------------------------------------------------------
+                        // UPPER TABLE: FOUND ADDRESSES (परिणाम शोधन / Found Addresses)
+                        // -------------------------------------------------------------
+                        Rectangle {
+                            height: 160px;
                             background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
@@ -1824,72 +2041,443 @@ export component MainWindow inherits Window {
                                 padding: 8px;
                                 spacing: 4px;
 
+                                // Results Header
                                 Rectangle {
-                                    height: 36px;
-                                    background: #141e2ecc;
+                                    height: 30px;
+                                    background: #0c1422cc;
                                     border-radius: 4px;
                                     HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 12px;
-                                        Rectangle {
-                                            width: 50px;
-                                            TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.freeze_row2 = !root.freeze_row2;
-                                                    root.rudra_status_text = root.freeze_row2 ?
-                                                        "STAMBHANA ACTIVE: 0x7FF74A8014B0 locked at 999,999" :
-                                                        "Stambhana Unlocked: Address 0x7FF74A8014B0 unfrozen";
-                                                }
-                                            }
-                                            Text {
-                                                text: root.freeze_row2 ? "☑" : "☐";
-                                                font-size: 16px;
-                                                font-weight: 700;
-                                                color: root.freeze_row2 ? #22c55e : #94a3b8;
-                                                vertical-alignment: center;
-                                            }
-                                        }
-                                        Text { text: "0x7FF74A8014B0"; width: 140px; font-size: 12px; font-weight: 700; color: #ff7b00; vertical-alignment: center; }
-                                        Text { text: "999,999"; width: 130px; font-size: 12px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
-                                        Text { text: "500"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
-                                        Text { text: "i32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: root.freeze_row2 ? "PlayerGold (Stambhana Active)" : "PlayerGold (Unfrozen)"; font-size: 11px; color: root.freeze_row2 ? #22c55e : #38bdf8; vertical-alignment: center; }
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        spacing: 8px;
+                                        Text { text: "FREEZE"; width: 55px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "ADDRESS (क्षेत्र)"; width: 130px; font-size: 9px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: "LIVE VALUE (वर्तमान)"; width: 110px; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PREVIOUS (पूर्व)"; width: 90px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "TYPE (रूप)"; width: 80px; font-size: 9px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "ACTIONS (क्रिया)"; horizontal-stretch: 1; font-size: 9px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
                                     }
                                 }
 
-                                Rectangle {
-                                    height: 36px;
+                                if root.scan_iteration == 0: Rectangle {
+                                    height: 100px;
                                     background: transparent;
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 12px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Text {
+                                            text: "No active scan inquest. Enter target value above and click FIRST SCAN.";
+                                            font-size: 11px;
+                                            color: #64748b;
+                                            horizontal-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                if root.scan_iteration >= 1: ScrollView {
+                                    VerticalLayout {
+                                        spacing: 4px;
+
+                                        // Found Row 0
                                         Rectangle {
-                                            width: 50px;
-                                            TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.freeze_row1 = !root.freeze_row1;
-                                                    root.rudra_status_text = root.freeze_row1 ?
-                                                        "STAMBHANA ACTIVE: 0x7FF74A8014E4 locked at " + root.scan_target_value :
-                                                        "Stambhana Unlocked: Address 0x7FF74A8014E4 unfrozen";
+                                            height: 34px;
+                                            background: #141e2ecc;
+                                            border-radius: 4px;
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                spacing: 8px;
+                                                Rectangle {
+                                                    width: 55px;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => {
+                                                            root.found_freeze_0 = !root.found_freeze_0;
+                                                            root.rudra_status_text = root.found_freeze_0 ?
+                                                                "STAMBHANA ACTIVE: " + root.found_addr_0 + " locked" :
+                                                                "Stambhana Unlocked: " + root.found_addr_0 + " unfrozen";
+                                                            root.toggle_freeze_address(root.found_addr_0, root.found_freeze_0);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.found_freeze_0 ? "☑" : "☐";
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        color: root.found_freeze_0 ? #22c55e : #94a3b8;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                Text { text: root.found_addr_0; width: 130px; font-size: 11px; font-weight: 700; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                LineEdit { text <=> root.found_val_0; width: 110px; font-size: 11px; height: 26px; }
+                                                Text { text: root.found_prev_0; width: 90px; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                                Text { text: root.found_type_0; width: 80px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    horizontal-stretch: 1;
+                                                    alignment: start;
+                                                    ThematicActionButton {
+                                                        text: "+ PIN"; devanagari: "योजन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #1e3a5f; hover_color: #2563eb;
+                                                        clicked => {
+                                                            root.table_addr_0 = root.found_addr_0;
+                                                            root.table_val_0 = root.found_val_0;
+                                                            root.rudra_status_text = "Pinned " + root.found_addr_0 + " to Cheat Table";
+                                                        }
+                                                    }
+                                                    ThematicActionButton {
+                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #0369a1; hover_color: #0284c7;
+                                                        clicked => {
+                                                            root.rudra_status_text = "RAM Modified: " + root.found_addr_0 + " set to " + root.found_val_0;
+                                                            root.write_memory_address(root.found_addr_0, root.found_val_0);
+                                                        }
+                                                    }
                                                 }
                                             }
-                                            Text {
-                                                text: root.freeze_row1 ? "☑" : "☐";
-                                                font-size: 16px;
-                                                font-weight: 700;
-                                                color: root.freeze_row1 ? #22c55e : #94a3b8;
-                                                vertical-alignment: center;
+                                        }
+
+                                        // Found Row 1 (Shown on scan_iteration == 1)
+                                        if root.scan_iteration == 1: Rectangle {
+                                            height: 34px;
+                                            background: transparent;
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                spacing: 8px;
+                                                Rectangle {
+                                                    width: 55px;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => {
+                                                            root.found_freeze_1 = !root.found_freeze_1;
+                                                            root.toggle_freeze_address(root.found_addr_1, root.found_freeze_1);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.found_freeze_1 ? "☑" : "☐";
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        color: root.found_freeze_1 ? #22c55e : #94a3b8;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                Text { text: root.found_addr_1; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                LineEdit { text <=> root.found_val_1; width: 110px; font-size: 11px; height: 26px; }
+                                                Text { text: root.found_prev_1; width: 90px; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                                Text { text: root.found_type_1; width: 80px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    horizontal-stretch: 1;
+                                                    alignment: start;
+                                                    ThematicActionButton {
+                                                        text: "+ PIN"; devanagari: "योजन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #1e3a5f; hover_color: #2563eb;
+                                                        clicked => {
+                                                            root.table_addr_1 = root.found_addr_1;
+                                                            root.table_val_1 = root.found_val_1;
+                                                            root.rudra_status_text = "Pinned " + root.found_addr_1 + " to Cheat Table";
+                                                        }
+                                                    }
+                                                    ThematicActionButton {
+                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #0369a1; hover_color: #0284c7;
+                                                        clicked => {
+                                                            root.rudra_status_text = "RAM Modified: " + root.found_addr_1 + " set to " + root.found_val_1;
+                                                            root.write_memory_address(root.found_addr_1, root.found_val_1);
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
-                                        Text { text: "0x7FF74A8014E4"; width: 140px; font-size: 12px; color: #ff7b00; vertical-alignment: center; }
-                                        Text { text: "100.0"; width: 130px; font-size: 12px; color: #ffffff; vertical-alignment: center; }
-                                        Text { text: "100.0"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
-                                        Text { text: "f32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: root.freeze_row1 ? "PlayerHealth (Stambhana Active)" : "PlayerHealth"; font-size: 11px; color: root.freeze_row1 ? #22c55e : #64748b; vertical-alignment: center; }
+
+                                        // Found Row 2 (Shown on scan_iteration == 1)
+                                        if root.scan_iteration == 1: Rectangle {
+                                            height: 34px;
+                                            background: #141e2ecc;
+                                            border-radius: 4px;
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                spacing: 8px;
+                                                Rectangle {
+                                                    width: 55px;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => {
+                                                            root.found_freeze_2 = !root.found_freeze_2;
+                                                            root.toggle_freeze_address(root.found_addr_2, root.found_freeze_2);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.found_freeze_2 ? "☑" : "☐";
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        color: root.found_freeze_2 ? #22c55e : #94a3b8;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                Text { text: root.found_addr_2; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                LineEdit { text <=> root.found_val_2; width: 110px; font-size: 11px; height: 26px; }
+                                                Text { text: root.found_prev_2; width: 90px; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                                Text { text: root.found_type_2; width: 80px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    horizontal-stretch: 1;
+                                                    alignment: start;
+                                                    ThematicActionButton {
+                                                        text: "+ PIN"; devanagari: "योजन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #1e3a5f; hover_color: #2563eb;
+                                                        clicked => {
+                                                            root.table_addr_2 = root.found_addr_2;
+                                                            root.table_val_2 = root.found_val_2;
+                                                            root.rudra_status_text = "Pinned " + root.found_addr_2 + " to Cheat Table";
+                                                        }
+                                                    }
+                                                    ThematicActionButton {
+                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #0369a1; hover_color: #0284c7;
+                                                        clicked => {
+                                                            root.rudra_status_text = "RAM Modified: " + root.found_addr_2 + " set to " + root.found_val_2;
+                                                            root.write_memory_address(root.found_addr_2, root.found_val_2);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // -------------------------------------------------------------
+                        // LOWER TABLE: SAVED ADDRESS LIST / CHEAT TABLE (संरक्षित तालिका)
+                        // -------------------------------------------------------------
+                        Rectangle {
+                            height: 180px;
+                            background: #080d16a8;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #243048aa;
+
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 4px;
+
+                                // Table Toolbar Header
+                                HorizontalLayout {
+                                    alignment: space-between;
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        alignment: center;
+                                        Text {
+                                            text: "CHETANA TALIKA // CHEAT TABLE (संरक्षित स्मृति तालिका)";
+                                            font-size: 11px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #eab308;
+                                            vertical-alignment: center;
+                                        }
+                                        Text {
+                                            text: "• " + root.table_row_count + " Tracked Entries";
+                                            font-size: 10px;
+                                            color: #64748b;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        ThematicActionButton {
+                                            text: "+ MANUAL ADDRESS"; devanagari: "हस्त योजन"; btn_width: 120px; btn_height: 26px;
+                                            bg_color: #1e293b; hover_color: #334155;
+                                            clicked => {
+                                                root.table_row_count = min(3, root.table_row_count + 1);
+                                                root.rudra_status_text = "Manual Address Row Added to Cheat Table";
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "FREEZE ALL"; devanagari: "सर्व स्तम्भन"; btn_width: 90px; btn_height: 26px;
+                                            bg_color: #15803d; hover_color: #16a34a;
+                                            clicked => {
+                                                root.table_active_0 = true;
+                                                root.table_active_1 = true;
+                                                root.table_active_2 = true;
+                                                root.rudra_status_text = "All Tracked Cheat Table Entries Frozen (Stambhana Armed)";
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "UNFREEZE ALL"; devanagari: "सर्व मोक्ष"; btn_width: 95px; btn_height: 26px;
+                                            bg_color: #7f1d1d; hover_color: #991b1b;
+                                            clicked => {
+                                                root.table_active_0 = false;
+                                                root.table_active_1 = false;
+                                                root.table_active_2 = false;
+                                                root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Cheat Table Column Headers
+                                Rectangle {
+                                    height: 26px;
+                                    background: #0d1626cc;
+                                    border-radius: 4px;
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        spacing: 8px;
+                                        Text { text: "ACTIVE"; width: 55px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "DESCRIPTION (नाम/वर्णन)"; width: 140px; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "ADDRESS (क्षेत्र)"; width: 130px; font-size: 9px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: "TYPE (रूप)"; width: 85px; font-size: 9px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "VALUE (मान)"; width: 110px; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "ACTIONS (क्रिया)"; horizontal-stretch: 1; font-size: 9px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                    }
+                                }
+
+                                ScrollView {
+                                    VerticalLayout {
+                                        spacing: 4px;
+
+                                        // Table Row 0
+                                        Rectangle {
+                                            height: 34px;
+                                            background: #141e2ecc;
+                                            border-radius: 4px;
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                spacing: 8px;
+                                                Rectangle {
+                                                    width: 55px;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => {
+                                                            root.table_active_0 = !root.table_active_0;
+                                                            root.rudra_status_text = root.table_active_0 ?
+                                                                "STAMBHANA: " + root.table_desc_0 + " frozen at " + root.table_val_0 :
+                                                                root.table_desc_0 + " unfrozen";
+                                                            root.toggle_freeze_address(root.table_addr_0, root.table_active_0);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.table_active_0 ? "☑" : "☐";
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        color: root.table_active_0 ? #22c55e : #94a3b8;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                LineEdit { text <=> root.table_desc_0; width: 140px; font-size: 11px; height: 26px; }
+                                                Text { text: root.table_addr_0; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                Text { text: root.table_type_0; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                LineEdit { text <=> root.table_val_0; width: 110px; font-size: 11px; height: 26px; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    horizontal-stretch: 1;
+                                                    alignment: start;
+                                                    ThematicActionButton {
+                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #0369a1; hover_color: #0284c7;
+                                                        clicked => {
+                                                            root.rudra_status_text = "RAM Written: " + root.table_addr_0 + " set to " + root.table_val_0;
+                                                            root.write_memory_address(root.table_addr_0, root.table_val_0);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Table Row 1
+                                        Rectangle {
+                                            height: 34px;
+                                            background: transparent;
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                spacing: 8px;
+                                                Rectangle {
+                                                    width: 55px;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => {
+                                                            root.table_active_1 = !root.table_active_1;
+                                                            root.toggle_freeze_address(root.table_addr_1, root.table_active_1);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.table_active_1 ? "☑" : "☐";
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        color: root.table_active_1 ? #22c55e : #94a3b8;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                LineEdit { text <=> root.table_desc_1; width: 140px; font-size: 11px; height: 26px; }
+                                                Text { text: root.table_addr_1; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                Text { text: root.table_type_1; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                LineEdit { text <=> root.table_val_1; width: 110px; font-size: 11px; height: 26px; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    horizontal-stretch: 1;
+                                                    alignment: start;
+                                                    ThematicActionButton {
+                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #0369a1; hover_color: #0284c7;
+                                                        clicked => {
+                                                            root.rudra_status_text = "RAM Written: " + root.table_addr_1 + " set to " + root.table_val_1;
+                                                            root.write_memory_address(root.table_addr_1, root.table_val_1);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Table Row 2
+                                        Rectangle {
+                                            height: 34px;
+                                            background: #141e2ecc;
+                                            border-radius: 4px;
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                spacing: 8px;
+                                                Rectangle {
+                                                    width: 55px;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => {
+                                                            root.table_active_2 = !root.table_active_2;
+                                                            root.toggle_freeze_address(root.table_addr_2, root.table_active_2);
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.table_active_2 ? "☑" : "☐";
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        color: root.table_active_2 ? #22c55e : #94a3b8;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                LineEdit { text <=> root.table_desc_2; width: 140px; font-size: 11px; height: 26px; }
+                                                Text { text: root.table_addr_2; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                Text { text: root.table_type_2; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                LineEdit { text <=> root.table_val_2; width: 110px; font-size: 11px; height: 26px; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    horizontal-stretch: 1;
+                                                    alignment: start;
+                                                    ThematicActionButton {
+                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                        bg_color: #0369a1; hover_color: #0284c7;
+                                                        clicked => {
+                                                            root.rudra_status_text = "RAM Written: " + root.table_addr_2 + " set to " + root.table_val_2;
+                                                            root.write_memory_address(root.table_addr_2, root.table_val_2);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -2382,57 +2970,11 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            // Grid of Editable Agama Cards
+                            // Grid of Generic Dynamic Editable Save Record Fields
                             HorizontalLayout {
                                 spacing: 14px;
 
-                                // Card 1: Player Runes (मृत्युंजय धन)
-                                Rectangle {
-                                    horizontal-stretch: 1;
-                                    background: #0d1524d8;
-                                    border-radius: 8px;
-                                    border-width: 1px;
-                                    border-color: #eab30844;
-
-                                    VerticalLayout {
-                                        padding: 14px;
-                                        spacing: 10px;
-
-                                        HorizontalLayout {
-                                            alignment: space-between;
-                                            Text { text: "PLAYER RUNES"; font-size: 11px; font-weight: 800; color: #facc15; }
-                                            Text { text: "[0x000C // i32]"; font-size: 10px; color: #64748b; }
-                                        }
-                                        Text { text: "मृत्युंजय धन (Runes Currency)"; font-size: 10px; color: #94a3b8; }
-
-                                        LineEdit {
-                                            text <=> root.save_runes_val;
-                                            font-size: 14px;
-                                            height: 38px;
-                                        }
-
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            ThematicActionButton {
-                                                text: "+50K"; devanagari: "धन"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_runes_val = "1000000"; root.save_commit_feedback = "Runes modified: 1,000,000 (+50K) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "+500K"; devanagari: "कोष"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_runes_val = "1450000"; root.save_commit_feedback = "Runes modified: 1,450,000 (+500K) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "MAX"; devanagari: "अनन्त"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #854d0e; hover_color: #a16207;
-                                                clicked => { root.save_runes_val = "99999999"; root.save_commit_feedback = "Runes modified: 99,999,999 (MAX) • Ready to Commit"; }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Card 2: Rune Level (तपस् स्तर)
+                                // Generic Field 0: 0x000C
                                 Rectangle {
                                     horizontal-stretch: 1;
                                     background: #0d1524d8;
@@ -2442,37 +2984,69 @@ export component MainWindow inherits Window {
 
                                     VerticalLayout {
                                         padding: 14px;
-                                        spacing: 10px;
+                                        spacing: 8px;
 
                                         HorizontalLayout {
                                             alignment: space-between;
-                                            Text { text: "RUNE LEVEL"; font-size: 11px; font-weight: 800; color: #38bdf8; }
-                                            Text { text: "[0x0010 // i32]"; font-size: 10px; color: #64748b; }
+                                            Text { text: root.save_field_0_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
+                                            Text { text: root.save_field_0_type; font-size: 10px; color: #64748b; }
                                         }
-                                        Text { text: "तपस् स्तर (Character Level)"; font-size: 10px; color: #94a3b8; }
+                                        Text { text: "Hex Dump: " + root.save_field_0_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
 
                                         LineEdit {
-                                            text <=> root.save_level_val;
-                                            font-size: 14px;
-                                            height: 38px;
+                                            text <=> root.save_field_0_val;
+                                            font-size: 13px;
+                                            height: 36px;
                                         }
 
+                                        ThematicActionButton {
+                                            text: "APPLY VALUE // Write";
+                                            devanagari: "मूल्य प्रयोग";
+                                            btn_width: 0px;
+                                            btn_height: 30px;
+                                            bg_color: #1e3a5f;
+                                            hover_color: #2563eb;
+                                            clicked => {
+                                                root.save_commit_feedback = "Field 0x000C set to '" + root.save_field_0_val + "' • Buffer modified";
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Generic Field 1: 0x0010
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: #0d1524d8;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #38bdf844;
+
+                                    VerticalLayout {
+                                        padding: 14px;
+                                        spacing: 8px;
+
                                         HorizontalLayout {
-                                            spacing: 6px;
-                                            ThematicActionButton {
-                                                text: "-1"; devanagari: "ह्रास"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_level_val = "174"; root.save_commit_feedback = "Level modified: 174 (-1) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "+1"; devanagari: "वृद्धि"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_level_val = "176"; root.save_commit_feedback = "Level modified: 176 (+1) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "META 150"; devanagari: "सारणी"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #0369a1; hover_color: #0284c7;
-                                                clicked => { root.save_level_val = "150"; root.save_commit_feedback = "Level modified: 150 (PvP Meta) • Ready to Commit"; }
+                                            alignment: space-between;
+                                            Text { text: root.save_field_1_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
+                                            Text { text: root.save_field_1_type; font-size: 10px; color: #64748b; }
+                                        }
+                                        Text { text: "Hex Dump: " + root.save_field_1_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
+
+                                        LineEdit {
+                                            text <=> root.save_field_1_val;
+                                            font-size: 13px;
+                                            height: 36px;
+                                        }
+
+                                        ThematicActionButton {
+                                            text: "APPLY VALUE // Write";
+                                            devanagari: "मूल्य प्रयोग";
+                                            btn_width: 0px;
+                                            btn_height: 30px;
+                                            bg_color: #1e3a5f;
+                                            hover_color: #2563eb;
+                                            clicked => {
+                                                root.save_commit_feedback = "Field 0x0010 set to '" + root.save_field_1_val + "' • Buffer modified";
                                             }
                                         }
                                     }
@@ -2482,93 +3056,79 @@ export component MainWindow inherits Window {
                             HorizontalLayout {
                                 spacing: 14px;
 
-                                // Card 3: Vigor (प्राण शक्ति)
+                                // Generic Field 2: 0x0014
                                 Rectangle {
                                     horizontal-stretch: 1;
                                     background: #0d1524d8;
                                     border-radius: 8px;
                                     border-width: 1px;
-                                    border-color: #ef444444;
+                                    border-color: #38bdf844;
 
                                     VerticalLayout {
                                         padding: 14px;
-                                        spacing: 10px;
+                                        spacing: 8px;
 
                                         HorizontalLayout {
                                             alignment: space-between;
-                                            Text { text: "VIGOR / HP"; font-size: 11px; font-weight: 800; color: #f87171; }
-                                            Text { text: "[0x0014 // i32]"; font-size: 10px; color: #64748b; }
+                                            Text { text: root.save_field_2_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
+                                            Text { text: root.save_field_2_type; font-size: 10px; color: #64748b; }
                                         }
-                                        Text { text: "प्राण शक्ति (Vitality)"; font-size: 10px; color: #94a3b8; }
+                                        Text { text: "Hex Dump: " + root.save_field_2_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
 
                                         LineEdit {
-                                            text <=> root.save_vigor_val;
-                                            font-size: 14px;
-                                            height: 38px;
+                                            text <=> root.save_field_2_val;
+                                            font-size: 13px;
+                                            height: 36px;
                                         }
 
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            ThematicActionButton {
-                                                text: "40 SOFTCAP"; devanagari: "प्राण"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_vigor_val = "40"; root.save_commit_feedback = "Vigor modified: 40 (Softcap) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "60 HARDCAP"; devanagari: "दृढ़"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #7f1d1d; hover_color: #991b1b;
-                                                clicked => { root.save_vigor_val = "60"; root.save_commit_feedback = "Vigor modified: 60 (Hardcap) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "MAX 99"; devanagari: "परम"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #991b1b; hover_color: #b91c1c;
-                                                clicked => { root.save_vigor_val = "99"; root.save_commit_feedback = "Vigor modified: 99 (Max) • Ready to Commit"; }
+                                        ThematicActionButton {
+                                            text: "APPLY VALUE // Write";
+                                            devanagari: "मूल्य प्रयोग";
+                                            btn_width: 0px;
+                                            btn_height: 30px;
+                                            bg_color: #1e3a5f;
+                                            hover_color: #2563eb;
+                                            clicked => {
+                                                root.save_commit_feedback = "Field 0x0014 set to '" + root.save_field_2_val + "' • Buffer modified";
                                             }
                                         }
                                     }
                                 }
 
-                                // Card 4: Gold / Secondary Wealth (सुवर्ण कोष)
+                                // Generic Field 3: 0x0018
                                 Rectangle {
                                     horizontal-stretch: 1;
                                     background: #0d1524d8;
                                     border-radius: 8px;
                                     border-width: 1px;
-                                    border-color: #10b98144;
+                                    border-color: #38bdf844;
 
                                     VerticalLayout {
                                         padding: 14px;
-                                        spacing: 10px;
+                                        spacing: 8px;
 
                                         HorizontalLayout {
                                             alignment: space-between;
-                                            Text { text: "GOLD / BANK"; font-size: 11px; font-weight: 800; color: #34d399; }
-                                            Text { text: "[0x0018 // i32]"; font-size: 10px; color: #64748b; }
+                                            Text { text: root.save_field_3_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
+                                            Text { text: root.save_field_3_type; font-size: 10px; color: #64748b; }
                                         }
-                                        Text { text: "सुवर्ण कोष (General Currency)"; font-size: 10px; color: #94a3b8; }
+                                        Text { text: "Hex Dump: " + root.save_field_3_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
 
                                         LineEdit {
-                                            text <=> root.save_gold_val;
-                                            font-size: 14px;
-                                            height: 38px;
+                                            text <=> root.save_field_3_val;
+                                            font-size: 13px;
+                                            height: 36px;
                                         }
 
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            ThematicActionButton {
-                                                text: "+10K"; devanagari: "धन"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_gold_val = "260000"; root.save_commit_feedback = "Gold modified: 260,000 (+10K) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "+100K"; devanagari: "सुवर्ण"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #064e3b; hover_color: #065f46;
-                                                clicked => { root.save_gold_val = "350000"; root.save_commit_feedback = "Gold modified: 350,000 (+100K) • Ready to Commit"; }
-                                            }
-                                            ThematicActionButton {
-                                                text: "MAX"; devanagari: "अनन्त"; btn_width: 0px; btn_height: 28px;
-                                                bg_color: #047857; hover_color: #059669;
-                                                clicked => { root.save_gold_val = "9999999"; root.save_commit_feedback = "Gold modified: 9,999,999 (MAX) • Ready to Commit"; }
+                                        ThematicActionButton {
+                                            text: "APPLY VALUE // Write";
+                                            devanagari: "मूल्य प्रयोग";
+                                            btn_width: 0px;
+                                            btn_height: 30px;
+                                            bg_color: #1e3a5f;
+                                            hover_color: #2563eb;
+                                            clicked => {
+                                                root.save_commit_feedback = "Field 0x0018 set to '" + root.save_field_3_val + "' • Buffer modified";
                                             }
                                         }
                                     }
@@ -3663,67 +4223,79 @@ export component MainWindow inherits Window {
                         }
 
                         PaletteItemRow {
-                            icon_text: "⚡";
-                            title: "Preset: Load Elden Ring Agama";
-                            devanagari: "हिरण्यगर्भ आगम (Elden Ring)";
-                            category: "PRESET";
-                            tag_color: #eab308;
-                            shortcut_hint: "Preset";
-                            clicked => {
-                                root.save_filename = "ER0000.sl2";
-                                root.save_game_title = "ELDEN RING (हिरण्यगर्भ आगम)";
-                                root.save_checksum_info = "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
-                                root.save_runes_val = "950,000";
-                                root.save_level_val = "175";
-                                root.save_vigor_val = "60";
-                                root.save_gold_val = "250,000";
-                                root.save_view_mode = 0;
-                                root.active_tab = 1;
-                                root.save_commit_feedback = "Preset Loaded via Palette: Elden Ring v1.12";
-                                root.show_command_palette = false;
-                            }
-                        }
-
-                        PaletteItemRow {
-                            icon_text: "⚡";
-                            title: "Preset: Load Baldur's Gate 3 Agama";
-                            devanagari: "माया संचय (Baldur's Gate 3)";
-                            category: "PRESET";
+                            icon_text: "⚙";
+                            title: "Open Process Picker Dialog";
+                            devanagari: "सम्पूर्ण प्रक्रिया सूची (Process List)";
+                            category: "PROCESS";
                             tag_color: #38bdf8;
-                            shortcut_hint: "Preset";
+                            shortcut_hint: "Proc";
                             clicked => {
-                                root.save_filename = "SaveGame.sav";
-                                root.save_game_title = "BALDUR'S GATE 3 (माया संचय)";
-                                root.save_checksum_info = "Sthiti Raksha: CRC32 IEEE Seal Armed";
-                                root.save_runes_val = "0";
-                                root.save_level_val = "12";
-                                root.save_vigor_val = "45";
-                                root.save_gold_val = "45,000";
-                                root.save_view_mode = 0;
-                                root.active_tab = 1;
-                                root.save_commit_feedback = "Preset Loaded via Palette: Baldur's Gate 3 Patch 7";
+                                root.show_process_modal = true;
                                 root.show_command_palette = false;
                             }
                         }
 
                         PaletteItemRow {
-                            icon_text: "⚡";
-                            title: "Preset: Load Cyberpunk 2077 Agama";
-                            devanagari: "माया चक्र (Cyberpunk 2077)";
-                            category: "PRESET";
-                            tag_color: #ef4444;
-                            shortcut_hint: "Preset";
+                            icon_text: "✨";
+                            title: "New Memory Scan / Reset State";
+                            devanagari: "नूतन शोधन (New Scan)";
+                            category: "MEMORY";
+                            tag_color: #facc15;
+                            shortcut_hint: "Reset";
                             clicked => {
-                                root.save_filename = "cyberpunk_manual.dat";
-                                root.save_game_title = "CYBERPUNK 2077 (माया चक्र)";
-                                root.save_checksum_info = "Sthiti Raksha: CRC32 Header Seal Armed";
-                                root.save_runes_val = "0";
-                                root.save_level_val = "50";
-                                root.save_vigor_val = "20";
-                                root.save_gold_val = "1,250,000";
-                                root.save_view_mode = 0;
-                                root.active_tab = 1;
-                                root.save_commit_feedback = "Preset Loaded via Palette: Cyberpunk 2077 Patch 2.13";
+                                root.active_tab = 0;
+                                root.scan_iteration = 0;
+                                root.scan_result_count_str = "READY (नूतन अन्वेषण)";
+                                root.rudra_status_text = "Scanner Reset: Ready for fresh memory inquest";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "➕";
+                            title: "Add Manual Memory Address";
+                            devanagari: "हस्त योजन (Add Address)";
+                            category: "CHEAT TABLE";
+                            tag_color: #eab308;
+                            shortcut_hint: "Add";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.table_row_count = min(3, root.table_row_count + 1);
+                                root.rudra_status_text = "Manual Address Row Added to Cheat Table";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔒";
+                            title: "Freeze All Cheat Table Entries";
+                            devanagari: "सर्व स्तम्भन (Freeze All)";
+                            category: "CHEAT TABLE";
+                            tag_color: #22c55e;
+                            shortcut_hint: "Freeze";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.table_active_0 = true;
+                                root.table_active_1 = true;
+                                root.table_active_2 = true;
+                                root.rudra_status_text = "All Tracked Cheat Table Entries Frozen";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔓";
+                            title: "Unfreeze All Cheat Table Entries";
+                            devanagari: "सर्व मोक्ष (Unfreeze All)";
+                            category: "CHEAT TABLE";
+                            tag_color: #ef4444;
+                            shortcut_hint: "Unfreeze";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.table_active_0 = false;
+                                root.table_active_1 = false;
+                                root.table_active_2 = false;
+                                root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
                                 root.show_command_palette = false;
                             }
                         }
@@ -4197,6 +4769,375 @@ export component MainWindow inherits Window {
                                             root.show_docs_modal = false;
                                         }
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 7: PROCESS PICKER DIALOG (प्रक्रिया चयन संवादात्मक पटल)
+    // =========================================================================
+    if root.show_process_modal: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000b3;
+        z: 3500;
+
+        TouchArea {
+            clicked => { root.show_process_modal = false; }
+        }
+
+        Rectangle {
+            width: min(860px, parent.width - 40px);
+            height: min(620px, parent.height - 40px);
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #0a0f1cdc;
+            border-radius: 12px;
+            border-width: 1.5px;
+            border-color: #38bdf888;
+            clip: true;
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+
+                // Modal Header
+                HorizontalLayout {
+                    alignment: space-between;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: center;
+                        Text {
+                            text: "⚙";
+                            font-size: 20px;
+                            color: #38bdf8;
+                            vertical-alignment: center;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 1px;
+                            Text {
+                                text: "SELECT TARGET PROCESS // प्रक्रिया चयन";
+                                font-size: 14px;
+                                font-weight: 900;
+                                letter-spacing: 1px;
+                                color: #f8fafc;
+                            }
+                            Text {
+                                text: "Win32 Toolhelp32 Process Inquest • Select Any Process to Hook Memory Needle";
+                                font-size: 10px;
+                                color: #94a3b8;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        background: #1e293b88;
+                        border-radius: 6px;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.show_process_modal = false; }
+                        }
+                        Text {
+                            text: "✕";
+                            font-size: 14px;
+                            font-weight: 800;
+                            color: #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Search Filter Bar
+                HorizontalLayout {
+                    spacing: 8px;
+                    LineEdit {
+                        text <=> root.process_modal_search;
+                        placeholder-text: "Filter processes by image name or PID (e.g. game, elden, notepad, 14208)...";
+                        font-size: 12px;
+                        horizontal-stretch: 1;
+                        height: 38px;
+                    }
+
+                    ThematicActionButton {
+                        text: "REFRESH ⟳";
+                        devanagari: "नवीकरण";
+                        btn_width: 110px;
+                        btn_height: 38px;
+                        bg_color: #1e293b;
+                        hover_color: #334155;
+                        clicked => {
+                            root.rudra_status_text = "Netra Inquest: Enumerating all active Win32 processes";
+                            root.refresh_processes();
+                        }
+                    }
+                }
+
+                // Table Column Headers
+                Rectangle {
+                    height: 28px;
+                    background: #0d1626cc;
+                    border-radius: 4px;
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        alignment: space-between;
+                        Text { text: "PROCESS NAME & PID"; font-size: 10px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 20px;
+                            Text { text: "ARCHITECTURE"; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                            Text { text: "RAM USAGE"; font-size: 10px; font-weight: 800; color: #64748b; vertical-alignment: center; }
+                        }
+                    }
+                }
+
+                // Process Rows List
+                ScrollView {
+                    VerticalLayout {
+                        padding: 2px;
+                        spacing: 4px;
+
+                        ProcessPickerRow {
+                            proc_name: "eldenring.exe";
+                            pid: 14208;
+                            win_title: "ELDEN RING v1.12.3 (FromSoftware x64)";
+                            memory_str: "4,120 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 0;
+                            clicked => {
+                                root.modal_selected_proc_idx = 0;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "bg3.exe";
+                            pid: 26712;
+                            win_title: "Baldur's Gate 3 (Larian Studios - Vulkan / DX11)";
+                            memory_str: "3,850 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 1;
+                            clicked => {
+                                root.modal_selected_proc_idx = 1;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "Cyberpunk2077.exe";
+                            pid: 22910;
+                            win_title: "Cyberpunk 2077 (CD Projekt REDengine 4)";
+                            memory_str: "5,420 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 2;
+                            clicked => {
+                                root.modal_selected_proc_idx = 2;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "Starfield.exe";
+                            pid: 19044;
+                            win_title: "Starfield (Bethesda Creation Engine 2)";
+                            memory_str: "6,180 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 3;
+                            clicked => {
+                                root.modal_selected_proc_idx = 3;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "notepad.exe";
+                            pid: 11048;
+                            win_title: "Untitled - Notepad (Win32 Text Buffer)";
+                            memory_str: "18 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 4;
+                            clicked => {
+                                root.modal_selected_proc_idx = 4;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "calculator.exe";
+                            pid: 8420;
+                            win_title: "Calculator (Win32 Standard App)";
+                            memory_str: "32 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 5;
+                            clicked => {
+                                root.modal_selected_proc_idx = 5;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "chrome.exe";
+                            pid: 15304;
+                            win_title: "Google Chrome (V8 JIT / Sandboxed Renderer)";
+                            memory_str: "1,420 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 6;
+                            clicked => {
+                                root.modal_selected_proc_idx = 6;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "factorio.exe";
+                            pid: 9980;
+                            win_title: "Factorio v1.1.107 (Wube Software x64)";
+                            memory_str: "1,280 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 7;
+                            clicked => {
+                                root.modal_selected_proc_idx = 7;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "witcher3.exe";
+                            pid: 17420;
+                            win_title: "The Witcher 3: Wild Hunt (Complete Edition)";
+                            memory_str: "4,890 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 8;
+                            clicked => {
+                                root.modal_selected_proc_idx = 8;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "blender.exe";
+                            pid: 21104;
+                            win_title: "Blender 4.2 LTS (Cycles GPU Viewport)";
+                            memory_str: "2,150 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 9;
+                            clicked => {
+                                root.modal_selected_proc_idx = 9;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: "vlc.exe";
+                            pid: 6440;
+                            win_title: "VLC media player (x64 Direct3D11)";
+                            memory_str: "140 MB";
+                            arch: "x64 Native";
+                            is_selected: root.modal_selected_proc_idx == 10;
+                            clicked => {
+                                root.modal_selected_proc_idx = 10;
+                            }
+                        }
+                    }
+                }
+
+                // Modal Footer Actions
+                Rectangle {
+                    height: 52px;
+                    background: #090e18a8;
+                    border-radius: 8px;
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        alignment: space-between;
+
+                        VerticalLayout {
+                            alignment: center;
+                            Text {
+                                text: root.modal_selected_proc_idx == 0 ? "Target Selected: eldenring.exe [PID 14208]" :
+                                      (root.modal_selected_proc_idx == 1 ? "Target Selected: bg3.exe [PID 26712]" :
+                                      (root.modal_selected_proc_idx == 2 ? "Target Selected: Cyberpunk2077.exe [PID 22910]" :
+                                      (root.modal_selected_proc_idx == 3 ? "Target Selected: Starfield.exe [PID 19044]" :
+                                      (root.modal_selected_proc_idx == 4 ? "Target Selected: notepad.exe [PID 11048]" :
+                                      (root.modal_selected_proc_idx == 5 ? "Target Selected: calculator.exe [PID 8420]" :
+                                      (root.modal_selected_proc_idx == 6 ? "Target Selected: chrome.exe [PID 15304]" :
+                                      (root.modal_selected_proc_idx == 7 ? "Target Selected: factorio.exe [PID 9980]" :
+                                      (root.modal_selected_proc_idx == 8 ? "Target Selected: witcher3.exe [PID 17420]" :
+                                      (root.modal_selected_proc_idx == 9 ? "Target Selected: blender.exe [PID 21104]" :
+                                      "Target Selected: vlc.exe [PID 6440]")))))))));
+                                font-size: 11px;
+                                font-weight: 700;
+                                color: #38bdf8;
+                            }
+                            Text {
+                                text: "Will acquire OpenProcess handle with VM_READ | VM_WRITE access rights.";
+                                font-size: 9px;
+                                color: #64748b;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: center;
+
+                            ThematicActionButton {
+                                text: "CANCEL";
+                                devanagari: "निरसन";
+                                btn_width: 90px;
+                                btn_height: 36px;
+                                bg_color: #1e293b;
+                                hover_color: #334155;
+                                clicked => {
+                                    root.show_process_modal = false;
+                                }
+                            }
+
+                            ThematicActionButton {
+                                text: "ATTACH PROCESS // Bind";
+                                devanagari: "शरभ बन्धन";
+                                btn_width: 170px;
+                                btn_height: 36px;
+                                bg_color: #15803d;
+                                hover_color: #16a34a;
+                                clicked => {
+                                    if root.modal_selected_proc_idx == 0 {
+                                        root.active_process_name = "eldenring.exe [PID 14208]";
+                                        root.active_process_pid = 14208;
+                                    } else if root.modal_selected_proc_idx == 1 {
+                                        root.active_process_name = "bg3.exe [PID 26712]";
+                                        root.active_process_pid = 26712;
+                                    } else if root.modal_selected_proc_idx == 2 {
+                                        root.active_process_name = "Cyberpunk2077.exe [PID 22910]";
+                                        root.active_process_pid = 22910;
+                                    } else if root.modal_selected_proc_idx == 3 {
+                                        root.active_process_name = "Starfield.exe [PID 19044]";
+                                        root.active_process_pid = 19044;
+                                    } else if root.modal_selected_proc_idx == 4 {
+                                        root.active_process_name = "notepad.exe [PID 11048]";
+                                        root.active_process_pid = 11048;
+                                    } else if root.modal_selected_proc_idx == 5 {
+                                        root.active_process_name = "calculator.exe [PID 8420]";
+                                        root.active_process_pid = 8420;
+                                    } else if root.modal_selected_proc_idx == 6 {
+                                        root.active_process_name = "chrome.exe [PID 15304]";
+                                        root.active_process_pid = 15304;
+                                    } else if root.modal_selected_proc_idx == 7 {
+                                        root.active_process_name = "factorio.exe [PID 9980]";
+                                        root.active_process_pid = 9980;
+                                    } else if root.modal_selected_proc_idx == 8 {
+                                        root.active_process_name = "witcher3.exe [PID 17420]";
+                                        root.active_process_pid = 17420;
+                                    } else if root.modal_selected_proc_idx == 9 {
+                                        root.active_process_name = "blender.exe [PID 21104]";
+                                        root.active_process_pid = 21104;
+                                    } else {
+                                        root.active_process_name = "vlc.exe [PID 6440]";
+                                        root.active_process_pid = 6440;
+                                    }
+                                    root.process_bound = true;
+                                    root.process_bind_status = "BOUND // Armed [VM_READ | VM_WRITE]";
+                                    root.rudra_status_text = "Target Hooked: " + root.active_process_name + " • VM Ready";
+                                    root.attach_process(root.active_process_pid);
+                                    root.show_process_modal = false;
                                 }
                             }
                         }
