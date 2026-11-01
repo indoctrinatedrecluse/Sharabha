@@ -93,7 +93,7 @@ export component MainWindow inherits Window {
 
     // Splash State
     in-out property <bool> show_splash: false;
-    in-out property <string> splash_status: "Awakening Sharabha Subsystems...";
+    in-out property <string> splash_status: "Awakening the Ashtamurti & Invoking Sharabha (अष्टमूर्ति)...";
 
     // Active Tab: 0 = Rudra (Memory), 1 = Kalyana (Save Forge), 2 = Jnana (Knowledge Base)
     in-out property <int> active_tab: 0;
@@ -207,7 +207,7 @@ export component MainWindow inherits Window {
                         }
 
                         Text {
-                            text: "The Dual Aspect Game Tool // Subduing the Untamed Process";
+                            text: "The Dual Aspect Game Tool // Subduing Narasimha & The Untamed Process";
                             font-size: 11px;
                             color: #64748b;
                         }
@@ -220,8 +220,8 @@ export component MainWindow inherits Window {
                     alignment: center;
 
                     TabButton {
-                        title: "RUDRA ENGINE";
-                        subtitle: "Memory & Injection [Violent]";
+                        title: "RUDRA TANDAVA";
+                        subtitle: "Samhara Memory Inquest [उग्र / Violent]";
                         icon_text: "🔥";
                         is_active: root.active_tab == 0;
                         active_color: #ff4d2e;
@@ -229,8 +229,8 @@ export component MainWindow inherits Window {
                     }
 
                     TabButton {
-                        title: "SAVE FORGE";
-                        subtitle: "Fuzzy KV Parser [Calm]";
+                        title: "KALYANA STHITI";
+                        subtitle: "Surgical Save Restoration [शान्त / Calm]";
                         icon_text: "🧊";
                         is_active: root.active_tab == 1;
                         active_color: #38bdf8;
@@ -239,7 +239,7 @@ export component MainWindow inherits Window {
 
                     TabButton {
                         title: "JNANA KOSHA";
-                        subtitle: "Knowledge Base [Omniscient]";
+                        subtitle: "Cosmic Agama & Signatures [ज्ञान / Omniscient]";
                         icon_text: "📜";
                         is_active: root.active_tab == 2;
                         active_color: #eab308;
@@ -278,21 +278,21 @@ export component MainWindow inherits Window {
                         HorizontalLayout {
                             alignment: space-between;
                             Text {
-                                text: "PROCESS ATTACH";
-                                font-size: 12px;
+                                text: "DARSHANA & BANDHANA (दर्शन व बन्धन)";
+                                font-size: 11px;
                                 font-weight: 800;
-                                letter-spacing: 1px;
+                                letter-spacing: 0.5px;
                                 color: #ff4d2e;
                             }
                             Text {
-                                text: "Win32 Toolhelp";
+                                text: "Win32 Netra";
                                 font-size: 10px;
                                 color: #64748b;
                             }
                         }
 
                         LineEdit {
-                            placeholder-text: "Filter process name or PID...";
+                            placeholder-text: "Filter process name or PID (e.g. game.exe)...";
                             height: 36px;
                         }
 
@@ -355,7 +355,7 @@ export component MainWindow inherits Window {
                                 clicked => { root.attach_process(14208); }
                             }
                             Text {
-                                text: "ATTACH WITH SHARABHA";
+                                text: "BIND PROCESS (शरभ बन्धन)";
                                 font-size: 11px;
                                 font-weight: 800;
                                 color: #ffffff;
@@ -402,13 +402,13 @@ export component MainWindow inherits Window {
                             }
 
                             Rectangle {
-                                width: 120px;
+                                width: 140px;
                                 height: 38px;
                                 background: #ff4d2e;
                                 border-radius: 6px;
                                 Text {
-                                    text: "FIRST SCAN";
-                                    font-size: 11px;
+                                    text: "PRATHAMA DRISHTI";
+                                    font-size: 10px;
                                     font-weight: 800;
                                     color: #ffffff;
                                     horizontal-alignment: center;
@@ -417,14 +417,14 @@ export component MainWindow inherits Window {
                             }
 
                             Rectangle {
-                                width: 100px;
+                                width: 130px;
                                 height: 38px;
                                 background: #242e42;
                                 border-radius: 6px;
                                 Text {
-                                    text: "NEXT SCAN";
-                                    font-size: 11px;
-                                    font-weight: 700;
+                                    text: "PUNAR DRISHTI";
+                                    font-size: 10px;
+                                    font-weight: 800;
                                     color: #94a3b8;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
@@ -443,12 +443,12 @@ export component MainWindow inherits Window {
                                 padding-right: 12px;
                                 spacing: 12px;
 
-                                Text { text: "FREEZE"; width: 50px; font-size: 10px; font-weight: 700; color: #64748b; vertical-alignment: center; }
-                                Text { text: "ADDRESS"; width: 140px; font-size: 11px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
-                                Text { text: "VALUE"; width: 130px; font-size: 11px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
-                                Text { text: "PREVIOUS"; width: 120px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
-                                Text { text: "TYPE"; width: 80px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
-                                Text { text: "DESCRIPTION / POINTER"; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                Text { text: "STAMBHANA"; width: 68px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
+                                Text { text: "KSHETRA"; width: 130px; font-size: 11px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                Text { text: "TATVA"; width: 120px; font-size: 11px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                Text { text: "PURVA"; width: 110px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                Text { text: "RUPA"; width: 70px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
+                                Text { text: "NAMA & SUTRA (नाम व सूत्र)"; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
                             }
                         }
 
@@ -476,7 +476,7 @@ export component MainWindow inherits Window {
                                         Text { text: "999,999"; width: 130px; font-size: 12px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
                                         Text { text: "500"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
                                         Text { text: "i32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PlayerGold (Locked)"; font-size: 11px; color: #38bdf8; vertical-alignment: center; }
+                                        Text { text: "PlayerGold (Stambhana Active)"; font-size: 11px; color: #38bdf8; vertical-alignment: center; }
                                     }
                                 }
 
@@ -512,7 +512,7 @@ export component MainWindow inherits Window {
                                 alignment: space-between;
 
                                 Text {
-                                    text: "📜 LuaJIT Runtime: Attached to PID 14208 | Scripting hotkeys active";
+                                    text: "📜 Tandava Script Engine (LuaJIT): Bound to PID 14208 | Needle injection ready";
                                     font-size: 11px;
                                     color: #c084fc;
                                     vertical-alignment: center;
@@ -552,14 +552,14 @@ export component MainWindow inherits Window {
                         HorizontalLayout {
                             alignment: space-between;
                             Text {
-                                text: "SAVE FILE ANALYSIS";
+                                text: "STHITI PARIKSHA (स्थिति परीक्षा)";
                                 font-size: 12px;
                                 font-weight: 800;
                                 letter-spacing: 1px;
                                 color: #38bdf8;
                             }
                             Text {
-                                text: "Fuzzy Engine v1";
+                                text: "Yukti Heuristic v1";
                                 font-size: 10px;
                                 color: #64748b;
                             }
@@ -573,7 +573,7 @@ export component MainWindow inherits Window {
                                 clicked => { root.open_save_file(); }
                             }
                             Text {
-                                text: "📂 OPEN SAVE GAME FILE";
+                                text: "📂 OPEN SAVE VESSEL (पात्र)";
                                 font-size: 11px;
                                 font-weight: 800;
                                 color: #ffffff;
@@ -612,13 +612,13 @@ export component MainWindow inherits Window {
                                 spacing: 4px;
 
                                 Text {
-                                    text: "🛡️ Sthiti (Safe Rewrite Shield):";
+                                    text: "🛡️ Sthiti Karma Kavacha (कर्म कवच):";
                                     font-size: 11px;
                                     font-weight: 700;
                                     color: #38bdf8;
                                 }
                                 Text {
-                                    text: "• Automatic .sharabha.bak backup\n• Shadow temp buffer integrity write\n• Win32 MoveFileEx atomic swap";
+                                    text: "• Automatic .sharabha.bak prana backup\n• Shadow temp buffer integrity vow\n• Win32 MoveFileEx atomic swap";
                                     font-size: 10px;
                                     color: #64748b;
                                 }
@@ -634,7 +634,7 @@ export component MainWindow inherits Window {
                                 clicked => { root.save_file_atomic(); }
                             }
                             Text {
-                                text: "SAFE COMMIT & ATOMIC REWRITE";
+                                text: "STHITI SANKALPA & ATOMIC COMMIT";
                                 font-size: 11px;
                                 font-weight: 800;
                                 color: #ffffff;
@@ -660,7 +660,7 @@ export component MainWindow inherits Window {
                             alignment: space-between;
 
                             Text {
-                                text: "INFERRED KEY-VALUE ENTRIES";
+                                text: "INFERRED KEY-VALUE ENTRIES (अनुमानित तत्त्व)";
                                 font-size: 12px;
                                 font-weight: 800;
                                 letter-spacing: 1px;
@@ -668,7 +668,7 @@ export component MainWindow inherits Window {
                             }
 
                             Text {
-                                text: "Confidence Scorer: Active";
+                                text: "Yukti Confidence Scorer: Active";
                                 font-size: 11px;
                                 color: #38bdf8;
                             }
@@ -686,10 +686,10 @@ export component MainWindow inherits Window {
                                 spacing: 10px;
 
                                 Text { text: "OFFSET"; width: 90px; font-size: 11px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
-                                Text { text: "CONF."; width: 60px; font-size: 11px; font-weight: 800; color: #eab308; vertical-alignment: center; }
-                                Text { text: "INFERRED TYPE"; width: 140px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
-                                Text { text: "LABEL / KEY"; width: 180px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
-                                Text { text: "EDITABLE VALUE"; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                                Text { text: "VISHWAS"; width: 68px; font-size: 10px; font-weight: 800; color: #eab308; vertical-alignment: center; }
+                                Text { text: "RUPA"; width: 130px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
+                                Text { text: "LAKSHANA / KEY"; width: 180px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                                Text { text: "TATVA (EDITABLE)"; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
                             }
                         }
 
@@ -769,7 +769,7 @@ export component MainWindow inherits Window {
                     VerticalLayout {
                         spacing: 2px;
                         Text {
-                            text: "JNANA KOSHA — SURREALDB KNOWLEDGE GRAPH";
+                            text: "JNANA KOSHA — SURREALDB COSMIC AGAMA (ज्ञान कोष)";
                             font-size: 14px;
                             font-weight: 800;
                             letter-spacing: 1px;
@@ -788,7 +788,7 @@ export component MainWindow inherits Window {
                         background: #854d0e;
                         border-radius: 6px;
                         Text {
-                            text: "+ NEW GAME PROFILE";
+                            text: "+ NEW AGAMA PROFILE";
                             font-size: 11px;
                             font-weight: 800;
                             color: #fef08a;
@@ -860,7 +860,7 @@ export component MainWindow inherits Window {
                 alignment: space-between;
 
                 Text {
-                    text: "SHARABHA // OM NAMAH SHIVAYA // ALL SUB-SYSTEMS NOMINAL";
+                    text: "शरभेश्वर // ॐ नमः शिवाय // TRISHULA & ASHTAMURTI IN HARMONY";
                     font-size: 10px;
                     font-weight: 800;
                     letter-spacing: 1px;
@@ -942,7 +942,7 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "ॐ नमः शरभाय — THE DUAL ASPECT ENGINE";
+                    text: "ॐ नमः शरभाय — THE DUAL ASPECT ENGINE (उग्र व शान्त)";
                     font-size: 14px;
                     font-weight: 800;
                     letter-spacing: 3px;
@@ -958,12 +958,12 @@ export component MainWindow inherits Window {
                 }
             }
 
-            // Dismiss / Enter Sanctum Button (Centered)
+            // Dismiss / Enter Temple Button (Centered)
             HorizontalLayout {
                 alignment: center;
 
                 Rectangle {
-                    width: 240px;
+                    width: 250px;
                     height: 48px;
                     background: #ff4d2e;
                     border-radius: 8px;
@@ -974,10 +974,10 @@ export component MainWindow inherits Window {
                         }
                     }
                     Text {
-                        text: "ENTER SANCTUM";
+                        text: "ENTER TEMPLE (मंदिर प्रवेश)";
                         font-size: 13px;
                         font-weight: 900;
-                        letter-spacing: 2px;
+                        letter-spacing: 1.5px;
                         color: #ffffff;
                         horizontal-alignment: center;
                         vertical-alignment: center;

@@ -7,10 +7,10 @@ pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
     // =========================================================================
-    // 1. RUDRA MEMORY ENGINE (Destructive / Active Aspect)
+    // 1. RUDRA TANDAVA (Samhara / Violent Memory Inquest)
     // =========================================================================
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
-    std.debug.print(" [1] 🔥 RUDRA ENGINE — Process Enumeration & Memory Subsystem\n", .{});
+    std.debug.print(" [1] 🔥 RUDRA TANDAVA — Darshana & Bandhana (Process Binding)\n", .{});
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
 
     var iter = try Sharabha.memory.ProcessIterator.init();
@@ -23,13 +23,13 @@ pub fn main() !void {
         }
         proc_count += 1;
     }
-    std.debug.print("  [✓] Win32 Toolhelp snapshot active: {d} running processes detected.\n\n", .{proc_count});
+    std.debug.print("  [✓] Win32 Netra active: {d} running processes detected in samsara.\n\n", .{proc_count});
 
     // =========================================================================
-    // 2. KALYANA SAVE FORGE (Calm / Heuristic Aspect)
+    // 2. KALYANA STHITI (Calm / Surgical Save Restoration)
     // =========================================================================
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
-    std.debug.print(" [2] 🧊 SAVE FORGE — Fuzzy Heuristic & Entropy Analysis\n", .{});
+    std.debug.print(" [2] 🧊 KALYANA STHITI — Yukti Fuzzy Heuristic & Entropy\n", .{});
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
 
     // Synthetic mock save payload: header + player gold + health float + world coordinate
@@ -70,10 +70,10 @@ pub fn main() !void {
     }
 
     // =========================================================================
-    // 3. STHITI SAFE REWRITE ENGINE (Atomic Shadow Write & Backup)
+    // 3. STHITI SANKALPA (Safe Rewrite & Karma Kavacha Backup)
     // =========================================================================
     std.debug.print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
-    std.debug.print(" [3] 🛡️ SAFE REWRITE — Atomic Swap & .sharabha.bak Karma Shield\n", .{});
+    std.debug.print(" [3] 🛡️ STHITI SANKALPA — Atomic Swap & Karma Kavacha Shield\n", .{});
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
 
     var rewrite_engine = Sharabha.rewrite.SafeRewriteEngine.init(allocator);
@@ -86,7 +86,7 @@ pub fn main() !void {
     // Mutate and rewrite
     std.mem.writeInt(i32, mock_save[12..16], 9999999, .little);
     try rewrite_engine.commitSafe(demo_save_path, mock_save[0..32]);
-    std.debug.print("  • Modified save atomically committed! Backup '{s}.sharabha.bak' verified.\n", .{demo_save_path});
+    std.debug.print("  • Modified save atomically committed! Karma Kavacha '{s}.sharabha.bak' verified.\n", .{demo_save_path});
 
     // Clean up demo files
     const demo_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, demo_save_path);
@@ -96,7 +96,7 @@ pub fn main() !void {
     _ = Sharabha.memory.win.DeleteFileW(demo_w.ptr);
     _ = Sharabha.memory.win.DeleteFileW(demo_bak_w.ptr);
 
-    std.debug.print("\n============================================================\n", .{});
-    std.debug.print("  OM NAMAH SHIVAYA — Sharabha Engine Subsystems Verified!\n", .{});
-    std.debug.print("============================================================\n", .{});
+    std.debug.print("\n========================================================================\n", .{});
+    std.debug.print("  शरभेश्वर // ॐ नमः शिवाय // TRISHULA & ASHTAMURTI IN HARMONY\n", .{});
+    std.debug.print("========================================================================\n", .{});
 }

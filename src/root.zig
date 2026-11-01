@@ -10,10 +10,11 @@ pub const rewrite = @import("save/rewrite.zig");
 pub fn printBanner() void {
     std.debug.print(
         \\
-        \\============================================================
-        \\  🦁🐦 SHARABHA — The Dual Aspect Engine (v0.1.0)
-        \\  [Save Forge: Calm]   │   [Memory Engine: Destructive]
-        \\============================================================
+        \\========================================================================
+        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.1.0)
+        \\  [Kalyana Sthiti: Calm / शान्त]   │   [Rudra Tandava: Violent / उग्र]
+        \\  ॐ नमः शरभाय — Subduing Narasimha & The Untamed Process
+        \\========================================================================
         \\
     , .{});
 }
