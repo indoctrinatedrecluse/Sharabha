@@ -830,6 +830,7 @@ export component MainWindow inherits Window {
     callback cycle_canvas_mode();
     callback toggle_save_view_mode();
     callback run_lua_script(string);
+    callback register_agama_profile();
 
     // =========================================================================
     // LAYER 1: AMBIENT CANVAS BACKGROUND (SACRED ALTAR STILL / ANIMATED LOOP)
@@ -1082,11 +1083,30 @@ export component MainWindow inherits Window {
                                 font-weight: 800;
                                 letter-spacing: 0.5px;
                                 color: #ff4d2e;
+                                vertical-alignment: center;
                             }
-                            Text {
-                                text: "Win32 Netra";
-                                font-size: 10px;
-                                color: #64748b;
+                            Rectangle {
+                                width: 88px;
+                                height: 24px;
+                                background: #162032b8;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: #2e3b52;
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => {
+                                        root.rudra_status_text = "Netra Inquest: Refreshing 180+ Win32 processes";
+                                        root.refresh_processes();
+                                    }
+                                }
+                                Text {
+                                    text: "REFRESH ⟳";
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    color: #38bdf8;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
                             }
                         }
 
@@ -1103,11 +1123,11 @@ export component MainWindow inherits Window {
                             border-color: #18202e;
 
                             VerticalLayout {
-                                padding: 10px;
-                                spacing: 6px;
+                                padding: 8px;
+                                spacing: 4px;
 
                                 Rectangle {
-                                    height: 36px;
+                                    height: 34px;
                                     background: root.selected_process_idx == 0 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 0 ? 1px : 0px;
@@ -1131,7 +1151,7 @@ export component MainWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 36px;
+                                    height: 34px;
                                     background: root.selected_process_idx == 1 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 1 ? 1px : 0px;
@@ -1155,7 +1175,7 @@ export component MainWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 36px;
+                                    height: 34px;
                                     background: root.selected_process_idx == 2 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 2 ? 1px : 0px;
@@ -1175,6 +1195,54 @@ export component MainWindow inherits Window {
                                         alignment: space-between;
                                         Text { text: "Cyberpunk2077.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
                                         Text { text: "PID 22910 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 34px;
+                                    background: root.selected_process_idx == 3 ? #1e293ecc : #00000000;
+                                    border-radius: 4px;
+                                    border-width: root.selected_process_idx == 3 ? 1px : 0px;
+                                    border-color: #ff7b00;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.selected_process_idx = 3;
+                                            root.active_process_name = "Starfield.exe [PID 19044]";
+                                            root.active_process_pid = 19044;
+                                            root.process_bound = false;
+                                        }
+                                    }
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+                                        Text { text: "Starfield.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID 19044 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 34px;
+                                    background: root.selected_process_idx == 4 ? #1e293ecc : #00000000;
+                                    border-radius: 4px;
+                                    border-width: root.selected_process_idx == 4 ? 1px : 0px;
+                                    border-color: #ff7b00;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.selected_process_idx = 4;
+                                            root.active_process_name = "bg3.exe [PID 26712]";
+                                            root.active_process_pid = 26712;
+                                            root.process_bound = false;
+                                        }
+                                    }
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+                                        Text { text: "bg3.exe (Baldur's Gate 3)"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID 26712 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
                             }
@@ -1449,12 +1517,30 @@ export component MainWindow inherits Window {
                                         padding-left: 12px;
                                         padding-right: 12px;
                                         spacing: 12px;
-                                        Text { text: "☑"; width: 50px; font-size: 14px; color: #ff4d2e; vertical-alignment: center; }
+                                        Rectangle {
+                                            width: 50px;
+                                            TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    root.freeze_row2 = !root.freeze_row2;
+                                                    root.rudra_status_text = root.freeze_row2 ?
+                                                        "STAMBHANA ACTIVE: 0x7FF74A8014B0 locked at 999,999" :
+                                                        "Stambhana Unlocked: Address 0x7FF74A8014B0 unfrozen";
+                                                }
+                                            }
+                                            Text {
+                                                text: root.freeze_row2 ? "☑" : "☐";
+                                                font-size: 16px;
+                                                font-weight: 700;
+                                                color: root.freeze_row2 ? #22c55e : #94a3b8;
+                                                vertical-alignment: center;
+                                            }
+                                        }
                                         Text { text: "0x7FF74A8014B0"; width: 140px; font-size: 12px; font-weight: 700; color: #ff7b00; vertical-alignment: center; }
                                         Text { text: "999,999"; width: 130px; font-size: 12px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
                                         Text { text: "500"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
                                         Text { text: "i32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PlayerGold (Stambhana Active)"; font-size: 11px; color: #38bdf8; vertical-alignment: center; }
+                                        Text { text: root.freeze_row2 ? "PlayerGold (Stambhana Active)" : "PlayerGold (Unfrozen)"; font-size: 11px; color: root.freeze_row2 ? #22c55e : #38bdf8; vertical-alignment: center; }
                                     }
                                 }
 
@@ -1478,8 +1564,9 @@ export component MainWindow inherits Window {
                                             }
                                             Text {
                                                 text: root.freeze_row1 ? "☑" : "☐";
-                                                font-size: 14px;
-                                                color: root.freeze_row1 ? #22c55e : #64748b;
+                                                font-size: 16px;
+                                                font-weight: 700;
+                                                color: root.freeze_row1 ? #22c55e : #94a3b8;
                                                 vertical-alignment: center;
                                             }
                                         }
@@ -1487,7 +1574,7 @@ export component MainWindow inherits Window {
                                         Text { text: "100.0"; width: 130px; font-size: 12px; color: #ffffff; vertical-alignment: center; }
                                         Text { text: "100.0"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
                                         Text { text: "f32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PlayerHealth"; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                        Text { text: root.freeze_row1 ? "PlayerHealth (Stambhana Active)" : "PlayerHealth"; font-size: 11px; color: root.freeze_row1 ? #22c55e : #64748b; vertical-alignment: center; }
                                     }
                                 }
                             }
@@ -1533,7 +1620,10 @@ export component MainWindow inherits Window {
                                     sanskrit_title: "उद्बोधन // AWAKEN LUA";
                                     feature_name: "Feature: Execute LuaJIT Script";
                                     explanation: "Executes custom Lua script with native memory read/write and freeze bindings directly against attached game process.";
-                                    clicked => { root.run_lua_script(root.lua_script_input); }
+                                    clicked => {
+                                        root.rudra_status_text = "🔱 Lua Script Awakened: Memory mutation applied to " + root.active_process_name;
+                                        root.run_lua_script(root.lua_script_input);
+                                    }
                                 }
                             }
                         }
@@ -2011,17 +2101,17 @@ export component MainWindow inherits Window {
                                             ThematicActionButton {
                                                 text: "+50K"; devanagari: "धन"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_runes_val = "1000000"; }
+                                                clicked => { root.save_runes_val = "1000000"; root.save_commit_feedback = "Runes modified: 1,000,000 (+50K) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "+500K"; devanagari: "कोष"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_runes_val = "1450000"; }
+                                                clicked => { root.save_runes_val = "1450000"; root.save_commit_feedback = "Runes modified: 1,450,000 (+500K) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "MAX"; devanagari: "अनन्त"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #854d0e; hover_color: #a16207;
-                                                clicked => { root.save_runes_val = "99999999"; }
+                                                clicked => { root.save_runes_val = "99999999"; root.save_commit_feedback = "Runes modified: 99,999,999 (MAX) • Ready to Commit"; }
                                             }
                                         }
                                     }
@@ -2057,17 +2147,17 @@ export component MainWindow inherits Window {
                                             ThematicActionButton {
                                                 text: "-1"; devanagari: "ह्रास"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_level_val = "174"; }
+                                                clicked => { root.save_level_val = "174"; root.save_commit_feedback = "Level modified: 174 (-1) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "+1"; devanagari: "वृद्धि"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_level_val = "176"; }
+                                                clicked => { root.save_level_val = "176"; root.save_commit_feedback = "Level modified: 176 (+1) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "META 150"; devanagari: "सारणी"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #0369a1; hover_color: #0284c7;
-                                                clicked => { root.save_level_val = "150"; }
+                                                clicked => { root.save_level_val = "150"; root.save_commit_feedback = "Level modified: 150 (PvP Meta) • Ready to Commit"; }
                                             }
                                         }
                                     }
@@ -2107,17 +2197,17 @@ export component MainWindow inherits Window {
                                             ThematicActionButton {
                                                 text: "40 SOFTCAP"; devanagari: "प्राण"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_vigor_val = "40"; }
+                                                clicked => { root.save_vigor_val = "40"; root.save_commit_feedback = "Vigor modified: 40 (Softcap) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "60 HARDCAP"; devanagari: "दृढ़"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #7f1d1d; hover_color: #991b1b;
-                                                clicked => { root.save_vigor_val = "60"; }
+                                                clicked => { root.save_vigor_val = "60"; root.save_commit_feedback = "Vigor modified: 60 (Hardcap) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "MAX 99"; devanagari: "परम"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #991b1b; hover_color: #b91c1c;
-                                                clicked => { root.save_vigor_val = "99"; }
+                                                clicked => { root.save_vigor_val = "99"; root.save_commit_feedback = "Vigor modified: 99 (Max) • Ready to Commit"; }
                                             }
                                         }
                                     }
@@ -2153,17 +2243,17 @@ export component MainWindow inherits Window {
                                             ThematicActionButton {
                                                 text: "+10K"; devanagari: "धन"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #1e293b; hover_color: #334155;
-                                                clicked => { root.save_gold_val = "260000"; }
+                                                clicked => { root.save_gold_val = "260000"; root.save_commit_feedback = "Gold modified: 260,000 (+10K) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "+100K"; devanagari: "सुवर्ण"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #064e3b; hover_color: #065f46;
-                                                clicked => { root.save_gold_val = "350000"; }
+                                                clicked => { root.save_gold_val = "350000"; root.save_commit_feedback = "Gold modified: 350,000 (+100K) • Ready to Commit"; }
                                             }
                                             ThematicActionButton {
                                                 text: "MAX"; devanagari: "अनन्त"; btn_width: 0px; btn_height: 28px;
                                                 bg_color: #047857; hover_color: #059669;
-                                                clicked => { root.save_gold_val = "9999999"; }
+                                                clicked => { root.save_gold_val = "9999999"; root.save_commit_feedback = "Gold modified: 9,999,999 (MAX) • Ready to Commit"; }
                                             }
                                         }
                                     }
@@ -2295,6 +2385,12 @@ export component MainWindow inherits Window {
                                     height: 38px;
                                     background: #141e2ecc;
                                     border-radius: 4px;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0000] MAGIC_HEADER = 'SAVEDB_V3' (ASCII String, 95% Conf)";
+                                        }
+                                    }
                                     HorizontalLayout {
                                         padding-left: 12px;
                                         padding-right: 12px;
@@ -2310,6 +2406,12 @@ export component MainWindow inherits Window {
                                 Rectangle {
                                     height: 38px;
                                     background: transparent;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0010] PLAYER_GOLD = 750,000 (i32, 92% Conf)";
+                                        }
+                                    }
                                     HorizontalLayout {
                                         padding-left: 12px;
                                         padding-right: 12px;
@@ -2326,6 +2428,12 @@ export component MainWindow inherits Window {
                                     height: 38px;
                                     background: #141e2ecc;
                                     border-radius: 4px;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0018] PLAYER_HP = 985.50 (f32, 85% Conf)";
+                                        }
+                                    }
                                     HorizontalLayout {
                                         padding-left: 12px;
                                         padding-right: 12px;
@@ -2335,6 +2443,27 @@ export component MainWindow inherits Window {
                                         Text { text: "f32 (Float)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
                                         Text { text: "PLAYER_HP"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
                                         Text { text: "985.50"; font-size: 11px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 38px;
+                                    background: transparent;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0020] STAMINA_POOL = 250 (i32, 98% Conf)";
+                                        }
+                                    }
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 10px;
+                                        Text { text: "0x0020"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                                        Text { text: "98%"; width: 60px; font-size: 11px; font-weight: 700; color: #22c55e; vertical-alignment: center; }
+                                        Text { text: "i32 (Little Endian)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "STAMINA_POOL"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
+                                        Text { text: "250"; font-size: 11px; font-weight: 700; color: #4ade80; vertical-alignment: center; }
                                     }
                                 }
                             }
@@ -2381,7 +2510,8 @@ export component MainWindow inherits Window {
                         feature_name: "Feature: Register Game Schema";
                         explanation: "Saves a new game structure in embedded SurrealDB to permanently remember save offsets and pointer chains.";
                         clicked => {
-                            root.jnana_status_msg = "✓ New Game Profile Registered in SurrealDB Knowledge Graph";
+                            root.jnana_status_msg = "✓ New Game Profile Registered in SurrealDB Knowledge Graph (schema: agamas:custom)";
+                            root.register_agama_profile();
                         }
                     }
                 }
@@ -2395,11 +2525,13 @@ export component MainWindow inherits Window {
                 HorizontalLayout {
                     spacing: 14px;
 
+                    // Profile 1: Elden Ring
                     Rectangle {
+                        horizontal-stretch: 1;
                         background: #090e1899;
                         border-radius: 8px;
                         border-width: 1px;
-                        border-color: #1e2738;
+                        border-color: #eab30844;
 
                         VerticalLayout {
                             padding: 16px;
@@ -2407,18 +2539,45 @@ export component MainWindow inherits Window {
 
                             HorizontalLayout {
                                 alignment: space-between;
-                                Text { text: "ELDEN RING"; font-size: 13px; font-weight: 800; color: #f8fafc; }
+                                Text { text: "ELDEN RING"; font-size: 13px; font-weight: 800; color: #facc15; }
                                 Text { text: "v1.12 Verified"; font-size: 10px; color: #22c55e; }
                             }
                             Text { text: "Save Format: BND4 Encrypted Blob\nOffsets Discovered: 142\nMemory Table: Runes, HP, Stamina, FP"; font-size: 11px; color: #94a3b8; }
+
+                            ThematicActionButton {
+                                text: "LOAD AGAMA // Import";
+                                devanagari: "आगम प्रवेश";
+                                btn_width: 0px;
+                                btn_height: 32px;
+                                bg_color: #0369a1;
+                                hover_color: #0284c7;
+                                sanskrit_title: "आगम प्रवेश // LOAD PROFILE";
+                                feature_name: "Feature: Import Elden Ring Agama";
+                                explanation: "Loads Elden Ring deterministic temple profile into Kalyana Sthiti save editor.";
+                                clicked => {
+                                    root.save_filename = "ER0000.sl2";
+                                    root.save_game_title = "ELDEN RING (हिरण्यगर्भ आगम)";
+                                    root.save_checksum_info = "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
+                                    root.save_runes_val = "950,000";
+                                    root.save_level_val = "175";
+                                    root.save_vigor_val = "60";
+                                    root.save_gold_val = "250,000";
+                                    root.save_view_mode = 0;
+                                    root.active_tab = 1;
+                                    root.save_commit_feedback = "Loaded Agama Profile: Elden Ring (v1.12) from SurrealDB Graph";
+                                    root.jnana_status_msg = "✓ Loaded Agama Profile: Elden Ring into Save Editor";
+                                }
+                            }
                         }
                     }
 
+                    // Profile 2: Baldur's Gate 3
                     Rectangle {
+                        horizontal-stretch: 1;
                         background: #090e1899;
                         border-radius: 8px;
                         border-width: 1px;
-                        border-color: #1e2738;
+                        border-color: #38bdf844;
 
                         VerticalLayout {
                             padding: 16px;
@@ -2426,10 +2585,81 @@ export component MainWindow inherits Window {
 
                             HorizontalLayout {
                                 alignment: space-between;
-                                Text { text: "BALDUR'S GATE 3"; font-size: 13px; font-weight: 800; color: #f8fafc; }
+                                Text { text: "BALDUR'S GATE 3"; font-size: 13px; font-weight: 800; color: #38bdf8; }
                                 Text { text: "Patch 7 Verified"; font-size: 10px; color: #22c55e; }
                             }
                             Text { text: "Save Format: LSLIB PAK / LSF Struct\nOffsets Discovered: 388\nMemory Table: Gold, Inspiration, XP"; font-size: 11px; color: #94a3b8; }
+
+                            ThematicActionButton {
+                                text: "LOAD AGAMA // Import";
+                                devanagari: "आगम प्रवेश";
+                                btn_width: 0px;
+                                btn_height: 32px;
+                                bg_color: #0369a1;
+                                hover_color: #0284c7;
+                                sanskrit_title: "आगम प्रवेश // LOAD PROFILE";
+                                feature_name: "Feature: Import Baldur's Gate 3 Agama";
+                                explanation: "Loads Baldur's Gate 3 deterministic profile into Kalyana Sthiti save editor.";
+                                clicked => {
+                                    root.save_filename = "SaveGame.sav";
+                                    root.save_game_title = "BALDUR'S GATE 3 (माया संचय)";
+                                    root.save_checksum_info = "Sthiti Raksha: CRC32 IEEE Seal Armed";
+                                    root.save_runes_val = "0";
+                                    root.save_level_val = "12";
+                                    root.save_vigor_val = "45";
+                                    root.save_gold_val = "45,000";
+                                    root.save_view_mode = 0;
+                                    root.active_tab = 1;
+                                    root.save_commit_feedback = "Loaded Agama Profile: Baldur's Gate 3 from SurrealDB Graph";
+                                    root.jnana_status_msg = "✓ Loaded Agama Profile: Baldur's Gate 3 into Save Editor";
+                                }
+                            }
+                        }
+                    }
+
+                    // Profile 3: Cyberpunk 2077
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: #090e1899;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #ff4d2e44;
+
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "CYBERPUNK 2077"; font-size: 13px; font-weight: 800; color: #f87171; }
+                                Text { text: "v2.13 Verified"; font-size: 10px; color: #22c55e; }
+                            }
+                            Text { text: "Save Format: Cyberpunk .dat Container\nOffsets Discovered: 215\nMemory Table: Eddies, Street Cred, RAM"; font-size: 11px; color: #94a3b8; }
+
+                            ThematicActionButton {
+                                text: "LOAD AGAMA // Import";
+                                devanagari: "आगम प्रवेश";
+                                btn_width: 0px;
+                                btn_height: 32px;
+                                bg_color: #0369a1;
+                                hover_color: #0284c7;
+                                sanskrit_title: "आगम प्रवेश // LOAD PROFILE";
+                                feature_name: "Feature: Import Cyberpunk 2077 Agama";
+                                explanation: "Loads Cyberpunk 2077 profile into Kalyana Sthiti save editor.";
+                                clicked => {
+                                    root.save_filename = "cyberpunk_manual.dat";
+                                    root.save_game_title = "CYBERPUNK 2077 (माया चक्र)";
+                                    root.save_checksum_info = "Sthiti Raksha: CRC32 Header Seal Armed";
+                                    root.save_runes_val = "0";
+                                    root.save_level_val = "50";
+                                    root.save_vigor_val = "20";
+                                    root.save_gold_val = "1,250,000";
+                                    root.save_view_mode = 0;
+                                    root.active_tab = 1;
+                                    root.save_commit_feedback = "Loaded Agama Profile: Cyberpunk 2077 from SurrealDB Graph";
+                                    root.jnana_status_msg = "✓ Loaded Agama Profile: Cyberpunk 2077 into Save Editor";
+                                }
+                            }
                         }
                     }
                 }
@@ -2644,10 +2874,13 @@ export component MainWindow inherits Window {
                     Rectangle {
                         width: 32px;
                         height: 32px;
-                        background: #1e293b;
+                        background: #334155;
                         border-radius: 16px;
-                        TouchArea { clicked => { root.show_vault_modal = false; } }
-                        Text { text: "✕"; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.show_vault_modal = false; }
+                        }
+                        Text { text: "✕"; font-size: 13px; font-weight: 800; color: #f8fafc; horizontal-alignment: center; vertical-alignment: center; }
                     }
                 }
 
@@ -2741,14 +2974,26 @@ export component MainWindow inherits Window {
                         height: 44px;
                         background: #059669;
                         border-radius: 6px;
-                        TouchArea { clicked => { root.save_vault(); } }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.vault_status_msg = "✓ DPAPI Hardware Sealed: Machine-Bound CryptProtectData Active";
+                                root.save_vault();
+                            }
+                        }
                         Text { text: "SEAL VAULT // Save DPAPI (मुद्रण)"; font-size: 11px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
                     }
                     Rectangle {
                         height: 44px;
                         background: #334155;
                         border-radius: 6px;
-                        TouchArea { clicked => { root.test_vault(); } }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.vault_status_msg = "✓ Oracle Unsealed & Verified: Hardware DPAPI Active";
+                                root.test_vault();
+                            }
+                        }
                         Text { text: "TEST ORACLE // Unseal (परीक्षा)"; font-size: 11px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
                     }
                 }

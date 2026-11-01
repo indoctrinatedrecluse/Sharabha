@@ -125,7 +125,8 @@ if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
         "--on", "test_vault", "`"$binPath`" --test-vault",
         "--on", "save_vault", "`"$binPath`" --seal-vault",
         "--on", "toggle_save_view_mode", "powershell -NoProfile -Command Write-Host '[OK] Dual-Mode View Switched'",
-        "--on", "cycle_canvas_mode", "powershell -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'"
+        "--on", "cycle_canvas_mode", "powershell -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'",
+        "--on", "register_agama_profile", "`"$binPath`" --export-surreal"
     )
     & $slintExe "src\ui\app.slint" $callbacks
 } elseif ($CliOnly) {
