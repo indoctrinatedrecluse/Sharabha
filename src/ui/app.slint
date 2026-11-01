@@ -1,4 +1,6 @@
 import { Button, VerticalBox, HorizontalBox, LineEdit, ScrollView, ListView } from "std-widgets.slint";
+import { LiveProcesses } from "live_processes.slint";
+import { LiveSave } from "live_save.slint";
 
 /* ==========================================================================
    SHARABHA THEME — Shaivite Mysticism & Systems Duality
@@ -718,7 +720,7 @@ export component MainWindow inherits Window {
     in-out property <int> active_tab: 0;
 
     // Resizable Panes Dimensions (Interactive Drag Splitters)
-    in-out property <string> active_process_name: "GameProcess.exe [PID 14208]";
+    in-out property <string> active_process_name: LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]";
     in-out property <length> rudra_left_width: 320px;
     in-out property <length> kalyana_left_width: 350px;
     in-out property <length> jnana_left_width: 320px;
@@ -1140,7 +1142,7 @@ export component MainWindow inherits Window {
 
 
     // Rudra Tandava Interactive State
-    in-out property <int> active_process_pid: 14208;
+    in-out property <int> active_process_pid: LiveProcesses.proc_0_pid;
     in-out property <int> selected_process_idx: 0;
     in-out property <bool> process_bound: false;
     in-out property <string> process_bind_status: "STANDBY // Unattached";
@@ -1214,28 +1216,28 @@ export component MainWindow inherits Window {
 
     // Kalyana Sthiti Interactive State
     in-out property <int> current_save_idx: 0;
-    in-out property <string> save_commit_feedback: "Sthiti Kavacha Active: Ready to Commit";
+    in-out property <string> save_commit_feedback: LiveSave.status_feedback;
 
     // Generic Dynamic Save Fields (यथार्थ क्षेत्र विश्लेषक)
-    in-out property <string> save_field_0_tag: "RECORD [0x000C]";
-    in-out property <string> save_field_0_type: "i32 (Little Endian)";
-    in-out property <string> save_field_0_hex: "F0 7E 0E 00";
-    in-out property <string> save_field_0_val: "950000";
+    in-out property <string> save_field_0_tag: LiveSave.field_0_tag;
+    in-out property <string> save_field_0_type: LiveSave.field_0_type;
+    in-out property <string> save_field_0_hex: LiveSave.field_0_hex;
+    in-out property <string> save_field_0_val: LiveSave.field_0_val;
 
-    in-out property <string> save_field_1_tag: "RECORD [0x0010]";
-    in-out property <string> save_field_1_type: "i32 (Little Endian)";
-    in-out property <string> save_field_1_hex: "AF 00 00 00";
-    in-out property <string> save_field_1_val: "175";
+    in-out property <string> save_field_1_tag: LiveSave.field_1_tag;
+    in-out property <string> save_field_1_type: LiveSave.field_1_type;
+    in-out property <string> save_field_1_hex: LiveSave.field_1_hex;
+    in-out property <string> save_field_1_val: LiveSave.field_1_val;
 
-    in-out property <string> save_field_2_tag: "RECORD [0x0014]";
-    in-out property <string> save_field_2_type: "i32 (Little Endian)";
-    in-out property <string> save_field_2_hex: "3C 00 00 00";
-    in-out property <string> save_field_2_val: "60";
+    in-out property <string> save_field_2_tag: LiveSave.field_2_tag;
+    in-out property <string> save_field_2_type: LiveSave.field_2_type;
+    in-out property <string> save_field_2_hex: LiveSave.field_2_hex;
+    in-out property <string> save_field_2_val: LiveSave.field_2_val;
 
-    in-out property <string> save_field_3_tag: "RECORD [0x0018]";
-    in-out property <string> save_field_3_type: "i32 (Little Endian)";
-    in-out property <string> save_field_3_hex: "D0 D0 03 00";
-    in-out property <string> save_field_3_val: "250000";
+    in-out property <string> save_field_3_tag: LiveSave.field_3_tag;
+    in-out property <string> save_field_3_type: LiveSave.field_3_type;
+    in-out property <string> save_field_3_hex: LiveSave.field_3_hex;
+    in-out property <string> save_field_3_val: LiveSave.field_3_val;
 
     in-out property <string> save_field_4_tag: "RECORD [0x0020]";
     in-out property <string> save_field_4_type: "f32 (Float IEEE 754)";
@@ -1281,9 +1283,9 @@ export component MainWindow inherits Window {
 
     // Dual-Mode Save Editor Properties (Agama vs. Pravaha)
     in-out property <int> save_view_mode: 0; // 0=Agama Deterministic, 1=Pravaha Fuzzy Raw Table
-    in-out property <string> save_game_title: "GENERIC SAVE VESSEL (माया संचय)";
-    in-out property <string> save_filename: "ER0000.sl2";
-    in-out property <string> save_checksum_info: "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
+    in-out property <string> save_game_title: LiveSave.game_title;
+    in-out property <string> save_filename: LiveSave.filename;
+    in-out property <string> save_checksum_info: LiveSave.checksum_info;
 
     // Interactive Lua Altar Properties
     in-out property <string> lua_script_input: "sharabha.write_u32(0x7FF74A8014E4, 999999); print('Mudra Awakened!')";
@@ -1664,8 +1666,8 @@ export component MainWindow inherits Window {
                                         mouse-cursor: pointer;
                                         clicked => {
                                             root.selected_process_idx = 0;
-                                            root.active_process_name = "GameProcess.exe [PID 14208]";
-                                            root.active_process_pid = 14208;
+                                            root.active_process_name = LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]";
+                                            root.active_process_pid = LiveProcesses.proc_0_pid;
                                             root.process_bound = false;
                                         }
                                     }
@@ -1673,8 +1675,8 @@ export component MainWindow inherits Window {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "GameProcess.exe"; font-size: 11px; font-weight: 700; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "PID 14208 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: LiveProcesses.proc_0_name; font-size: 11px; font-weight: 700; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID " + LiveProcesses.proc_0_pid + " [" + LiveProcesses.proc_0_ram + "]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
 
@@ -1688,8 +1690,8 @@ export component MainWindow inherits Window {
                                         mouse-cursor: pointer;
                                         clicked => {
                                             root.selected_process_idx = 1;
-                                            root.active_process_name = "eldenring.exe [PID 8832]";
-                                            root.active_process_pid = 8832;
+                                            root.active_process_name = LiveProcesses.proc_1_name + " [PID " + LiveProcesses.proc_1_pid + "]";
+                                            root.active_process_pid = LiveProcesses.proc_1_pid;
                                             root.process_bound = false;
                                         }
                                     }
@@ -1697,8 +1699,8 @@ export component MainWindow inherits Window {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "eldenring.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "PID 8832 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: LiveProcesses.proc_1_name; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID " + LiveProcesses.proc_1_pid + " [" + LiveProcesses.proc_1_ram + "]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
 
@@ -1712,8 +1714,8 @@ export component MainWindow inherits Window {
                                         mouse-cursor: pointer;
                                         clicked => {
                                             root.selected_process_idx = 2;
-                                            root.active_process_name = "Cyberpunk2077.exe [PID 22910]";
-                                            root.active_process_pid = 22910;
+                                            root.active_process_name = LiveProcesses.proc_2_name + " [PID " + LiveProcesses.proc_2_pid + "]";
+                                            root.active_process_pid = LiveProcesses.proc_2_pid;
                                             root.process_bound = false;
                                         }
                                     }
@@ -1721,8 +1723,8 @@ export component MainWindow inherits Window {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "Cyberpunk2077.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "PID 22910 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: LiveProcesses.proc_2_name; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID " + LiveProcesses.proc_2_pid + " [" + LiveProcesses.proc_2_ram + "]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
 
@@ -1736,8 +1738,8 @@ export component MainWindow inherits Window {
                                         mouse-cursor: pointer;
                                         clicked => {
                                             root.selected_process_idx = 3;
-                                            root.active_process_name = "Starfield.exe [PID 19044]";
-                                            root.active_process_pid = 19044;
+                                            root.active_process_name = LiveProcesses.proc_3_name + " [PID " + LiveProcesses.proc_3_pid + "]";
+                                            root.active_process_pid = LiveProcesses.proc_3_pid;
                                             root.process_bound = false;
                                         }
                                     }
@@ -1745,8 +1747,8 @@ export component MainWindow inherits Window {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "Starfield.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "PID 19044 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: LiveProcesses.proc_3_name; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID " + LiveProcesses.proc_3_pid + " [" + LiveProcesses.proc_3_ram + "]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
 
@@ -1760,8 +1762,8 @@ export component MainWindow inherits Window {
                                         mouse-cursor: pointer;
                                         clicked => {
                                             root.selected_process_idx = 4;
-                                            root.active_process_name = "bg3.exe [PID 26712]";
-                                            root.active_process_pid = 26712;
+                                            root.active_process_name = LiveProcesses.proc_4_name + " [PID " + LiveProcesses.proc_4_pid + "]";
+                                            root.active_process_pid = LiveProcesses.proc_4_pid;
                                             root.process_bound = false;
                                         }
                                     }
@@ -1769,8 +1771,8 @@ export component MainWindow inherits Window {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "bg3.exe (Baldur's Gate 3)"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "PID 26712 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: LiveProcesses.proc_4_name; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID " + LiveProcesses.proc_4_pid + " [" + LiveProcesses.proc_4_ram + "]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
                             }
@@ -2582,33 +2584,7 @@ export component MainWindow inherits Window {
                             feature_name: "Feature: Load Save Binary / Struct";
                             explanation: "Loads arbitrary save game files and initiates Shannon entropy and heuristic pattern scanning.";
                             clicked => {
-                                root.current_save_idx = Math.mod(root.current_save_idx + 1, 3);
-                                if root.current_save_idx == 0 {
-                                    root.save_filename = "ER0000.sl2";
-                                    root.save_game_title = "ELDEN RING (हिरण्यगर्भ आगम)";
-                                    root.save_checksum_info = "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
-                                    root.save_runes_val = "950,000";
-                                    root.save_level_val = "175";
-                                    root.save_vigor_val = "60";
-                                    root.save_gold_val = "250,000";
-                                } else if root.current_save_idx == 1 {
-                                    root.save_filename = "SaveGame.sav";
-                                    root.save_game_title = "UNREAL GVAS SAVE (माया संचय)";
-                                    root.save_checksum_info = "Sthiti Raksha: CRC32 IEEE Seal Armed";
-                                    root.save_runes_val = "0";
-                                    root.save_level_val = "42";
-                                    root.save_vigor_val = "35";
-                                    root.save_gold_val = "850,000";
-                                } else {
-                                    root.save_filename = "cyberpunk_manual.dat";
-                                    root.save_game_title = "CYBERPUNK 2077 (माया चक्र)";
-                                    root.save_checksum_info = "Sthiti Raksha: CRC32 Header Seal Armed";
-                                    root.save_runes_val = "0";
-                                    root.save_level_val = "50";
-                                    root.save_vigor_val = "20";
-                                    root.save_gold_val = "1,250,000";
-                                }
-                                root.save_commit_feedback = "Loaded Vessel: " + root.save_filename + " (" + root.save_game_title + ")";
+                                root.save_commit_feedback = "Launching Windows Open File Dialog (पात्र प्रवेश)...";
                                 root.open_save_file();
                             }
                         }
@@ -4906,11 +4882,11 @@ export component MainWindow inherits Window {
                         spacing: 4px;
 
                         ProcessPickerRow {
-                            proc_name: "eldenring.exe";
-                            pid: 14208;
-                            win_title: "ELDEN RING v1.12.3 (FromSoftware x64)";
-                            memory_str: "4,120 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_0_name;
+                            pid: LiveProcesses.proc_0_pid;
+                            win_title: LiveProcesses.proc_0_title;
+                            memory_str: LiveProcesses.proc_0_ram;
+                            arch: LiveProcesses.proc_0_arch;
                             is_selected: root.modal_selected_proc_idx == 0;
                             clicked => {
                                 root.modal_selected_proc_idx = 0;
@@ -4918,11 +4894,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "bg3.exe";
-                            pid: 26712;
-                            win_title: "Baldur's Gate 3 (Larian Studios - Vulkan / DX11)";
-                            memory_str: "3,850 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_1_name;
+                            pid: LiveProcesses.proc_1_pid;
+                            win_title: LiveProcesses.proc_1_title;
+                            memory_str: LiveProcesses.proc_1_ram;
+                            arch: LiveProcesses.proc_1_arch;
                             is_selected: root.modal_selected_proc_idx == 1;
                             clicked => {
                                 root.modal_selected_proc_idx = 1;
@@ -4930,11 +4906,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "Cyberpunk2077.exe";
-                            pid: 22910;
-                            win_title: "Cyberpunk 2077 (CD Projekt REDengine 4)";
-                            memory_str: "5,420 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_2_name;
+                            pid: LiveProcesses.proc_2_pid;
+                            win_title: LiveProcesses.proc_2_title;
+                            memory_str: LiveProcesses.proc_2_ram;
+                            arch: LiveProcesses.proc_2_arch;
                             is_selected: root.modal_selected_proc_idx == 2;
                             clicked => {
                                 root.modal_selected_proc_idx = 2;
@@ -4942,11 +4918,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "Starfield.exe";
-                            pid: 19044;
-                            win_title: "Starfield (Bethesda Creation Engine 2)";
-                            memory_str: "6,180 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_3_name;
+                            pid: LiveProcesses.proc_3_pid;
+                            win_title: LiveProcesses.proc_3_title;
+                            memory_str: LiveProcesses.proc_3_ram;
+                            arch: LiveProcesses.proc_3_arch;
                             is_selected: root.modal_selected_proc_idx == 3;
                             clicked => {
                                 root.modal_selected_proc_idx = 3;
@@ -4954,11 +4930,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "notepad.exe";
-                            pid: 11048;
-                            win_title: "Untitled - Notepad (Win32 Text Buffer)";
-                            memory_str: "18 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_4_name;
+                            pid: LiveProcesses.proc_4_pid;
+                            win_title: LiveProcesses.proc_4_title;
+                            memory_str: LiveProcesses.proc_4_ram;
+                            arch: LiveProcesses.proc_4_arch;
                             is_selected: root.modal_selected_proc_idx == 4;
                             clicked => {
                                 root.modal_selected_proc_idx = 4;
@@ -4966,11 +4942,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "calculator.exe";
-                            pid: 8420;
-                            win_title: "Calculator (Win32 Standard App)";
-                            memory_str: "32 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_5_name;
+                            pid: LiveProcesses.proc_5_pid;
+                            win_title: LiveProcesses.proc_5_title;
+                            memory_str: LiveProcesses.proc_5_ram;
+                            arch: LiveProcesses.proc_5_arch;
                             is_selected: root.modal_selected_proc_idx == 5;
                             clicked => {
                                 root.modal_selected_proc_idx = 5;
@@ -4978,11 +4954,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "chrome.exe";
-                            pid: 15304;
-                            win_title: "Google Chrome (V8 JIT / Sandboxed Renderer)";
-                            memory_str: "1,420 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_6_name;
+                            pid: LiveProcesses.proc_6_pid;
+                            win_title: LiveProcesses.proc_6_title;
+                            memory_str: LiveProcesses.proc_6_ram;
+                            arch: LiveProcesses.proc_6_arch;
                             is_selected: root.modal_selected_proc_idx == 6;
                             clicked => {
                                 root.modal_selected_proc_idx = 6;
@@ -4990,11 +4966,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "factorio.exe";
-                            pid: 9980;
-                            win_title: "Factorio v1.1.107 (Wube Software x64)";
-                            memory_str: "1,280 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_7_name;
+                            pid: LiveProcesses.proc_7_pid;
+                            win_title: LiveProcesses.proc_7_title;
+                            memory_str: LiveProcesses.proc_7_ram;
+                            arch: LiveProcesses.proc_7_arch;
                             is_selected: root.modal_selected_proc_idx == 7;
                             clicked => {
                                 root.modal_selected_proc_idx = 7;
@@ -5002,11 +4978,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "witcher3.exe";
-                            pid: 17420;
-                            win_title: "The Witcher 3: Wild Hunt (Complete Edition)";
-                            memory_str: "4,890 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_8_name;
+                            pid: LiveProcesses.proc_8_pid;
+                            win_title: LiveProcesses.proc_8_title;
+                            memory_str: LiveProcesses.proc_8_ram;
+                            arch: LiveProcesses.proc_8_arch;
                             is_selected: root.modal_selected_proc_idx == 8;
                             clicked => {
                                 root.modal_selected_proc_idx = 8;
@@ -5014,11 +4990,11 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "blender.exe";
-                            pid: 21104;
-                            win_title: "Blender 4.2 LTS (Cycles GPU Viewport)";
-                            memory_str: "2,150 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_9_name;
+                            pid: LiveProcesses.proc_9_pid;
+                            win_title: LiveProcesses.proc_9_title;
+                            memory_str: LiveProcesses.proc_9_ram;
+                            arch: LiveProcesses.proc_9_arch;
                             is_selected: root.modal_selected_proc_idx == 9;
                             clicked => {
                                 root.modal_selected_proc_idx = 9;
@@ -5026,14 +5002,26 @@ export component MainWindow inherits Window {
                         }
 
                         ProcessPickerRow {
-                            proc_name: "vlc.exe";
-                            pid: 6440;
-                            win_title: "VLC media player (x64 Direct3D11)";
-                            memory_str: "140 MB";
-                            arch: "x64 Native";
+                            proc_name: LiveProcesses.proc_10_name;
+                            pid: LiveProcesses.proc_10_pid;
+                            win_title: LiveProcesses.proc_10_title;
+                            memory_str: LiveProcesses.proc_10_ram;
+                            arch: LiveProcesses.proc_10_arch;
                             is_selected: root.modal_selected_proc_idx == 10;
                             clicked => {
                                 root.modal_selected_proc_idx = 10;
+                            }
+                        }
+
+                        ProcessPickerRow {
+                            proc_name: LiveProcesses.proc_11_name;
+                            pid: LiveProcesses.proc_11_pid;
+                            win_title: LiveProcesses.proc_11_title;
+                            memory_str: LiveProcesses.proc_11_ram;
+                            arch: LiveProcesses.proc_11_arch;
+                            is_selected: root.modal_selected_proc_idx == 11;
+                            clicked => {
+                                root.modal_selected_proc_idx = 11;
                             }
                         }
                     }
@@ -5053,17 +5041,18 @@ export component MainWindow inherits Window {
                         VerticalLayout {
                             alignment: center;
                             Text {
-                                text: root.modal_selected_proc_idx == 0 ? "Target Selected: eldenring.exe [PID 14208]" :
-                                      (root.modal_selected_proc_idx == 1 ? "Target Selected: bg3.exe [PID 26712]" :
-                                      (root.modal_selected_proc_idx == 2 ? "Target Selected: Cyberpunk2077.exe [PID 22910]" :
-                                      (root.modal_selected_proc_idx == 3 ? "Target Selected: Starfield.exe [PID 19044]" :
-                                      (root.modal_selected_proc_idx == 4 ? "Target Selected: notepad.exe [PID 11048]" :
-                                      (root.modal_selected_proc_idx == 5 ? "Target Selected: calculator.exe [PID 8420]" :
-                                      (root.modal_selected_proc_idx == 6 ? "Target Selected: chrome.exe [PID 15304]" :
-                                      (root.modal_selected_proc_idx == 7 ? "Target Selected: factorio.exe [PID 9980]" :
-                                      (root.modal_selected_proc_idx == 8 ? "Target Selected: witcher3.exe [PID 17420]" :
-                                      (root.modal_selected_proc_idx == 9 ? "Target Selected: blender.exe [PID 21104]" :
-                                      "Target Selected: vlc.exe [PID 6440]")))))))));
+                                text: root.modal_selected_proc_idx == 0 ? "Target Selected: " + LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]" :
+                                      (root.modal_selected_proc_idx == 1 ? "Target Selected: " + LiveProcesses.proc_1_name + " [PID " + LiveProcesses.proc_1_pid + "]" :
+                                      (root.modal_selected_proc_idx == 2 ? "Target Selected: " + LiveProcesses.proc_2_name + " [PID " + LiveProcesses.proc_2_pid + "]" :
+                                      (root.modal_selected_proc_idx == 3 ? "Target Selected: " + LiveProcesses.proc_3_name + " [PID " + LiveProcesses.proc_3_pid + "]" :
+                                      (root.modal_selected_proc_idx == 4 ? "Target Selected: " + LiveProcesses.proc_4_name + " [PID " + LiveProcesses.proc_4_pid + "]" :
+                                      (root.modal_selected_proc_idx == 5 ? "Target Selected: " + LiveProcesses.proc_5_name + " [PID " + LiveProcesses.proc_5_pid + "]" :
+                                      (root.modal_selected_proc_idx == 6 ? "Target Selected: " + LiveProcesses.proc_6_name + " [PID " + LiveProcesses.proc_6_pid + "]" :
+                                      (root.modal_selected_proc_idx == 7 ? "Target Selected: " + LiveProcesses.proc_7_name + " [PID " + LiveProcesses.proc_7_pid + "]" :
+                                      (root.modal_selected_proc_idx == 8 ? "Target Selected: " + LiveProcesses.proc_8_name + " [PID " + LiveProcesses.proc_8_pid + "]" :
+                                      (root.modal_selected_proc_idx == 9 ? "Target Selected: " + LiveProcesses.proc_9_name + " [PID " + LiveProcesses.proc_9_pid + "]" :
+                                      (root.modal_selected_proc_idx == 10 ? "Target Selected: " + LiveProcesses.proc_10_name + " [PID " + LiveProcesses.proc_10_pid + "]" :
+                                      "Target Selected: " + LiveProcesses.proc_11_name + " [PID " + LiveProcesses.proc_11_pid + "]"))))))))));
                                 font-size: 11px;
                                 font-weight: 700;
                                 color: #38bdf8;
@@ -5100,38 +5089,41 @@ export component MainWindow inherits Window {
                                 hover_color: #16a34a;
                                 clicked => {
                                     if root.modal_selected_proc_idx == 0 {
-                                        root.active_process_name = "eldenring.exe [PID 14208]";
-                                        root.active_process_pid = 14208;
+                                        root.active_process_name = LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_0_pid;
                                     } else if root.modal_selected_proc_idx == 1 {
-                                        root.active_process_name = "bg3.exe [PID 26712]";
-                                        root.active_process_pid = 26712;
+                                        root.active_process_name = LiveProcesses.proc_1_name + " [PID " + LiveProcesses.proc_1_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_1_pid;
                                     } else if root.modal_selected_proc_idx == 2 {
-                                        root.active_process_name = "Cyberpunk2077.exe [PID 22910]";
-                                        root.active_process_pid = 22910;
+                                        root.active_process_name = LiveProcesses.proc_2_name + " [PID " + LiveProcesses.proc_2_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_2_pid;
                                     } else if root.modal_selected_proc_idx == 3 {
-                                        root.active_process_name = "Starfield.exe [PID 19044]";
-                                        root.active_process_pid = 19044;
+                                        root.active_process_name = LiveProcesses.proc_3_name + " [PID " + LiveProcesses.proc_3_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_3_pid;
                                     } else if root.modal_selected_proc_idx == 4 {
-                                        root.active_process_name = "notepad.exe [PID 11048]";
-                                        root.active_process_pid = 11048;
+                                        root.active_process_name = LiveProcesses.proc_4_name + " [PID " + LiveProcesses.proc_4_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_4_pid;
                                     } else if root.modal_selected_proc_idx == 5 {
-                                        root.active_process_name = "calculator.exe [PID 8420]";
-                                        root.active_process_pid = 8420;
+                                        root.active_process_name = LiveProcesses.proc_5_name + " [PID " + LiveProcesses.proc_5_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_5_pid;
                                     } else if root.modal_selected_proc_idx == 6 {
-                                        root.active_process_name = "chrome.exe [PID 15304]";
-                                        root.active_process_pid = 15304;
+                                        root.active_process_name = LiveProcesses.proc_6_name + " [PID " + LiveProcesses.proc_6_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_6_pid;
                                     } else if root.modal_selected_proc_idx == 7 {
-                                        root.active_process_name = "factorio.exe [PID 9980]";
-                                        root.active_process_pid = 9980;
+                                        root.active_process_name = LiveProcesses.proc_7_name + " [PID " + LiveProcesses.proc_7_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_7_pid;
                                     } else if root.modal_selected_proc_idx == 8 {
-                                        root.active_process_name = "witcher3.exe [PID 17420]";
-                                        root.active_process_pid = 17420;
+                                        root.active_process_name = LiveProcesses.proc_8_name + " [PID " + LiveProcesses.proc_8_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_8_pid;
                                     } else if root.modal_selected_proc_idx == 9 {
-                                        root.active_process_name = "blender.exe [PID 21104]";
-                                        root.active_process_pid = 21104;
+                                        root.active_process_name = LiveProcesses.proc_9_name + " [PID " + LiveProcesses.proc_9_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_9_pid;
+                                    } else if root.modal_selected_proc_idx == 10 {
+                                        root.active_process_name = LiveProcesses.proc_10_name + " [PID " + LiveProcesses.proc_10_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_10_pid;
                                     } else {
-                                        root.active_process_name = "vlc.exe [PID 6440]";
-                                        root.active_process_pid = 6440;
+                                        root.active_process_name = LiveProcesses.proc_11_name + " [PID " + LiveProcesses.proc_11_pid + "]";
+                                        root.active_process_pid = LiveProcesses.proc_11_pid;
                                     }
                                     root.process_bound = true;
                                     root.process_bind_status = "BOUND // Armed [VM_READ | VM_WRITE]";

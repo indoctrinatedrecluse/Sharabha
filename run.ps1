@@ -110,14 +110,17 @@ Write-Host "[4/4] Invoking Sharabha Core Subsystems..." -ForegroundColor Cyan
 
 if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
     Write-Host ""
+    Write-Host "  - Harvesting real host processes via Netra Inquest..." -ForegroundColor Yellow
+    powershell -NoProfile -ExecutionPolicy Bypass -File "tools\refresh_processes.ps1"
+
     Write-Host "Launching native Slint GUI Window (src\ui\app.slint)..." -ForegroundColor Yellow
     $callbacks = @(
-        "--on", "refresh_processes", "`"$binPath`" --list-processes",
+        "--on", "refresh_processes", "powershell -NoProfile -ExecutionPolicy Bypass -File `"tools\refresh_processes.ps1`"",
         "--on", "attach_process", "`"$binPath`" --attach `$1",
         "--on", "start_memory_scan", "`"$binPath`" --scan `$1 `$2",
         "--on", "rescan_memory", "`"$binPath`" --rescan `$1",
         "--on", "run_lua_script", "`"$binPath`" --run-lua `"`$1`"",
-        "--on", "open_save_file", "powershell -NoProfile -File `"tools\open_dialog.ps1`"",
+        "--on", "open_save_file", "powershell -NoProfile -ExecutionPolicy Bypass -File `"tools\open_dialog.ps1`"",
         "--on", "save_file_atomic", "`"$binPath`" --commit-save `"assets\saves\ER0000.sl2`"",
         "--on", "cycle_metric", "powershell -NoProfile -Command Write-Host '[OK] Metric Evaluated via Switching Engine'",
         "--on", "cycle_extractor", "powershell -NoProfile -Command Write-Host '[OK] Extractor Switched via Agama Engine'",
@@ -128,7 +131,7 @@ if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
         "--on", "cycle_canvas_mode", "powershell -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'",
         "--on", "register_agama_profile", "`"$binPath`" --export-surreal"
     )
-    & $slintExe "src\ui\app.slint" $callbacks
+    & $slintExe "src\ui\app.slint" --auto-reload $callbacks
 } elseif ($CliOnly) {
     Write-Host ""
     Write-Host "CLI run completed (-CliOnly specified)." -ForegroundColor Gray
