@@ -16,7 +16,10 @@ zig-out/
 *.pdb
 Thumbs.db
 
-# Dependencies
+# Vault and temporary backup files
+.sharabha_vault.bin
+*.bak
+
 deps/surrealdb/
 deps/**/bin/*.exe
 !deps/luajit/bin/lua51.dll

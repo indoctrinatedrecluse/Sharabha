@@ -96,13 +96,17 @@ pub const ScriptEngine = struct {
         c.lua_pushcclosure(L, luaLog, 0);
         c.lua_setfield(L, -2, "log");
 
-        // sharabha.read_i32(address) -> integer
+        // sharabha.read_i32 / read_u32(address) -> integer
         c.lua_pushcclosure(L, luaReadI32, 0);
         c.lua_setfield(L, -2, "read_i32");
+        c.lua_pushcclosure(L, luaReadI32, 0);
+        c.lua_setfield(L, -2, "read_u32");
 
-        // sharabha.write_i32(address, value) -> boolean
+        // sharabha.write_i32 / write_u32(address, value) -> boolean
         c.lua_pushcclosure(L, luaWriteI32, 0);
         c.lua_setfield(L, -2, "write_i32");
+        c.lua_pushcclosure(L, luaWriteI32, 0);
+        c.lua_setfield(L, -2, "write_u32");
 
         // sharabha.read_f32(address) -> number
         c.lua_pushcclosure(L, luaReadF32, 0);
@@ -112,9 +116,11 @@ pub const ScriptEngine = struct {
         c.lua_pushcclosure(L, luaWriteF32, 0);
         c.lua_setfield(L, -2, "write_f32");
 
-        // sharabha.freeze_i32(address, value, desc) -> boolean
+        // sharabha.freeze_i32 / freeze_u32(address, value, desc) -> boolean
         c.lua_pushcclosure(L, luaFreezeI32, 0);
         c.lua_setfield(L, -2, "freeze_i32");
+        c.lua_pushcclosure(L, luaFreezeI32, 0);
+        c.lua_setfield(L, -2, "freeze_u32");
 
         // sharabha.unfreeze(address) -> boolean
         c.lua_pushcclosure(L, luaUnfreeze, 0);

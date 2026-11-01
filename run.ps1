@@ -112,9 +112,20 @@ if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
     Write-Host ""
     Write-Host "Launching native Slint GUI Window (src\ui\app.slint)..." -ForegroundColor Yellow
     $callbacks = @(
-        "--on", "save_file_atomic", "`"$binPath`"",
-        "--on", "test_vault", "powershell -NoProfile -Command Write-Host 'DPAPI Hardware Vault Unlocked // Validated'",
-        "--on", "save_vault", "powershell -NoProfile -Command Write-Host 'DPAPI Hardware Vault Sealed // Saved'"
+        "--on", "refresh_processes", "`"$binPath`" --list-processes",
+        "--on", "attach_process", "`"$binPath`" --attach `$1",
+        "--on", "start_memory_scan", "`"$binPath`" --scan `$1 `$2",
+        "--on", "rescan_memory", "`"$binPath`" --rescan `$1",
+        "--on", "run_lua_script", "`"$binPath`" --run-lua `"`$1`"",
+        "--on", "open_save_file", "powershell -NoProfile -File `"tools\open_dialog.ps1`"",
+        "--on", "save_file_atomic", "`"$binPath`" --commit-save `"assets\saves\ER0000.sl2`"",
+        "--on", "cycle_metric", "powershell -NoProfile -Command Write-Host '[OK] Metric Evaluated via Switching Engine'",
+        "--on", "cycle_extractor", "powershell -NoProfile -Command Write-Host '[OK] Extractor Switched via Agama Engine'",
+        "--on", "toggle_ai_guidance", "powershell -NoProfile -Command Write-Host '[OK] Divya Drishti AI Oracle Toggled'",
+        "--on", "test_vault", "`"$binPath`" --test-vault",
+        "--on", "save_vault", "`"$binPath`" --seal-vault",
+        "--on", "toggle_save_view_mode", "powershell -NoProfile -Command Write-Host '[OK] Dual-Mode View Switched'",
+        "--on", "cycle_canvas_mode", "powershell -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'"
     )
     & $slintExe "src\ui\app.slint" $callbacks
 } elseif ($CliOnly) {

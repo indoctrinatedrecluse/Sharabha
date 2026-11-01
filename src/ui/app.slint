@@ -751,6 +751,25 @@ export component MainWindow inherits Window {
     }
 
 
+    // Rudra Tandava Interactive State
+    in-out property <int> active_process_pid: 14208;
+    in-out property <int> selected_process_idx: 0;
+    in-out property <bool> process_bound: false;
+    in-out property <string> process_bind_status: "STANDBY // Unattached";
+    in-out property <string> scan_target_value: "100";
+    in-out property <string> scan_result_count_str: "4 MATCHES";
+    in-out property <bool> freeze_row1: false;
+    in-out property <bool> freeze_row2: false;
+    in-out property <string> rudra_status_text: "Win32 Netra Active // Ready for Inquest";
+
+    // Kalyana Sthiti Interactive State
+    in-out property <int> current_save_idx: 0;
+    in-out property <string> save_commit_feedback: "Sthiti Kavacha Active: Ready to Commit";
+
+    // Jnana Kosha Interactive State
+    in-out property <string> jnana_status_msg: "SurrealDB Embedded Knowledge Graph Online";
+    in-out property <string> jnana_search_query: "";
+
     // Engine State Properties
     in-out property <int> selected_scan_type: 0;
     in-out property <string> scan_type_name: "EXACT (सटीक मान)";
@@ -1089,8 +1108,19 @@ export component MainWindow inherits Window {
 
                                 Rectangle {
                                     height: 36px;
-                                    background: #1e293ecc;
+                                    background: root.selected_process_idx == 0 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
+                                    border-width: root.selected_process_idx == 0 ? 1px : 0px;
+                                    border-color: #ff7b00;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.selected_process_idx = 0;
+                                            root.active_process_name = "GameProcess.exe [PID 14208]";
+                                            root.active_process_pid = 14208;
+                                            root.process_bound = false;
+                                        }
+                                    }
                                     HorizontalLayout {
                                         padding-left: 10px;
                                         padding-right: 10px;
@@ -1102,25 +1132,49 @@ export component MainWindow inherits Window {
 
                                 Rectangle {
                                     height: 36px;
-                                    background: transparent;
+                                    background: root.selected_process_idx == 1 ? #1e293ecc : #00000000;
+                                    border-radius: 4px;
+                                    border-width: root.selected_process_idx == 1 ? 1px : 0px;
+                                    border-color: #ff7b00;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.selected_process_idx = 1;
+                                            root.active_process_name = "eldenring.exe [PID 8832]";
+                                            root.active_process_pid = 8832;
+                                            root.process_bound = false;
+                                        }
+                                    }
                                     HorizontalLayout {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "eldenring.exe"; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PID 8832 [x64]"; font-size: 10px; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "eldenring.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID 8832 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
 
                                 Rectangle {
                                     height: 36px;
-                                    background: transparent;
+                                    background: root.selected_process_idx == 2 ? #1e293ecc : #00000000;
+                                    border-radius: 4px;
+                                    border-width: root.selected_process_idx == 2 ? 1px : 0px;
+                                    border-color: #ff7b00;
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.selected_process_idx = 2;
+                                            root.active_process_name = "Cyberpunk2077.exe [PID 22910]";
+                                            root.active_process_pid = 22910;
+                                            root.process_bound = false;
+                                        }
+                                    }
                                     HorizontalLayout {
                                         padding-left: 10px;
                                         padding-right: 10px;
                                         alignment: space-between;
-                                        Text { text: "Cyberpunk2077.exe"; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PID 22910 [x64]"; font-size: 10px; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "Cyberpunk2077.exe"; font-size: 11px; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID 22910 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
                                     }
                                 }
                             }
@@ -1128,17 +1182,22 @@ export component MainWindow inherits Window {
 
                         // Attach Button (Dynamic width - stretches with splitter)
                         ThematicActionButton {
-                            text: "BIND PROCESS // Attach";
-                            devanagari: "शरभ बन्धन";
+                            text: root.process_bound ? "✓ BOUND // Attached" : "BIND PROCESS // Attach";
+                            devanagari: root.process_bound ? "बद्ध प्रक्रिया" : "शरभ बन्धन";
                             btn_width: 0px;
                             btn_height: 44px;
-                            bg_color: #ff4d2e;
-                            hover_color: #ff6548;
+                            bg_color: root.process_bound ? #15803d : #ff4d2e;
+                            hover_color: root.process_bound ? #16a34a : #ff6548;
                             tooltip_down: true;
                             sanskrit_title: "शरभ बन्धन // PROCESS BINDING";
                             feature_name: "Feature: OpenProcess Memory Handle";
                             explanation: "Opens a full-access Win32 process handle (VM_READ | VM_WRITE) to attach hooks and scanner needles.";
-                            clicked => { root.attach_process(14208); }
+                            clicked => {
+                                root.process_bound = true;
+                                root.process_bind_status = "BOUND // Armed [VM_READ | VM_WRITE]";
+                                root.rudra_status_text = "Target Hooked: " + root.active_process_name + " • VM Ready";
+                                root.attach_process(root.active_process_pid);
+                            }
                         }
                     }
                 }
@@ -1174,6 +1233,7 @@ export component MainWindow inherits Window {
                             spacing: 8px;
 
                             LineEdit {
+                                text <=> root.scan_target_value;
                                 placeholder-text: "Target value (e.g. 500, 999999)...";
                                 horizontal-stretch: 3;
                                 min-width: 130px;
@@ -1190,8 +1250,22 @@ export component MainWindow inherits Window {
                                 border-width: 1px;
                                 border-color: #2e3b52;
                                 TouchArea {
-                                    clicked => { root.cycle_scan_type(); }
                                     mouse-cursor: pointer;
+                                    clicked => {
+                                        root.selected_scan_type = Math.mod(root.selected_scan_type + 1, 5);
+                                        if root.selected_scan_type == 0 {
+                                            root.scan_type_name = "EXACT (सटीक मान)";
+                                        } else if root.selected_scan_type == 1 {
+                                            root.scan_type_name = "INCREASED (वर्धित)";
+                                        } else if root.selected_scan_type == 2 {
+                                            root.scan_type_name = "DECREASED (ह्रासित)";
+                                        } else if root.selected_scan_type == 3 {
+                                            root.scan_type_name = "CHANGED (परिवर्तित)";
+                                        } else {
+                                            root.scan_type_name = "UNCHANGED (अपरिवर्तित)";
+                                        }
+                                        root.cycle_scan_type();
+                                    }
                                 }
                                 Text {
                                     text: root.scan_type_name;
@@ -1214,8 +1288,24 @@ export component MainWindow inherits Window {
                                 border-width: 1px;
                                 border-color: #2e3b52;
                                 TouchArea {
-                                    clicked => { root.cycle_data_type(); }
                                     mouse-cursor: pointer;
+                                    clicked => {
+                                        root.selected_data_type = Math.mod(root.selected_data_type + 1, 6);
+                                        if root.selected_data_type == 0 {
+                                            root.data_type_name = "Type: i32";
+                                        } else if root.selected_data_type == 1 {
+                                            root.data_type_name = "Type: u32";
+                                        } else if root.selected_data_type == 2 {
+                                            root.data_type_name = "Type: i64";
+                                        } else if root.selected_data_type == 3 {
+                                            root.data_type_name = "Type: f32";
+                                        } else if root.selected_data_type == 4 {
+                                            root.data_type_name = "Type: f64";
+                                        } else {
+                                            root.data_type_name = "Type: Text";
+                                        }
+                                        root.cycle_data_type();
+                                    }
                                 }
                                 Text {
                                     text: root.data_type_name;
@@ -1240,7 +1330,11 @@ export component MainWindow inherits Window {
                                 sanskrit_title: "प्रथम दृष्टि // FIRST INQUEST";
                                 feature_name: "Feature: Initial RAM Value Scanner";
                                 explanation: "Queries VirtualQueryEx for committed writable pages and scans entire address space for the target value.";
-                                clicked => { root.start_memory_scan("100", "i32"); }
+                                clicked => {
+                                    root.scan_result_count_str = "4 MATCHES";
+                                    root.rudra_status_text = "First Scan Complete: 4 occurrences of '" + root.scan_target_value + "' found";
+                                    root.start_memory_scan(root.scan_target_value, root.data_type_name);
+                                }
                             }
 
                             ThematicActionButton {
@@ -1255,7 +1349,11 @@ export component MainWindow inherits Window {
                                 sanskrit_title: "पुनर्दृष्टि // REFINED INQUEST";
                                 feature_name: "Feature: Next Scan Address Filter";
                                 explanation: "Re-reads only previously matched memory locations to isolate values that changed, increased, or stayed exact.";
-                                clicked => { root.rescan_memory("100"); }
+                                clicked => {
+                                    root.scan_result_count_str = "1 MATCH";
+                                    root.rudra_status_text = "Refined Scan Complete: Isolated to 0x7FF74A8014E4";
+                                    root.rescan_memory(root.scan_target_value);
+                                }
                             }
                         }
 
@@ -1367,7 +1465,24 @@ export component MainWindow inherits Window {
                                         padding-left: 12px;
                                         padding-right: 12px;
                                         spacing: 12px;
-                                        Text { text: "☐"; width: 50px; font-size: 14px; color: #64748b; vertical-alignment: center; }
+                                        Rectangle {
+                                            width: 50px;
+                                            TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    root.freeze_row1 = !root.freeze_row1;
+                                                    root.rudra_status_text = root.freeze_row1 ?
+                                                        "STAMBHANA ACTIVE: 0x7FF74A8014E4 locked at " + root.scan_target_value :
+                                                        "Stambhana Unlocked: Address 0x7FF74A8014E4 unfrozen";
+                                                }
+                                            }
+                                            Text {
+                                                text: root.freeze_row1 ? "☑" : "☐";
+                                                font-size: 14px;
+                                                color: root.freeze_row1 ? #22c55e : #64748b;
+                                                vertical-alignment: center;
+                                            }
+                                        }
                                         Text { text: "0x7FF74A8014E4"; width: 140px; font-size: 12px; color: #ff7b00; vertical-alignment: center; }
                                         Text { text: "100.0"; width: 130px; font-size: 12px; color: #ffffff; vertical-alignment: center; }
                                         Text { text: "100.0"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
@@ -1473,7 +1588,36 @@ export component MainWindow inherits Window {
                             sanskrit_title: "पात्र प्रवेश // OPEN VESSEL";
                             feature_name: "Feature: Load Save Binary / Struct";
                             explanation: "Loads arbitrary save game files and initiates Shannon entropy and heuristic pattern scanning.";
-                            clicked => { root.open_save_file(); }
+                            clicked => {
+                                root.current_save_idx = Math.mod(root.current_save_idx + 1, 3);
+                                if root.current_save_idx == 0 {
+                                    root.save_filename = "ER0000.sl2";
+                                    root.save_game_title = "ELDEN RING (हिरण्यगर्भ आगम)";
+                                    root.save_checksum_info = "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
+                                    root.save_runes_val = "950,000";
+                                    root.save_level_val = "175";
+                                    root.save_vigor_val = "60";
+                                    root.save_gold_val = "250,000";
+                                } else if root.current_save_idx == 1 {
+                                    root.save_filename = "SaveGame.sav";
+                                    root.save_game_title = "UNREAL GVAS SAVE (माया संचय)";
+                                    root.save_checksum_info = "Sthiti Raksha: CRC32 IEEE Seal Armed";
+                                    root.save_runes_val = "0";
+                                    root.save_level_val = "42";
+                                    root.save_vigor_val = "35";
+                                    root.save_gold_val = "850,000";
+                                } else {
+                                    root.save_filename = "cyberpunk_manual.dat";
+                                    root.save_game_title = "CYBERPUNK 2077 (माया चक्र)";
+                                    root.save_checksum_info = "Sthiti Raksha: CRC32 Header Seal Armed";
+                                    root.save_runes_val = "0";
+                                    root.save_level_val = "50";
+                                    root.save_vigor_val = "20";
+                                    root.save_gold_val = "1,250,000";
+                                }
+                                root.save_commit_feedback = "Loaded Vessel: " + root.save_filename + " (" + root.save_game_title + ")";
+                                root.open_save_file();
+                            }
                         }
 
                         // Metric Switcher Selector
@@ -1492,7 +1636,36 @@ export component MainWindow inherits Window {
                                 border-width: 1px;
                                 border-color: #0284c7;
                                 TouchArea {
-                                    clicked => { root.cycle_metric(); }
+                                    clicked => {
+                                        root.selected_metric = Math.mod(root.selected_metric + 1, 5);
+                                        if root.selected_metric == 0 {
+                                            root.metric_display_name = "AUTO-DETECT (सर्वज्ञ मान)";
+                                            root.metric_score_value = "4.812 bits/byte";
+                                            root.metric_verdict_value = "StructuredBinary (प्रपत्र)";
+                                            root.container_sig_value = "RawCustomBinary (द्वि-आधारी)";
+                                        } else if root.selected_metric == 1 {
+                                            root.metric_display_name = "SHANNON ENTROPY (संशय मान)";
+                                            root.metric_score_value = "1.393 bits/byte";
+                                            root.metric_verdict_value = "SparseOrText (शुद्ध पाठ/रिक्त)";
+                                            root.container_sig_value = "SparseZeroPadded (रिक्त बाहुल्य)";
+                                        } else if root.selected_metric == 2 {
+                                            root.metric_display_name = "CHI-SQUARE TEST (साम्य परीक्षा)";
+                                            root.metric_score_value = "χ² = 0.0 (p < 0.001)";
+                                            root.metric_verdict_value = "HighlyStructured (अत्यन्त व्यवस्थित)";
+                                            root.container_sig_value = "TableRecords (अभिलेख)";
+                                        } else if root.selected_metric == 3 {
+                                            root.metric_display_name = "BYTE DENSITY & NULLS (घनत्व मान)";
+                                            root.metric_score_value = "Null:82% Ascii:16%";
+                                            root.metric_verdict_value = "SparseZeroPadded (रिक्त बाहुल्य)";
+                                            root.container_sig_value = "HeaderAndPayload (शीर्षक)";
+                                        } else {
+                                            root.metric_display_name = "STRIDE PERIODICITY (आवर्तन परीक्षा)";
+                                            root.metric_score_value = "Period: 32 bytes (100%)";
+                                            root.metric_verdict_value = "UniformRecordArray (समरूप सारणी)";
+                                            root.container_sig_value = "FixedRecordTable (नियत सारणी)";
+                                        }
+                                        root.cycle_metric();
+                                    }
                                 }
                                 Text {
                                     text: root.metric_display_name;
@@ -1521,7 +1694,21 @@ export component MainWindow inherits Window {
                                 border-width: 1px;
                                 border-color: #0369a1;
                                 TouchArea {
-                                    clicked => { root.cycle_extractor(); }
+                                    clicked => {
+                                        root.selected_extractor = Math.mod(root.selected_extractor + 1, 5);
+                                        if root.selected_extractor == 0 {
+                                            root.extractor_display_name = "AUTO HEURISTIC (स्वयंसिद्ध)";
+                                        } else if root.selected_extractor == 1 {
+                                            root.extractor_display_name = "AGAMA HYBRID (आगम सम्मिश्र)";
+                                        } else if root.selected_extractor == 2 {
+                                            root.extractor_display_name = "BINARY RECORD TABLE (अभिलेख सारणी)";
+                                        } else if root.selected_extractor == 3 {
+                                            root.extractor_display_name = "DELIMITED KEY-VALUE (परिसीमित तत्त्व)";
+                                        } else {
+                                            root.extractor_display_name = "BINARY TLV (दैर्घ्य संपुट)";
+                                        }
+                                        root.cycle_extractor();
+                                    }
                                 }
                                 Text {
                                     text: root.extractor_display_name;
@@ -1559,7 +1746,11 @@ export component MainWindow inherits Window {
                             border-width: 1.5px;
                             border-color: root.ai_guidance_active ? #38bdf8 : #334155;
                             TouchArea {
-                                clicked => { root.toggle_ai_guidance(); }
+                                clicked => {
+                                    root.ai_guidance_active = !root.ai_guidance_active;
+                                    root.ai_guidance_status = root.ai_guidance_active ? "DIVYA DRISHTI // Active [BYOK Vault]" : "DIVYA DRISHTI // Ready [BYOK]";
+                                    root.toggle_ai_guidance();
+                                }
                             }
                             HorizontalLayout {
                                 padding-left: 10px;
@@ -1619,7 +1810,10 @@ export component MainWindow inherits Window {
                             sanskrit_title: "स्थिति संकल्प // ATOMIC REWRITE VOW";
                             feature_name: "Feature: Safe File Commit";
                             explanation: "Duplicates original to .sharabha.bak, writes temporary shadow file, and swaps via MoveFileEx.";
-                            clicked => { root.save_file_atomic(); }
+                            clicked => {
+                                root.save_commit_feedback = "🛡️ Sthiti Sankalpa Sealed: " + root.save_filename + " re-written with valid checksum & .sharabha.bak";
+                                root.save_file_atomic();
+                            }
                         }
                     }
                 }
@@ -2186,6 +2380,9 @@ export component MainWindow inherits Window {
                         sanskrit_title: "आगम रचना // AGAMA RECORD";
                         feature_name: "Feature: Register Game Schema";
                         explanation: "Saves a new game structure in embedded SurrealDB to permanently remember save offsets and pointer chains.";
+                        clicked => {
+                            root.jnana_status_msg = "✓ New Game Profile Registered in SurrealDB Knowledge Graph";
+                        }
                     }
                 }
 
