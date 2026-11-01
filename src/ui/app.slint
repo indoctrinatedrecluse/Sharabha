@@ -591,6 +591,150 @@ export component ProcessPickerRow inherits Rectangle {
     }
 }
 
+export component SaveKeyValueRow inherits Rectangle {
+    in property <string> offset_str: "0x0000";
+    in property <string> key_name: "UNKNOWN_KEY";
+    in property <string> type_str: "i32";
+    in property <string> conf_str: "99%";
+    in property <string> hex_str: "00 00 00 00";
+    in-out property <string> val_str: "0";
+    in property <bool> is_even: false;
+    callback write_clicked(string);
+
+    height: 42px;
+    background: is_even ? #0c1422aa : #080d1688;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: touch.has_hover ? #38bdf888 : #16203266;
+
+    touch := TouchArea { }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 8px;
+        alignment: center;
+
+        // 1. Offset / Sthana
+        Text {
+            text: root.offset_str;
+            width: 65px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #38bdf8;
+            font-family: "Consolas, monospace";
+            vertical-alignment: center;
+        }
+
+        // 2. Key Identifier / Property Name (Lakshana)
+        HorizontalLayout {
+            width: 150px;
+            spacing: 5px;
+            alignment: start;
+            Text {
+                text: "🔑";
+                font-size: 10px;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.key_name;
+                font-size: 11px;
+                font-weight: 800;
+                color: #f1f5f9;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+        }
+
+        // 3. Type (Rupa)
+        Rectangle {
+            width: 105px;
+            height: 22px;
+            background: #ca8a0422;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: #ca8a0455;
+            HorizontalLayout {
+                padding-left: 6px;
+                padding-right: 6px;
+                Text {
+                    text: root.type_str;
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: #facc15;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // 4. Confidence (Vishwas)
+        Rectangle {
+            width: 80px;
+            height: 22px;
+            background: #22c55e22;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: #22c55e55;
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                Text {
+                    text: root.conf_str;
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: #4ade80;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // 5. Hex Dump
+        Text {
+            text: root.hex_str;
+            width: 85px;
+            font-size: 10px;
+            color: #94a3b8;
+            font-family: "Consolas, monospace";
+            vertical-alignment: center;
+        }
+
+        // 6. Pre-loaded Editable Value
+        LineEdit {
+            text <=> root.val_str;
+            horizontal-stretch: 1;
+            min-width: 80px;
+            height: 32px;
+            font-size: 12px;
+        }
+
+        // 7. Action Button
+        Rectangle {
+            width: 64px;
+            height: 30px;
+            background: btn_touch.has_hover ? #0284c7 : #1e3a5f;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: #38bdf8;
+            btn_touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.write_clicked(root.val_str);
+                }
+            }
+            Text {
+                text: "WRITE ✎";
+                font-size: 10px;
+                font-weight: 800;
+                color: #ffffff;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
     min-width: 1180px;
@@ -722,7 +866,7 @@ export component MainWindow inherits Window {
     // Resizable Panes Dimensions (Interactive Drag Splitters)
     in-out property <string> active_process_name: LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]";
     in-out property <length> rudra_left_width: 320px;
-    in-out property <length> kalyana_left_width: 350px;
+    in-out property <length> kalyana_left_width: 270px;
     in-out property <length> jnana_left_width: 320px;
 
     // Ambient Altar Canvas & Video Controller (Chitrapata)
@@ -1217,6 +1361,78 @@ export component MainWindow inherits Window {
     // Kalyana Sthiti Interactive State
     in-out property <int> current_save_idx: 0;
     in-out property <string> save_commit_feedback: LiveSave.status_feedback;
+    in-out property <string> save_table_filter: "";
+
+    // 10 Unified Extracted Key-Value Rows (सर्वेक्षण सारणी)
+    in-out property <string> save_row_0_offset: LiveSave.row_0_offset;
+    in-out property <string> save_row_0_key: LiveSave.row_0_key;
+    in-out property <string> save_row_0_type: LiveSave.row_0_type;
+    in-out property <string> save_row_0_conf: LiveSave.row_0_conf;
+    in-out property <string> save_row_0_hex: LiveSave.row_0_hex;
+    in-out property <string> save_row_0_val: LiveSave.row_0_val;
+
+    in-out property <string> save_row_1_offset: LiveSave.row_1_offset;
+    in-out property <string> save_row_1_key: LiveSave.row_1_key;
+    in-out property <string> save_row_1_type: LiveSave.row_1_type;
+    in-out property <string> save_row_1_conf: LiveSave.row_1_conf;
+    in-out property <string> save_row_1_hex: LiveSave.row_1_hex;
+    in-out property <string> save_row_1_val: LiveSave.row_1_val;
+
+    in-out property <string> save_row_2_offset: LiveSave.row_2_offset;
+    in-out property <string> save_row_2_key: LiveSave.row_2_key;
+    in-out property <string> save_row_2_type: LiveSave.row_2_type;
+    in-out property <string> save_row_2_conf: LiveSave.row_2_conf;
+    in-out property <string> save_row_2_hex: LiveSave.row_2_hex;
+    in-out property <string> save_row_2_val: LiveSave.row_2_val;
+
+    in-out property <string> save_row_3_offset: LiveSave.row_3_offset;
+    in-out property <string> save_row_3_key: LiveSave.row_3_key;
+    in-out property <string> save_row_3_type: LiveSave.row_3_type;
+    in-out property <string> save_row_3_conf: LiveSave.row_3_conf;
+    in-out property <string> save_row_3_hex: LiveSave.row_3_hex;
+    in-out property <string> save_row_3_val: LiveSave.row_3_val;
+
+    in-out property <string> save_row_4_offset: LiveSave.row_4_offset;
+    in-out property <string> save_row_4_key: LiveSave.row_4_key;
+    in-out property <string> save_row_4_type: LiveSave.row_4_type;
+    in-out property <string> save_row_4_conf: LiveSave.row_4_conf;
+    in-out property <string> save_row_4_hex: LiveSave.row_4_hex;
+    in-out property <string> save_row_4_val: LiveSave.row_4_val;
+
+    in-out property <string> save_row_5_offset: LiveSave.row_5_offset;
+    in-out property <string> save_row_5_key: LiveSave.row_5_key;
+    in-out property <string> save_row_5_type: LiveSave.row_5_type;
+    in-out property <string> save_row_5_conf: LiveSave.row_5_conf;
+    in-out property <string> save_row_5_hex: LiveSave.row_5_hex;
+    in-out property <string> save_row_5_val: LiveSave.row_5_val;
+
+    in-out property <string> save_row_6_offset: LiveSave.row_6_offset;
+    in-out property <string> save_row_6_key: LiveSave.row_6_key;
+    in-out property <string> save_row_6_type: LiveSave.row_6_type;
+    in-out property <string> save_row_6_conf: LiveSave.row_6_conf;
+    in-out property <string> save_row_6_hex: LiveSave.row_6_hex;
+    in-out property <string> save_row_6_val: LiveSave.row_6_val;
+
+    in-out property <string> save_row_7_offset: LiveSave.row_7_offset;
+    in-out property <string> save_row_7_key: LiveSave.row_7_key;
+    in-out property <string> save_row_7_type: LiveSave.row_7_type;
+    in-out property <string> save_row_7_conf: LiveSave.row_7_conf;
+    in-out property <string> save_row_7_hex: LiveSave.row_7_hex;
+    in-out property <string> save_row_7_val: LiveSave.row_7_val;
+
+    in-out property <string> save_row_8_offset: LiveSave.row_8_offset;
+    in-out property <string> save_row_8_key: LiveSave.row_8_key;
+    in-out property <string> save_row_8_type: LiveSave.row_8_type;
+    in-out property <string> save_row_8_conf: LiveSave.row_8_conf;
+    in-out property <string> save_row_8_hex: LiveSave.row_8_hex;
+    in-out property <string> save_row_8_val: LiveSave.row_8_val;
+
+    in-out property <string> save_row_9_offset: LiveSave.row_9_offset;
+    in-out property <string> save_row_9_key: LiveSave.row_9_key;
+    in-out property <string> save_row_9_type: LiveSave.row_9_type;
+    in-out property <string> save_row_9_conf: LiveSave.row_9_conf;
+    in-out property <string> save_row_9_hex: LiveSave.row_9_hex;
+    in-out property <string> save_row_9_val: LiveSave.row_9_val;
 
     // Generic Dynamic Save Fields (यथार्थ क्षेत्र विश्लेषक)
     in-out property <string> save_field_0_tag: LiveSave.field_0_tag;
@@ -2813,512 +3029,328 @@ export component MainWindow inherits Window {
                         padding: 16px;
                         spacing: 12px;
 
-                        // Dual-Mode Aspect Switcher Header
-                        HorizontalLayout {
-                            alignment: space-between;
+                        // Header Banner
+                        Rectangle {
+                            height: 64px;
+                            background: #141c2bcc;
+                            border-radius: 8px;
+                            border-width: 1.5px;
+                            border-color: #0284c766;
 
                             HorizontalLayout {
-                                spacing: 12px;
-                                alignment: center;
+                                padding-left: 18px;
+                                padding-right: 18px;
+                                alignment: space-between;
 
-                                Text {
-                                    text: root.save_view_mode == 0 ? "🏛️ AGAMA MODE // Deterministic Profile (आगम दर्शन)" : "🌊 PRAVAHA MODE // Fuzzy Stream Map (प्रवाह दर्शन)";
-                                    font-size: 13px;
-                                    font-weight: 800;
-                                    letter-spacing: 1px;
-                                    color: root.save_view_mode == 0 ? #eab308 : #38bdf8;
-                                    vertical-alignment: center;
-                                }
-
-                                Rectangle {
-                                    height: 24px;
-                                    background: #0ea5e925;
-                                    border-radius: 4px;
-                                    border-width: 1px;
-                                    border-color: #0ea5e955;
-                                    HorizontalLayout {
-                                        padding-left: 8px;
-                                        padding-right: 8px;
-                                        Text {
-                                            text: root.save_checksum_info;
-                                            font-size: 10px;
-                                            font-weight: 700;
-                                            color: #38bdf8;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // View Mode Toggle Button
-                            ThematicActionButton {
-                                text: root.save_view_mode == 0 ? "SWITCH TO PRAVAHA" : "SWITCH TO AGAMA";
-                                devanagari: root.save_view_mode == 0 ? "प्रवाह रूप (Fuzzy)" : "आगम रूप (Temple)";
-                                btn_width: 180px;
-                                btn_height: 36px;
-                                bg_color: root.save_view_mode == 0 ? #0284c7 : #854d0e;
-                                hover_color: root.save_view_mode == 0 ? #0396df : #a16207;
-                                sanskrit_title: "दर्शन परिवर्तन // DUAL-ASPECT TOGGLE";
-                                feature_name: "Feature: Switch Agama/Pravaha Mode";
-                                explanation: "Toggles between known Agama deterministic field cards and raw multi-metric candidate extraction.";
-                                clicked => {
-                                    root.save_view_mode = root.save_view_mode == 0 ? 1 : 0;
-                                    root.toggle_save_view_mode();
-                                }
-                            }
-                        }
-
-                        // -------------------------------------------------------------
-                        // AGAMA VIEW: Deterministic Sacred Game Cards (when save_view_mode == 0)
-                        // -------------------------------------------------------------
-                        if root.save_view_mode == 0: VerticalLayout {
-                            spacing: 14px;
-
-                            // Sacred Profile Banner
-                            Rectangle {
-                                height: 72px;
-                                background: #141c2bcc;
-                                border-radius: 8px;
-                                border-width: 1.5px;
-                                border-color: #eab30866;
-
-                                HorizontalLayout {
-                                    padding-left: 18px;
-                                    padding-right: 18px;
-                                    alignment: space-between;
-
-                                    VerticalLayout {
-                                        alignment: center;
-                                        spacing: 3px;
-
-                                        HorizontalLayout {
-                                            spacing: 10px;
-                                            Text {
-                                                text: root.save_game_title;
-                                                font-size: 14px;
-                                                font-weight: 800;
-                                                color: #facc15;
-                                                vertical-alignment: center;
-                                            }
-                                            Rectangle {
-                                                height: 20px;
-                                                background: #22c55e25;
-                                                border-radius: 4px;
-                                                border-width: 1px;
-                                                border-color: #22c55e66;
-                                                HorizontalLayout {
-                                                    padding-left: 6px;
-                                                    padding-right: 6px;
-                                                    Text {
-                                                        text: "Jnana Kosha Verified";
-                                                        font-size: 10px;
-                                                        font-weight: 700;
-                                                        color: #4ade80;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Text {
-                                            text: "Target Vessel: " + root.save_filename + " (Slot 0 Block 0x300) • Multi-Metric Schema Locked";
-                                            font-size: 11px;
-                                            color: #94a3b8;
-                                        }
-                                    }
-
-                                    VerticalLayout {
-                                        alignment: center;
-                                        Text {
-                                            text: "AGAMA: HIRANYAGARBHA";
-                                            font-size: 10px;
-                                            font-weight: 800;
-                                            color: #ca8a04;
-                                            horizontal-alignment: right;
-                                        }
-                                        Text {
-                                            text: "Deterministic Mode Active";
-                                            font-size: 10px;
-                                            color: #64748b;
-                                            horizontal-alignment: right;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Grid of Generic Dynamic Editable Save Record Fields
-                            HorizontalLayout {
-                                spacing: 14px;
-
-                                // Generic Field 0: 0x000C
-                                Rectangle {
-                                    horizontal-stretch: 1;
-                                    background: #0d1524d8;
-                                    border-radius: 8px;
-                                    border-width: 1px;
-                                    border-color: #38bdf844;
-
-                                    VerticalLayout {
-                                        padding: 14px;
-                                        spacing: 8px;
-
-                                        HorizontalLayout {
-                                            alignment: space-between;
-                                            Text { text: root.save_field_0_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
-                                            Text { text: root.save_field_0_type; font-size: 10px; color: #64748b; }
-                                        }
-                                        Text { text: "Hex Dump: " + root.save_field_0_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
-
-                                        LineEdit {
-                                            text <=> root.save_field_0_val;
-                                            font-size: 13px;
-                                            height: 36px;
-                                        }
-
-                                        ThematicActionButton {
-                                            text: "APPLY VALUE // Write";
-                                            devanagari: "मूल्य प्रयोग";
-                                            btn_width: 0px;
-                                            btn_height: 30px;
-                                            bg_color: #1e3a5f;
-                                            hover_color: #2563eb;
-                                            clicked => {
-                                                root.save_commit_feedback = "Field 0x000C set to '" + root.save_field_0_val + "' • Buffer modified";
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Generic Field 1: 0x0010
-                                Rectangle {
-                                    horizontal-stretch: 1;
-                                    background: #0d1524d8;
-                                    border-radius: 8px;
-                                    border-width: 1px;
-                                    border-color: #38bdf844;
-
-                                    VerticalLayout {
-                                        padding: 14px;
-                                        spacing: 8px;
-
-                                        HorizontalLayout {
-                                            alignment: space-between;
-                                            Text { text: root.save_field_1_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
-                                            Text { text: root.save_field_1_type; font-size: 10px; color: #64748b; }
-                                        }
-                                        Text { text: "Hex Dump: " + root.save_field_1_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
-
-                                        LineEdit {
-                                            text <=> root.save_field_1_val;
-                                            font-size: 13px;
-                                            height: 36px;
-                                        }
-
-                                        ThematicActionButton {
-                                            text: "APPLY VALUE // Write";
-                                            devanagari: "मूल्य प्रयोग";
-                                            btn_width: 0px;
-                                            btn_height: 30px;
-                                            bg_color: #1e3a5f;
-                                            hover_color: #2563eb;
-                                            clicked => {
-                                                root.save_commit_feedback = "Field 0x0010 set to '" + root.save_field_1_val + "' • Buffer modified";
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            HorizontalLayout {
-                                spacing: 14px;
-
-                                // Generic Field 2: 0x0014
-                                Rectangle {
-                                    horizontal-stretch: 1;
-                                    background: #0d1524d8;
-                                    border-radius: 8px;
-                                    border-width: 1px;
-                                    border-color: #38bdf844;
-
-                                    VerticalLayout {
-                                        padding: 14px;
-                                        spacing: 8px;
-
-                                        HorizontalLayout {
-                                            alignment: space-between;
-                                            Text { text: root.save_field_2_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
-                                            Text { text: root.save_field_2_type; font-size: 10px; color: #64748b; }
-                                        }
-                                        Text { text: "Hex Dump: " + root.save_field_2_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
-
-                                        LineEdit {
-                                            text <=> root.save_field_2_val;
-                                            font-size: 13px;
-                                            height: 36px;
-                                        }
-
-                                        ThematicActionButton {
-                                            text: "APPLY VALUE // Write";
-                                            devanagari: "मूल्य प्रयोग";
-                                            btn_width: 0px;
-                                            btn_height: 30px;
-                                            bg_color: #1e3a5f;
-                                            hover_color: #2563eb;
-                                            clicked => {
-                                                root.save_commit_feedback = "Field 0x0014 set to '" + root.save_field_2_val + "' • Buffer modified";
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Generic Field 3: 0x0018
-                                Rectangle {
-                                    horizontal-stretch: 1;
-                                    background: #0d1524d8;
-                                    border-radius: 8px;
-                                    border-width: 1px;
-                                    border-color: #38bdf844;
-
-                                    VerticalLayout {
-                                        padding: 14px;
-                                        spacing: 8px;
-
-                                        HorizontalLayout {
-                                            alignment: space-between;
-                                            Text { text: root.save_field_3_tag; font-size: 11px; font-weight: 800; color: #38bdf8; }
-                                            Text { text: root.save_field_3_type; font-size: 10px; color: #64748b; }
-                                        }
-                                        Text { text: "Hex Dump: " + root.save_field_3_hex; font-size: 10px; color: #94a3b8; font-family: "Consolas, monospace"; }
-
-                                        LineEdit {
-                                            text <=> root.save_field_3_val;
-                                            font-size: 13px;
-                                            height: 36px;
-                                        }
-
-                                        ThematicActionButton {
-                                            text: "APPLY VALUE // Write";
-                                            devanagari: "मूल्य प्रयोग";
-                                            btn_width: 0px;
-                                            btn_height: 30px;
-                                            bg_color: #1e3a5f;
-                                            hover_color: #2563eb;
-                                            clicked => {
-                                                root.save_commit_feedback = "Field 0x0018 set to '" + root.save_field_3_val + "' • Buffer modified";
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Sthiti Raksha Integrity Seal Telemetry Bar
-                            Rectangle {
-                                height: 50px;
-                                background: #0c1a2db0;
-                                border-radius: 6px;
-                                border-width: 1px;
-                                border-color: #0284c755;
-
-                                HorizontalLayout {
-                                    padding-left: 16px;
-                                    padding-right: 16px;
-                                    alignment: space-between;
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 3px;
 
                                     HorizontalLayout {
                                         spacing: 10px;
-                                        alignment: center;
                                         Text {
-                                            text: "🛡️ STHITI RAKSHA:";
-                                            font-size: 11px;
+                                            text: root.save_game_title;
+                                            font-size: 14px;
                                             font-weight: 800;
                                             color: #38bdf8;
                                             vertical-alignment: center;
                                         }
-                                        Text {
-                                            text: "MD5 128-bit Slot Block 0x300 Checksum Armed • Auto-Recomputed on Commit";
-                                            font-size: 11px;
-                                            color: #cbd5e1;
-                                            vertical-alignment: center;
+                                        Rectangle {
+                                            height: 20px;
+                                            background: #22c55e25;
+                                            border-radius: 4px;
+                                            border-width: 1px;
+                                            border-color: #22c55e66;
+                                            HorizontalLayout {
+                                                padding-left: 6px;
+                                                padding-right: 6px;
+                                                Text {
+                                                    text: "Heuristic Verified";
+                                                    font-size: 10px;
+                                                    font-weight: 700;
+                                                    color: #4ade80;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
                                         }
                                     }
 
                                     Text {
-                                        text: "Zero-Corruption Vow (अखंड रक्षा)";
-                                        font-size: 10px;
+                                        text: "Vessel: " + root.save_filename + " (" + root.metric_verdict_value + " • " + root.metric_score_value + ")";
+                                        font-size: 11px;
+                                        color: #94a3b8;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 2px;
+                                    Rectangle {
+                                        height: 24px;
+                                        background: #0ea5e925;
+                                        border-radius: 4px;
+                                        border-width: 1px;
+                                        border-color: #0ea5e955;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            Text {
+                                                text: root.save_checksum_info;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                                color: #38bdf8;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        text: "Tabular Key-Value Inspector Active";
+                                        font-size: 9px;
+                                        color: #64748b;
+                                        horizontal-alignment: right;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Search Filter & Table Quick Actions Bar
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            LineEdit {
+                                text <=> root.save_table_filter;
+                                placeholder-text: "Filter by key name, offset, or type (e.g. runes, level, 0x000C, i32)...";
+                                font-size: 12px;
+                                horizontal-stretch: 1;
+                                height: 38px;
+                            }
+
+                            ThematicActionButton {
+                                text: "APPLY ALL // Write";
+                                devanagari: "सर्व संस्कार";
+                                btn_width: 125px;
+                                btn_height: 38px;
+                                bg_color: #15803d;
+                                hover_color: #16a34a;
+                                sanskrit_title: "सर्व संस्कार // APPLY ALL EDITS";
+                                feature_name: "Feature: Commit All Values";
+                                explanation: "Applies all modified values across all key rows into the save memory buffer.";
+                                clicked => {
+                                    root.save_commit_feedback = "✓ Applied all 10 extracted key-value edits into memory buffer";
+                                }
+                            }
+
+                            ThematicActionButton {
+                                text: "RELOAD ⟳";
+                                devanagari: "पुनः प्राप्ति";
+                                btn_width: 95px;
+                                btn_height: 38px;
+                                bg_color: #1e293b;
+                                hover_color: #334155;
+                                sanskrit_title: "पुनः प्राप्ति // RELOAD VESSEL";
+                                feature_name: "Feature: Re-parse Save from Disk";
+                                explanation: "Reloads the active save file from disk and refreshes all extracted keys.";
+                                clicked => {
+                                    root.save_commit_feedback = "Re-parsing save vessel from disk (स्थिति पुनः परीक्षा)...";
+                                    root.open_save_file();
+                                }
+                            }
+                        }
+
+                        // Table Column Headers
+                        Rectangle {
+                            height: 32px;
+                            background: #0d1626cc;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: #1e293b;
+
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                alignment: center;
+
+                                Text { text: "OFFSET (स्थान)"; width: 65px; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                Text { text: "KEY IDENTIFIER / NAME (लक्षण)"; width: 150px; font-size: 10px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                Text { text: "INFERRED TYPE (रूप)"; width: 105px; font-size: 10px; font-weight: 800; color: #eab308; vertical-alignment: center; }
+                                Text { text: "CONFIDENCE (विश्वास)"; width: 80px; font-size: 10px; font-weight: 800; color: #4ade80; vertical-alignment: center; }
+                                Text { text: "HEX DUMP (अष्टक)"; width: 85px; font-size: 10px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
+                                Text { text: "PRE-LOADED VALUE (तत्त्व // EDITABLE)"; horizontal-stretch: 1; min-width: 80px; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                Text { text: "ACTION"; width: 64px; font-size: 10px; font-weight: 800; color: #cbd5e1; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+
+                        // Table Rows (Scrollable list of extracted key-value records)
+                        ScrollView {
+                            VerticalLayout {
+                                padding: 2px;
+                                spacing: 4px;
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_0_offset;
+                                    key_name: root.save_row_0_key;
+                                    type_str: root.save_row_0_type;
+                                    conf_str: root.save_row_0_conf;
+                                    hex_str: root.save_row_0_hex;
+                                    val_str <=> root.save_row_0_val;
+                                    is_even: false;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_0_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_1_offset;
+                                    key_name: root.save_row_1_key;
+                                    type_str: root.save_row_1_type;
+                                    conf_str: root.save_row_1_conf;
+                                    hex_str: root.save_row_1_hex;
+                                    val_str <=> root.save_row_1_val;
+                                    is_even: true;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_1_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_2_offset;
+                                    key_name: root.save_row_2_key;
+                                    type_str: root.save_row_2_type;
+                                    conf_str: root.save_row_2_conf;
+                                    hex_str: root.save_row_2_hex;
+                                    val_str <=> root.save_row_2_val;
+                                    is_even: false;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_2_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_3_offset;
+                                    key_name: root.save_row_3_key;
+                                    type_str: root.save_row_3_type;
+                                    conf_str: root.save_row_3_conf;
+                                    hex_str: root.save_row_3_hex;
+                                    val_str <=> root.save_row_3_val;
+                                    is_even: true;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_3_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_4_offset;
+                                    key_name: root.save_row_4_key;
+                                    type_str: root.save_row_4_type;
+                                    conf_str: root.save_row_4_conf;
+                                    hex_str: root.save_row_4_hex;
+                                    val_str <=> root.save_row_4_val;
+                                    is_even: false;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_4_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_5_offset;
+                                    key_name: root.save_row_5_key;
+                                    type_str: root.save_row_5_type;
+                                    conf_str: root.save_row_5_conf;
+                                    hex_str: root.save_row_5_hex;
+                                    val_str <=> root.save_row_5_val;
+                                    is_even: true;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_5_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_6_offset;
+                                    key_name: root.save_row_6_key;
+                                    type_str: root.save_row_6_type;
+                                    conf_str: root.save_row_6_conf;
+                                    hex_str: root.save_row_6_hex;
+                                    val_str <=> root.save_row_6_val;
+                                    is_even: false;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_6_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_7_offset;
+                                    key_name: root.save_row_7_key;
+                                    type_str: root.save_row_7_type;
+                                    conf_str: root.save_row_7_conf;
+                                    hex_str: root.save_row_7_hex;
+                                    val_str <=> root.save_row_7_val;
+                                    is_even: true;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_7_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_8_offset;
+                                    key_name: root.save_row_8_key;
+                                    type_str: root.save_row_8_type;
+                                    conf_str: root.save_row_8_conf;
+                                    hex_str: root.save_row_8_hex;
+                                    val_str <=> root.save_row_8_val;
+                                    is_even: false;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_8_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+
+                                SaveKeyValueRow {
+                                    offset_str: root.save_row_9_offset;
+                                    key_name: root.save_row_9_key;
+                                    type_str: root.save_row_9_type;
+                                    conf_str: root.save_row_9_conf;
+                                    hex_str: root.save_row_9_hex;
+                                    val_str <=> root.save_row_9_val;
+                                    is_even: true;
+                                    write_clicked(val) => {
+                                        root.save_commit_feedback = "Modified " + root.save_row_9_key + " = '" + val + "' • Buffer armed";
+                                    }
+                                }
+                            }
+                        }
+
+                        // Bottom Integrity & Status Feedback Bar
+                        Rectangle {
+                            height: 38px;
+                            background: #0c1a2db0;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #0284c755;
+
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                padding-right: 14px;
+                                alignment: space-between;
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: center;
+                                    Text {
+                                        text: "🛡️ " + root.save_commit_feedback;
+                                        font-size: 11px;
                                         font-weight: 700;
-                                        color: #22c55e;
+                                        color: #38bdf8;
                                         vertical-alignment: center;
                                     }
                                 }
-                            }
-                        }
-                        // -------------------------------------------------------------
-                        // PRAVAHA VIEW: Heuristic Multi-Metric Raw Table (when save_view_mode == 1)
-                        // -------------------------------------------------------------
-                        if root.save_view_mode == 1: VerticalLayout {
-                            spacing: 8px;
 
-                        // Table Header
-                        Rectangle {
-                            height: 38px;
-                            background: #080d16a8;
-                            border-radius: 4px;
-
-                            HorizontalLayout {
-                                padding-left: 12px;
-                                padding-right: 12px;
-                                spacing: 10px;
-
-                                ThematicColumnHeader {
-                                    title: "STHANA";
-                                    devanagari: "Offset (स्थान)";
-                                    col_width: 85px;
-                                    text_color: #38bdf8;
-                                    sanskrit_title: "स्थान // BYTE OFFSET";
-                                    feature_name: "Feature: File Offset";
-                                    explanation: "Zero-based hexadecimal position of this field within the save game binary file.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "VISHWAS";
-                                    devanagari: "Confidence (विश्वास)";
-                                    col_width: 85px;
-                                    text_color: #eab308;
-                                    sanskrit_title: "विश्वास // CONFIDENCE";
-                                    feature_name: "Feature: Heuristic Trust Score";
-                                    explanation: "Statistical confidence rating (0-100%) indicating how certain the parser is about this type.";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "RUPA";
-                                    devanagari: "Inferred Type (रूप)";
-                                    col_width: 140px;
-                                    text_color: #94a3b8;
-                                    sanskrit_title: "रूप // DATA FORM";
-                                    feature_name: "Feature: Inferred Type";
-                                    explanation: "Detected data type (ASCII string, UTF-16, little-endian i32/u32, or IEEE 754 float).";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "LAKSHANA";
-                                    devanagari: "Key Label (लक्षण)";
-                                    col_width: 170px;
-                                    text_color: #cbd5e1;
-                                    sanskrit_title: "लक्षण // KEY IDENTIFIER";
-                                    feature_name: "Feature: Field Label";
-                                    explanation: "Suggested or user-assigned variable name for this entry (stored in Knowledge Base).";
-                                }
-
-                                ThematicColumnHeader {
-                                    title: "TATVA";
-                                    devanagari: "Editable Value (तत्त्व)";
-                                    col_width: 180px;
-                                    text_color: #cbd5e1;
-                                    sanskrit_title: "तत्त्व // MODIFIABLE VALUE";
-                                    feature_name: "Feature: In-Place Value Editor";
-                                    explanation: "Double-click or edit this value to mutate the underlying bytes before committing.";
+                                Text {
+                                    text: "Karma Kavacha Active • MoveFileEx Atomic Protection";
+                                    font-size: 10px;
+                                    color: #22c55e;
+                                    vertical-alignment: center;
                                 }
                             }
-                        }
-
-                        // Sample Inferred Rows
-                        Rectangle {
-                            background: #080d16a8;
-                            border-radius: 6px;
-                            border-width: 1px;
-                            border-color: #18202e;
-
-                            VerticalLayout {
-                                padding: 8px;
-                                spacing: 4px;
-
-                                Rectangle {
-                                    height: 38px;
-                                    background: #141e2ecc;
-                                    border-radius: 4px;
-                                    TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => {
-                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0000] MAGIC_HEADER = 'SAVEDB_V3' (ASCII String, 95% Conf)";
-                                        }
-                                    }
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 10px;
-                                        Text { text: "0x0000"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
-                                        Text { text: "95%"; width: 60px; font-size: 11px; font-weight: 700; color: #22c55e; vertical-alignment: center; }
-                                        Text { text: "String (ASCII)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "MAGIC_HEADER"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
-                                        Text { text: "\"SAVEDB_V3\""; font-size: 11px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
-                                    }
-                                }
-
-                                Rectangle {
-                                    height: 38px;
-                                    background: transparent;
-                                    TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => {
-                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0010] PLAYER_GOLD = 750,000 (i32, 92% Conf)";
-                                        }
-                                    }
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 10px;
-                                        Text { text: "0x0010"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
-                                        Text { text: "92%"; width: 60px; font-size: 11px; font-weight: 700; color: #22c55e; vertical-alignment: center; }
-                                        Text { text: "i32 (Little Endian)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PLAYER_GOLD"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
-                                        Text { text: "750,000"; font-size: 11px; font-weight: 700; color: #eab308; vertical-alignment: center; }
-                                    }
-                                }
-
-                                Rectangle {
-                                    height: 38px;
-                                    background: #141e2ecc;
-                                    border-radius: 4px;
-                                    TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => {
-                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0018] PLAYER_HP = 985.50 (f32, 85% Conf)";
-                                        }
-                                    }
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 10px;
-                                        Text { text: "0x0018"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
-                                        Text { text: "85%"; width: 60px; font-size: 11px; font-weight: 700; color: #eab308; vertical-alignment: center; }
-                                        Text { text: "f32 (Float)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "PLAYER_HP"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
-                                        Text { text: "985.50"; font-size: 11px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
-                                    }
-                                }
-
-                                Rectangle {
-                                    height: 38px;
-                                    background: transparent;
-                                    TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => {
-                                            root.save_commit_feedback = "Pravaha Field Selected: [0x0020] STAMINA_POOL = 250 (i32, 98% Conf)";
-                                        }
-                                    }
-                                    HorizontalLayout {
-                                        padding-left: 12px;
-                                        padding-right: 12px;
-                                        spacing: 10px;
-                                        Text { text: "0x0020"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
-                                        Text { text: "98%"; width: 60px; font-size: 11px; font-weight: 700; color: #22c55e; vertical-alignment: center; }
-                                        Text { text: "i32 (Little Endian)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "STAMINA_POOL"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
-                                        Text { text: "250"; font-size: 11px; font-weight: 700; color: #4ade80; vertical-alignment: center; }
-                                    }
-                                }
-                            }
-                        }
                         }
                     }
                 }
