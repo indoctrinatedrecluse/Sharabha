@@ -45,10 +45,12 @@ export component ThematicActionButton inherits Rectangle {
     in property <length> btn_width: 155px;
     in property <length> btn_height: 42px;
     in property <bool> tooltip_down: false;
+    in property <bool> tooltip_right_align: false;
 
     callback clicked();
 
-    width: btn_width;
+    preferred-width: root.btn_width > 0px ? root.btn_width : 155px;
+    horizontal-stretch: root.btn_width > 0px ? 0 : 1;
     height: btn_height;
     background: touch.has_hover ? hover_color : bg_color;
     border-radius: 6px;
@@ -85,19 +87,19 @@ export component ThematicActionButton inherits Rectangle {
         }
     }
 
-    // High-Z Floating Description Card on Hover (Flippable Down or Up)
+    // High-Z Floating Description Card on Hover
     if touch.has_hover && root.feature_name != "": Rectangle {
-        x: max(-80px, min(0px, (parent.width - self.width) / 2));
-        y: root.tooltip_down ? (parent.height + 6px) : (-self.height - 8px);
+        x: root.tooltip_right_align ? (parent.width - self.width) : (root.tooltip_down ? 0px : (parent.width - self.width) / 2);
+        y: root.tooltip_down ? (parent.height + 8px) : (-self.height - 8px);
         width: 320px;
         height: 86px;
-        background: #090c12f6;
+        background: #090c12fc;
         border-radius: 8px;
         border-width: 1.5px;
         border-color: #eab308;
         drop-shadow-blur: 24px;
         drop-shadow-color: #000000;
-        z: 9999;
+        z: 99999;
 
         VerticalLayout {
             padding: 10px;
@@ -440,47 +442,49 @@ export component MainWindow inherits Window {
         padding: 16px;
         spacing: 12px;
 
-        // TOP HEADER BAR: Trishula Logo & Aspect Selector (Frosted Glass)
+        // TOP HEADER BAR: Trishula Logo & Aspect Selector (Frosted Glass, High-Z)
         Rectangle {
-            height: 72px;
-            background: #090d16cc;
+            height: 68px;
+            background: #090d16dd;
             border-radius: 12px;
             border-width: 1.5px;
             border-color: #2e3b5288;
+            clip: false;
+            z: 1000;
 
             HorizontalLayout {
                 padding-left: 20px;
                 padding-right: 20px;
                 alignment: space-between;
 
-                // Logo & Motto
+                // Logo & Motto (Responsive & Compact)
                 HorizontalLayout {
-                    spacing: 14px;
+                    spacing: 10px;
                     alignment: center;
 
                     Image {
                         source: @image-url("../../assets/media/app_icon.png");
-                        width: 44px;
-                        height: 44px;
+                        width: 38px;
+                        height: 38px;
                         vertical-alignment: center;
                     }
 
                     VerticalLayout {
                         alignment: center;
-                        spacing: 2px;
+                        spacing: 1px;
 
                         HorizontalLayout {
-                            spacing: 8px;
+                            spacing: 6px;
                             Text {
                                 text: "SHARABHA";
-                                font-size: 21px;
+                                font-size: 18px;
                                 font-weight: 900;
-                                letter-spacing: 2px;
+                                letter-spacing: 1.5px;
                                 color: #f8fafc;
                             }
                             Text {
                                 text: "शरभ";
-                                font-size: 17px;
+                                font-size: 15px;
                                 font-weight: 800;
                                 color: #eab308;
                                 vertical-alignment: center;
@@ -488,8 +492,8 @@ export component MainWindow inherits Window {
                         }
 
                         Text {
-                            text: "The Dual Aspect Game Tool // Subduing Narasimha & The Untamed Process";
-                            font-size: 11px;
+                            text: "Dual Aspect Tool // Sharabha Avatar";
+                            font-size: 10px;
                             color: #64748b;
                         }
                     }
@@ -501,8 +505,8 @@ export component MainWindow inherits Window {
                     alignment: center;
 
                     TabButton {
-                        title: "RUDRA TANDAVA // Memory Inquest";
-                        subtitle: "रुद्र ताण्डव • Samhara Injection [उग्र / Violent]";
+                        title: "RUDRA (रुद्र)";
+                        subtitle: "Memory Engine";
                         icon_text: "🔥";
                         is_active: root.active_tab == 0;
                         active_color: #ff4d2e;
@@ -513,8 +517,8 @@ export component MainWindow inherits Window {
                     }
 
                     TabButton {
-                        title: "KALYANA STHITI // Save Editor";
-                        subtitle: "कल्याण स्थिति • Surgical Restoration [शान्त / Calm]";
+                        title: "KALYANA (कल्याण)";
+                        subtitle: "Save Forge";
                         icon_text: "🧊";
                         is_active: root.active_tab == 1;
                         active_color: #38bdf8;
@@ -525,8 +529,8 @@ export component MainWindow inherits Window {
                     }
 
                     TabButton {
-                        title: "JNANA KOSHA // Cosmic Archive";
-                        subtitle: "ज्ञान कोष • Game Agamas & Schemas [ज्ञान / Omniscient]";
+                        title: "JNANA (ज्ञान)";
+                        subtitle: "Agama Graph";
                         icon_text: "📜";
                         is_active: root.active_tab == 2;
                         active_color: #eab308;
@@ -536,14 +540,16 @@ export component MainWindow inherits Window {
                         clicked => { root.active_tab = 2; }
                     }
 
-                    // Ambient Canvas (Chitrapata) Mode Switcher
+                    // Ambient Canvas Switcher (Downwards & Right-Aligned Tooltip)
                     ThematicActionButton {
-                        text: "CHITRAPATA // Canvas";
+                        text: "CANVAS";
                         devanagari: root.canvas_opacity_label;
-                        btn_width: 165px;
+                        btn_width: 125px;
                         btn_height: 42px;
                         bg_color: root.canvas_mode == 0 ? #0369a1 : (root.canvas_mode == 1 ? #6d28d9 : #1e293b);
                         hover_color: #38bdf8;
+                        tooltip_down: true;
+                        tooltip_right_align: true;
                         sanskrit_title: "चित्रपट वेदी // SACRED CANVAS";
                         feature_name: "Feature: Altar Canvas & Loop Switcher";
                         explanation: "Toggles between Sacred Altar Still (bg_canvas_fallback.jpg), Animated Motion Loop, and Minimal Obsidian with translucency tuning.";
@@ -568,13 +574,16 @@ export component MainWindow inherits Window {
                         }
                     }
 
+                    // Vault Button (Downwards & Right-Aligned Tooltip)
                     ThematicActionButton {
-                        text: "GUPTA KOSHA // Vault";
+                        text: "VAULT";
                         devanagari: "गुप्त कोष (BYOK)";
-                        btn_width: 165px;
+                        btn_width: 130px;
                         btn_height: 42px;
                         bg_color: #1e293b;
                         hover_color: #334155;
+                        tooltip_down: true;
+                        tooltip_right_align: true;
                         sanskrit_title: "गुप्त कोष // SECURE VAULT";
                         feature_name: "Feature: Windows DPAPI Encrypted Vault";
                         explanation: "Encrypted BYOK storage for Gemini, DeepSeek, and OpenAI-compatible API keys via local Windows DPAPI.";
@@ -682,11 +691,11 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Attach Button
+                        // Attach Button (Dynamic width - stretches with splitter)
                         ThematicActionButton {
                             text: "BIND PROCESS // Attach";
                             devanagari: "शरभ बन्धन";
-                            btn_width: 280px;
+                            btn_width: 0px;
                             btn_height: 44px;
                             bg_color: #ff4d2e;
                             hover_color: #ff6548;
@@ -725,17 +734,21 @@ export component MainWindow inherits Window {
                         padding: 16px;
                         spacing: 12px;
 
-                        // Scan Control Bar
+                        // Scan Control Bar (Fully Responsive with horizontal-stretch)
                         HorizontalLayout {
-                            spacing: 10px;
+                            spacing: 8px;
 
                             LineEdit {
                                 placeholder-text: "Target value (e.g. 500, 999999)...";
+                                horizontal-stretch: 3;
+                                min-width: 130px;
                                 height: 42px;
                             }
 
+                            // Scan Mode Cycle Selector (Exact, Increased, Decreased, Changed, Unchanged)
                             Rectangle {
-                                width: 175px;
+                                horizontal-stretch: 2;
+                                min-width: 120px;
                                 height: 42px;
                                 background: #1c2434;
                                 border-radius: 6px;
@@ -743,6 +756,7 @@ export component MainWindow inherits Window {
                                 border-color: #2e3b52;
                                 TouchArea {
                                     clicked => { root.cycle_scan_type(); }
+                                    mouse-cursor: pointer;
                                 }
                                 Text {
                                     text: root.scan_type_name;
@@ -751,11 +765,14 @@ export component MainWindow inherits Window {
                                     color: #ff7b00;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
+                                    wrap: word-wrap;
                                 }
                             }
 
+                            // Data Type Cycle Selector (i32, u32, i64, u64, f32, f64, Text)
                             Rectangle {
-                                width: 110px;
+                                horizontal-stretch: 1;
+                                min-width: 80px;
                                 height: 42px;
                                 background: #1c2434;
                                 border-radius: 6px;
@@ -763,6 +780,7 @@ export component MainWindow inherits Window {
                                 border-color: #2e3b52;
                                 TouchArea {
                                     clicked => { root.cycle_data_type(); }
+                                    mouse-cursor: pointer;
                                 }
                                 Text {
                                     text: root.data_type_name;
@@ -771,16 +789,19 @@ export component MainWindow inherits Window {
                                     color: #38bdf8;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
+                                    wrap: word-wrap;
                                 }
                             }
 
                             ThematicActionButton {
-                                text: "PRATHAMA DRISHTI // First Scan";
-                                devanagari: "प्रथम दृष्टि";
-                                btn_width: 180px;
+                                text: "FIRST SCAN (प्रथम)";
+                                devanagari: "सकल अन्वेषण";
+                                horizontal-stretch: 2;
+                                btn_width: 0px;
                                 btn_height: 42px;
                                 bg_color: #ff4d2e;
                                 hover_color: #ff6548;
+                                tooltip_down: true;
                                 sanskrit_title: "प्रथम दृष्टि // FIRST INQUEST";
                                 feature_name: "Feature: Initial RAM Value Scanner";
                                 explanation: "Queries VirtualQueryEx for committed writable pages and scans entire address space for the target value.";
@@ -788,12 +809,14 @@ export component MainWindow inherits Window {
                             }
 
                             ThematicActionButton {
-                                text: "PUNAR DRISHTI // Next Scan";
-                                devanagari: "पुनर्दृष्टि";
-                                btn_width: 170px;
+                                text: "NEXT SCAN (पुनः)";
+                                devanagari: "परिशोधन";
+                                horizontal-stretch: 2;
+                                btn_width: 0px;
                                 btn_height: 42px;
                                 bg_color: #242e42;
                                 hover_color: #2e3b54;
+                                tooltip_down: true;
                                 sanskrit_title: "पुनर्दृष्टि // REFINED INQUEST";
                                 feature_name: "Feature: Next Scan Address Filter";
                                 explanation: "Re-reads only previously matched memory locations to isolate values that changed, increased, or stayed exact.";
@@ -991,10 +1014,11 @@ export component MainWindow inherits Window {
                         ThematicActionButton {
                             text: "OPEN SAVE VESSEL // Load Save";
                             devanagari: "पात्र प्रवेश";
-                            btn_width: 292px;
+                            btn_width: 0px;
                             btn_height: 44px;
                             bg_color: #0284c7;
                             hover_color: #0396df;
+                            tooltip_down: true;
                             sanskrit_title: "पात्र प्रवेश // OPEN VESSEL";
                             feature_name: "Feature: Load Save Binary / Struct";
                             explanation: "Loads arbitrary save game files and initiates Shannon entropy and heuristic pattern scanning.";
@@ -1132,11 +1156,11 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Commit Button
+                        // Commit Button (Dynamic width - stretches with splitter)
                         ThematicActionButton {
                             text: "STHITI SANKALPA // Atomic Commit";
                             devanagari: "स्थिति संकल्प";
-                            btn_width: 280px;
+                            btn_width: 0px;
                             btn_height: 44px;
                             bg_color: #0369a1;
                             hover_color: #0779b8;
