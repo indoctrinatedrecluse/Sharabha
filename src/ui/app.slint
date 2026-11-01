@@ -1,25 +1,26 @@
 import { Button, VerticalBox, HorizontalBox, LineEdit, ScrollView, ListView } from "std-widgets.slint";
 
 /* ==========================================================================
-   SHARABHA THEME — Shaivite Mysticism & High-Tech Systems Duality
-   - Bhasma (Ash Charcoal): #0a0b0e, #14171d
+   SHARABHA THEME — Shaivite Mysticism & Systems Duality
+   - Bhasma (Ash Charcoal): #07090d, #0d1117, #151a23
    - Rudra Agni (Third-Eye Ember): #ff4d2e, #ff7b00
    - Shanti Ganga (Celestial Cyan): #38bdf8, #0ea5e9
    - Trishula Suvarna (Sacred Bronze/Gold): #eab308, #ca8a04
-   - Translucent Glass Panels: rgba(18, 22, 30, 0.78)
+   - Translucent Glass: rgba(13, 17, 24, 0.88)
    ========================================================================== */
 
 export struct ProcessUiEntry {
     pid: int,
     name: string,
-    architecture: string,
+    arch: string,
 }
 
 export struct MemoryScanResult {
     address: string,
     value: string,
-    previous_value: string,
+    previous: string,
     val_type: string,
+    is_frozen: bool,
 }
 
 export struct SaveFieldEntry {
@@ -39,10 +40,10 @@ export component TabButton inherits Rectangle {
 
     callback clicked();
 
-    height: 58px;
-    background: is_active ? #1e2430 : (touch.has_hover ? #161b24 : transparent);
+    height: 60px;
+    background: is_active ? #181f2c : (touch.has_hover ? #121722 : transparent);
     border-radius: 8px;
-    border-width: is_active ? 1px : 0px;
+    border-width: is_active ? 1.5px : 0px;
     border-color: is_active ? active_color : transparent;
 
     touch := TouchArea {
@@ -57,7 +58,7 @@ export component TabButton inherits Rectangle {
 
         Text {
             text: root.icon_text;
-            font-size: 20px;
+            font-size: 22px;
             vertical-alignment: center;
         }
 
@@ -68,13 +69,15 @@ export component TabButton inherits Rectangle {
             Text {
                 text: root.title;
                 font-size: 13px;
-                font-weight: 700;
+                font-weight: 800;
+                letter-spacing: 0.5px;
                 color: is_active ? #ffffff : #94a3b8;
             }
 
             Text {
                 text: root.subtitle;
                 font-size: 10px;
+                font-weight: 600;
                 color: is_active ? active_color : #64748b;
             }
         }
@@ -83,10 +86,14 @@ export component TabButton inherits Rectangle {
 
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
-    min-width: 1100px;
-    min-height: 720px;
+    min-width: 1180px;
+    min-height: 760px;
     default-font-family: "Segoe UI, sans-serif";
-    background: #090b10;
+    background: #07090d;
+
+    // Splash State
+    in-out property <bool> show_splash: false;
+    in-out property <string> splash_status: "Awakening Sharabha Subsystems...";
 
     // Active Tab: 0 = Rudra (Memory), 1 = Kalyana (Save Forge), 2 = Jnana (Knowledge Base)
     in-out property <int> active_tab: 0;
@@ -94,64 +101,86 @@ export component MainWindow inherits Window {
     // Callbacks to Zig core
     callback refresh_processes();
     callback attach_process(int);
-    callback start_memory_scan(string, string); // value, type
+    callback start_memory_scan(string, string);
     callback rescan_memory(string);
     callback open_save_file();
     callback execute_fuzzy_parse();
     callback save_file_atomic();
+    callback dismiss_splash();
 
-    // Background Canvas Layer (Ready for Video Background / Particle Canvas)
+    // =========================================================================
+    // LAYER 1: AMBIENT CANVAS BACKGROUND (FALLBACK IMAGE + GLOWS)
+    // =========================================================================
     Rectangle {
         width: 100%;
         height: 100%;
-        background: @linear-gradient(135deg, #090b10 0%, #0f141c 50%, #07090d 100%);
 
-        // Ambient Trishula / Tandava lighting glow
-        Rectangle {
-            x: 20%;
-            y: -10%;
-            width: 500px;
-            height: 500px;
-            border-radius: 250px;
-            background: radial-gradient(circle, #ff4d2e08 0%, transparent 70%);
+        // Fallback Still Image (Low opacity so text contrast remains optimal)
+        Image {
+            source: @image-url("../../assets/media/bg_canvas_fallback.jpg");
+            width: 100%;
+            height: 100%;
+            image-fit: cover;
+            opacity: 0.28;
         }
 
+        // Vignette & Dark Tint Overlay
         Rectangle {
-            x: 70%;
-            y: 60%;
-            width: 600px;
-            height: 600px;
-            border-radius: 300px;
-            background: radial-gradient(circle, #0ea5e908 0%, transparent 70%);
+            width: 100%;
+            height: 100%;
+            background: @linear-gradient(180deg, #07090df2 0%, #07090dbb 50%, #07090df8 100%);
+        }
+
+        // Ambient Rudra Flame Glow (Left)
+        Rectangle {
+            x: parent.width * 0.05;
+            y: parent.height * 0.10;
+            width: 550px;
+            height: 550px;
+            border-radius: 275px;
+            background: @radial-gradient(circle, #ff4d2e09 0%, transparent 70%);
+        }
+
+        // Ambient Ganga Cyan Glow (Right)
+        Rectangle {
+            x: parent.width * 0.65;
+            y: parent.height * 0.35;
+            width: 650px;
+            height: 650px;
+            border-radius: 325px;
+            background: @radial-gradient(circle, #0ea5e909 0%, transparent 70%);
         }
     }
 
-    // Main App Container (Glassmorphism layout)
-    VerticalLayout {
+    // =========================================================================
+    // LAYER 2: MAIN WORKSPACE INTERFACE
+    // =========================================================================
+    if !root.show_splash: VerticalLayout {
         padding: 16px;
-        spacing: 14px;
+        spacing: 12px;
 
-        // Header Bar: Trishula Logo & Dual-Aspect Manifestation
+        // TOP HEADER BAR: Trishula Logo & Aspect Selector
         Rectangle {
             height: 72px;
-            background: #11151e;
+            background: #0d1118ee;
             border-radius: 12px;
             border-width: 1px;
-            border-color: #1e2638;
+            border-color: #1e2636;
 
             HorizontalLayout {
                 padding-left: 20px;
                 padding-right: 20px;
                 alignment: space-between;
 
-                // Brand & Mythos Title
+                // Logo & Motto
                 HorizontalLayout {
                     spacing: 14px;
                     alignment: center;
 
-                    Text {
-                        text: "🔱";
-                        font-size: 32px;
+                    Image {
+                        source: @image-url("../../assets/media/app_icon.png");
+                        width: 44px;
+                        height: 44px;
                         vertical-alignment: center;
                     }
 
@@ -163,29 +192,29 @@ export component MainWindow inherits Window {
                             spacing: 8px;
                             Text {
                                 text: "SHARABHA";
-                                font-size: 20px;
+                                font-size: 21px;
                                 font-weight: 900;
                                 letter-spacing: 2px;
                                 color: #f8fafc;
                             }
                             Text {
                                 text: "शरभ";
-                                font-size: 16px;
-                                font-weight: 700;
+                                font-size: 17px;
+                                font-weight: 800;
                                 color: #eab308;
                                 vertical-alignment: center;
                             }
                         }
 
                         Text {
-                            text: "The Dual Aspect Game Engine — Subduing the Untamed Process";
+                            text: "The Dual Aspect Game Tool // Subduing the Untamed Process";
                             font-size: 11px;
                             color: #64748b;
                         }
                     }
                 }
 
-                // Tab Switcher Bar
+                // Aspect Tabs
                 HorizontalLayout {
                     spacing: 8px;
                     alignment: center;
@@ -220,27 +249,27 @@ export component MainWindow inherits Window {
             }
         }
 
-        // Body Workspace (Switched by active_tab)
+        // BODY WORKSPACE CONTAINER
         Rectangle {
-            background: #0f131b;
+            background: #0b0f16f0;
             border-radius: 12px;
             border-width: 1px;
-            border-color: #1e2638;
+            border-color: #1a2232;
 
-            // ==============================================================
-            // TAB 0: RUDRA / MEMORY ENGINE
-            // ==============================================================
+            // -------------------------------------------------------------
+            // TAB 0: 🔥 RUDRA ENGINE (Memory Scanner & Injection)
+            // -------------------------------------------------------------
             if root.active_tab == 0: HorizontalLayout {
                 padding: 16px;
                 spacing: 16px;
 
-                // Left Panel: Process Selector & Attach
+                // Process Selector Panel
                 Rectangle {
                     width: 320px;
-                    background: #141924;
-                    border-radius: 8px;
+                    background: #111622;
+                    border-radius: 10px;
                     border-width: 1px;
-                    border-color: #232b3e;
+                    border-color: #1e2738;
 
                     VerticalLayout {
                         padding: 14px;
@@ -249,7 +278,7 @@ export component MainWindow inherits Window {
                         HorizontalLayout {
                             alignment: space-between;
                             Text {
-                                text: "TARGET PROCESSES";
+                                text: "PROCESS ATTACH";
                                 font-size: 12px;
                                 font-weight: 800;
                                 letter-spacing: 1px;
@@ -262,33 +291,57 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Filter Box
                         LineEdit {
-                            placeholder-text: "Filter process name / PID...";
+                            placeholder-text: "Filter process name or PID...";
                             height: 36px;
                         }
 
-                        // Process List Placeholder
+                        // Active Process Mock List
                         Rectangle {
-                            background: #0a0d14;
+                            background: #090c12;
                             border-radius: 6px;
                             border-width: 1px;
-                            border-color: #1a202c;
+                            border-color: #18202e;
 
                             VerticalLayout {
-                                padding: 12px;
-                                spacing: 8px;
+                                padding: 10px;
+                                spacing: 6px;
 
-                                Text {
-                                    text: "Select a process to attach Trishula hooks:";
-                                    font-size: 11px;
-                                    color: #94a3b8;
+                                Rectangle {
+                                    height: 36px;
+                                    background: #1a2335;
+                                    border-radius: 4px;
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+                                        Text { text: "GameProcess.exe"; font-size: 11px; font-weight: 700; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "PID 14208 [x64]"; font-size: 10px; color: #ff7b00; vertical-alignment: center; }
+                                    }
                                 }
 
-                                Text {
-                                    text: "• Process enumerator loaded (Win32 active)\n• VirtualQueryEx region scanner ready\n• SIMD value scanner initialized";
-                                    font-size: 11px;
-                                    color: #64748b;
+                                Rectangle {
+                                    height: 36px;
+                                    background: transparent;
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+                                        Text { text: "eldenring.exe"; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "PID 8832 [x64]"; font-size: 10px; color: #64748b; vertical-alignment: center; }
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 36px;
+                                    background: transparent;
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+                                        Text { text: "Cyberpunk2077.exe"; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "PID 22910 [x64]"; font-size: 10px; color: #64748b; vertical-alignment: center; }
+                                    }
                                 }
                             }
                         }
@@ -298,12 +351,12 @@ export component MainWindow inherits Window {
                             height: 42px;
                             background: #ff4d2e;
                             border-radius: 6px;
-                            touch_attach := TouchArea {
-                                clicked => { root.attach_process(0); }
+                            TouchArea {
+                                clicked => { root.attach_process(14208); }
                             }
                             Text {
                                 text: "ATTACH WITH SHARABHA";
-                                font-size: 12px;
+                                font-size: 11px;
                                 font-weight: 800;
                                 color: #ffffff;
                                 horizontal-alignment: center;
@@ -313,35 +366,35 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                // Right Panel: Memory Scanner, Results & Lua Injection Console
+                // Memory Scanner & Match Results Panel
                 Rectangle {
-                    background: #141924;
-                    border-radius: 8px;
+                    background: #111622;
+                    border-radius: 10px;
                     border-width: 1px;
-                    border-color: #232b3e;
+                    border-color: #1e2738;
 
                     VerticalLayout {
                         padding: 16px;
-                        spacing: 14px;
+                        spacing: 12px;
 
-                        // Scanner Controls
+                        // Scan Control Bar
                         HorizontalLayout {
-                            spacing: 12px;
+                            spacing: 10px;
 
                             LineEdit {
-                                placeholder-text: "Scan value (e.g. 100, 9999)...";
+                                placeholder-text: "Target value (e.g. 500, 999999)...";
                                 height: 38px;
                             }
 
                             Rectangle {
                                 width: 140px;
                                 height: 38px;
-                                background: #222b3d;
+                                background: #1c2434;
                                 border-radius: 6px;
                                 Text {
                                     text: "Type: i32 (Exact)";
                                     font-size: 11px;
-                                    font-weight: 600;
+                                    font-weight: 700;
                                     color: #cbd5e1;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
@@ -366,7 +419,7 @@ export component MainWindow inherits Window {
                             Rectangle {
                                 width: 100px;
                                 height: 38px;
-                                background: #273145;
+                                background: #242e42;
                                 border-radius: 6px;
                                 Text {
                                     text: "NEXT SCAN";
@@ -379,59 +432,79 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Results Table Header
+                        // Results Header
                         Rectangle {
                             height: 32px;
-                            background: #0d1017;
+                            background: #090c12;
                             border-radius: 4px;
 
                             HorizontalLayout {
                                 padding-left: 12px;
                                 padding-right: 12px;
-                                spacing: 10px;
+                                spacing: 12px;
 
-                                Text { text: "ADDRESS"; width: 140px; font-size: 11px; font-weight: 700; color: #ff7b00; vertical-alignment: center; }
-                                Text { text: "VALUE"; width: 120px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                                Text { text: "FREEZE"; width: 50px; font-size: 10px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                Text { text: "ADDRESS"; width: 140px; font-size: 11px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                Text { text: "VALUE"; width: 130px; font-size: 11px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
                                 Text { text: "PREVIOUS"; width: 120px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
-                                Text { text: "TYPE"; width: 80px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
-                                Text { text: "DESCRIPTION"; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                Text { text: "TYPE"; width: 80px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
+                                Text { text: "DESCRIPTION / POINTER"; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
                             }
                         }
 
-                        // Scan Results Container
+                        // Mock Matches Table
                         Rectangle {
                             background: #090c12;
                             border-radius: 6px;
                             border-width: 1px;
-                            border-color: #1a202c;
+                            border-color: #18202e;
 
                             VerticalLayout {
-                                alignment: center;
-                                spacing: 8px;
+                                padding: 8px;
+                                spacing: 4px;
 
-                                Text {
-                                    text: "⚡ No Active Memory Scan";
-                                    font-size: 13px;
-                                    font-weight: 600;
-                                    color: #475569;
-                                    horizontal-alignment: center;
+                                Rectangle {
+                                    height: 36px;
+                                    background: #141b26;
+                                    border-radius: 4px;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 12px;
+                                        Text { text: "☑"; width: 50px; font-size: 14px; color: #ff4d2e; vertical-alignment: center; }
+                                        Text { text: "0x7FF74A8014B0"; width: 140px; font-size: 12px; font-weight: 700; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: "999,999"; width: 130px; font-size: 12px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
+                                        Text { text: "500"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "i32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "PlayerGold (Locked)"; font-size: 11px; color: #38bdf8; vertical-alignment: center; }
+                                    }
                                 }
-                                Text {
-                                    text: "Attach to a process and enter an initial value to begin scanning committed pages.";
-                                    font-size: 11px;
-                                    color: #334155;
-                                    horizontal-alignment: center;
+
+                                Rectangle {
+                                    height: 36px;
+                                    background: transparent;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 12px;
+                                        Text { text: "☐"; width: 50px; font-size: 14px; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "0x7FF74A8014E4"; width: 140px; font-size: 12px; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: "100.0"; width: 130px; font-size: 12px; color: #ffffff; vertical-alignment: center; }
+                                        Text { text: "100.0"; width: 120px; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                        Text { text: "f32"; width: 80px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "PlayerHealth"; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                    }
                                 }
                             }
                         }
 
-                        // Lua Scripting Bar
+                        // Bottom Lua Console Bar
                         Rectangle {
                             height: 40px;
-                            background: #111622;
+                            background: #151b27;
                             border-radius: 6px;
                             border-width: 1px;
-                            border-color: #1e2638;
+                            border-color: #222c3e;
 
                             HorizontalLayout {
                                 padding-left: 14px;
@@ -439,9 +512,9 @@ export component MainWindow inherits Window {
                                 alignment: space-between;
 
                                 Text {
-                                    text: "📜 LuaJIT Injection Engine: Ready (Press ~ to open Tandava script console)";
+                                    text: "📜 LuaJIT Runtime: Attached to PID 14208 | Scripting hotkeys active";
                                     font-size: 11px;
-                                    color: #a855f7;
+                                    color: #c084fc;
                                     vertical-alignment: center;
                                 }
 
@@ -457,20 +530,20 @@ export component MainWindow inherits Window {
                 }
             }
 
-            // ==============================================================
-            // TAB 1: KALYANA / SAVE FORGE
-            // ==============================================================
+            // -------------------------------------------------------------
+            // TAB 1: 🧊 KALYANA / SAVE FORGE (Fuzzy Save Editor)
+            // -------------------------------------------------------------
             if root.active_tab == 1: HorizontalLayout {
                 padding: 16px;
                 spacing: 16px;
 
-                // Left: File Information & Heuristic Controls
+                // Left: File Information & Safety Rules
                 Rectangle {
                     width: 320px;
-                    background: #141924;
-                    border-radius: 8px;
+                    background: #111622;
+                    border-radius: 10px;
                     border-width: 1px;
-                    border-color: #232b3e;
+                    border-color: #1e2738;
 
                     VerticalLayout {
                         padding: 14px;
@@ -486,20 +559,22 @@ export component MainWindow inherits Window {
                                 color: #38bdf8;
                             }
                             Text {
-                                text: "Fuzzy Heuristic v1";
+                                text: "Fuzzy Engine v1";
                                 font-size: 10px;
                                 color: #64748b;
                             }
                         }
 
-                        // Open File Button
                         Rectangle {
                             height: 42px;
                             background: #0284c7;
                             border-radius: 6px;
+                            TouchArea {
+                                clicked => { root.open_save_file(); }
+                            }
                             Text {
                                 text: "📂 OPEN SAVE GAME FILE";
-                                font-size: 12px;
+                                font-size: 11px;
                                 font-weight: 800;
                                 color: #ffffff;
                                 horizontal-alignment: center;
@@ -509,25 +584,25 @@ export component MainWindow inherits Window {
 
                         // File Stats Card
                         Rectangle {
-                            background: #0a0d14;
+                            background: #090c12;
                             border-radius: 6px;
                             border-width: 1px;
-                            border-color: #1a202c;
+                            border-color: #18202e;
 
                             VerticalLayout {
                                 padding: 12px;
                                 spacing: 6px;
 
-                                Text { text: "No save file loaded"; font-size: 12px; font-weight: 700; color: #94a3b8; }
-                                Text { text: "File Size: 0 bytes"; font-size: 11px; color: #64748b; }
-                                Text { text: "Entropy: -- (analyzing compression)"; font-size: 11px; color: #64748b; }
-                                Text { text: "Endianness: Auto-detect"; font-size: 11px; color: #64748b; }
+                                Text { text: "save_slot_01.sav"; font-size: 12px; font-weight: 700; color: #f8fafc; }
+                                Text { text: "File Size: 24,576 bytes"; font-size: 11px; color: #94a3b8; }
+                                Text { text: "Entropy: 4.812 bits/byte (Structured)"; font-size: 11px; color: #38bdf8; }
+                                Text { text: "Endianness: Little Endian"; font-size: 11px; color: #64748b; }
                             }
                         }
 
-                        // Safety Guarantees
+                        // Sthiti Safety Guarantees
                         Rectangle {
-                            background: #0f1622;
+                            background: #0d1522;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #0369a144;
@@ -537,24 +612,27 @@ export component MainWindow inherits Window {
                                 spacing: 4px;
 
                                 Text {
-                                    text: "🛡️ Sthiti (Safe Rewrite Protocol):";
+                                    text: "🛡️ Sthiti (Safe Rewrite Shield):";
                                     font-size: 11px;
                                     font-weight: 700;
                                     color: #38bdf8;
                                 }
                                 Text {
-                                    text: "1. Automatic `.sharabha.bak` creation\n2. Shadow buffer write before commit\n3. Win32 MoveFileEx atomic swap";
+                                    text: "• Automatic .sharabha.bak backup\n• Shadow temp buffer integrity write\n• Win32 MoveFileEx atomic swap";
                                     font-size: 10px;
                                     color: #64748b;
                                 }
                             }
                         }
 
-                        // Action: Safe Save
+                        // Commit Button
                         Rectangle {
                             height: 42px;
                             background: #0369a1;
                             border-radius: 6px;
+                            TouchArea {
+                                clicked => { root.save_file_atomic(); }
+                            }
                             Text {
                                 text: "SAFE COMMIT & ATOMIC REWRITE";
                                 font-size: 11px;
@@ -567,12 +645,12 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                // Right: Editable KV Tree View & Hex Inspector
+                // Right: Editable Key-Value Table
                 Rectangle {
-                    background: #141924;
-                    border-radius: 8px;
+                    background: #111622;
+                    border-radius: 10px;
                     border-width: 1px;
-                    border-color: #232b3e;
+                    border-color: #1e2738;
 
                     VerticalLayout {
                         padding: 16px;
@@ -586,7 +664,7 @@ export component MainWindow inherits Window {
                                 font-size: 12px;
                                 font-weight: 800;
                                 letter-spacing: 1px;
-                                color: #e2e8f0;
+                                color: #f8fafc;
                             }
 
                             Text {
@@ -599,7 +677,7 @@ export component MainWindow inherits Window {
                         // Table Header
                         Rectangle {
                             height: 32px;
-                            background: #0d1017;
+                            background: #090c12;
                             border-radius: 4px;
 
                             HorizontalLayout {
@@ -607,37 +685,70 @@ export component MainWindow inherits Window {
                                 padding-right: 12px;
                                 spacing: 10px;
 
-                                Text { text: "OFFSET"; width: 100px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
-                                Text { text: "CONF."; width: 60px; font-size: 11px; font-weight: 700; color: #eab308; vertical-alignment: center; }
-                                Text { text: "INFERRED TYPE"; width: 120px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
+                                Text { text: "OFFSET"; width: 90px; font-size: 11px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                Text { text: "CONF."; width: 60px; font-size: 11px; font-weight: 800; color: #eab308; vertical-alignment: center; }
+                                Text { text: "INFERRED TYPE"; width: 140px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
                                 Text { text: "LABEL / KEY"; width: 180px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
                                 Text { text: "EDITABLE VALUE"; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
                             }
                         }
 
-                        // Tree View Placeholder
+                        // Sample Inferred Rows
                         Rectangle {
                             background: #090c12;
                             border-radius: 6px;
                             border-width: 1px;
-                            border-color: #1a202c;
+                            border-color: #18202e;
 
                             VerticalLayout {
-                                alignment: center;
-                                spacing: 8px;
+                                padding: 8px;
+                                spacing: 4px;
 
-                                Text {
-                                    text: "🧊 Drop or Open a Save File";
-                                    font-size: 13px;
-                                    font-weight: 600;
-                                    color: #475569;
-                                    horizontal-alignment: center;
+                                Rectangle {
+                                    height: 38px;
+                                    background: #131924;
+                                    border-radius: 4px;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 10px;
+                                        Text { text: "0x0000"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                                        Text { text: "95%"; width: 60px; font-size: 11px; font-weight: 700; color: #22c55e; vertical-alignment: center; }
+                                        Text { text: "String (ASCII)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "MAGIC_HEADER"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
+                                        Text { text: "\"SAVEDB_V3\""; font-size: 11px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
+                                    }
                                 }
-                                Text {
-                                    text: "Fuzzy parser will scan byte entropy, extract string tables, and score numeric candidates.";
-                                    font-size: 11px;
-                                    color: #334155;
-                                    horizontal-alignment: center;
+
+                                Rectangle {
+                                    height: 38px;
+                                    background: transparent;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 10px;
+                                        Text { text: "0x0010"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                                        Text { text: "92%"; width: 60px; font-size: 11px; font-weight: 700; color: #22c55e; vertical-alignment: center; }
+                                        Text { text: "i32 (Little Endian)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "PLAYER_GOLD"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
+                                        Text { text: "750,000"; font-size: 11px; font-weight: 700; color: #eab308; vertical-alignment: center; }
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 38px;
+                                    background: #131924;
+                                    border-radius: 4px;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 10px;
+                                        Text { text: "0x0018"; width: 90px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                                        Text { text: "85%"; width: 60px; font-size: 11px; font-weight: 700; color: #eab308; vertical-alignment: center; }
+                                        Text { text: "f32 (Float)"; width: 140px; font-size: 11px; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "PLAYER_HP"; width: 180px; font-size: 11px; color: #e2e8f0; vertical-alignment: center; }
+                                        Text { text: "985.50"; font-size: 11px; font-weight: 700; color: #ffffff; vertical-alignment: center; }
+                                    }
                                 }
                             }
                         }
@@ -645,9 +756,9 @@ export component MainWindow inherits Window {
                 }
             }
 
-            // ==============================================================
-            // TAB 2: JNANA KOSHA / KNOWLEDGE BASE
-            // ==============================================================
+            // -------------------------------------------------------------
+            // TAB 2: 📜 JNANA KOSHA (SurrealDB Knowledge Base)
+            // -------------------------------------------------------------
             if root.active_tab == 2: VerticalLayout {
                 padding: 20px;
                 spacing: 16px;
@@ -658,21 +769,21 @@ export component MainWindow inherits Window {
                     VerticalLayout {
                         spacing: 2px;
                         Text {
-                            text: "JNANA KOSHA (SURREALDB KNOWLEDGE BASE)";
+                            text: "JNANA KOSHA — SURREALDB KNOWLEDGE GRAPH";
                             font-size: 14px;
                             font-weight: 800;
                             letter-spacing: 1px;
                             color: #eab308;
                         }
                         Text {
-                            text: "The Cosmic Archive of Game Schemas, Memory Tables, and Heuristic Overrides";
+                            text: "The Cosmic Archive: Game Profiles, Field Schemas, and Memory Tables";
                             font-size: 11px;
                             color: #64748b;
                         }
                     }
 
                     Rectangle {
-                        width: 160px;
+                        width: 170px;
                         height: 38px;
                         background: #854d0e;
                         border-radius: 6px;
@@ -687,46 +798,60 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                // Search Bar
                 LineEdit {
-                    placeholder-text: "Search game profiles, verified save schemas, or memory pointer tables...";
+                    placeholder-text: "Search verified game profiles, save signatures, or memory table offsets...";
                     height: 38px;
                 }
 
-                // Grid of Profiles Placeholder
-                Rectangle {
-                    background: #090c12;
-                    border-radius: 8px;
-                    border-width: 1px;
-                    border-color: #1a202c;
+                // Profile Grid
+                HorizontalLayout {
+                    spacing: 14px;
 
-                    VerticalLayout {
-                        alignment: center;
-                        spacing: 8px;
+                    Rectangle {
+                        background: #111622;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #1e2738;
 
-                        Text {
-                            text: "📜 Embedded SurrealDB Knowledge Graph";
-                            font-size: 14px;
-                            font-weight: 600;
-                            color: #475569;
-                            horizontal-alignment: center;
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "ELDEN RING"; font-size: 13px; font-weight: 800; color: #f8fafc; }
+                                Text { text: "v1.12 Verified"; font-size: 10px; color: #22c55e; }
+                            }
+                            Text { text: "Save Format: BND4 Encrypted Blob\nOffsets Discovered: 142\nMemory Table: Runes, HP, Stamina, FP"; font-size: 11px; color: #94a3b8; }
                         }
+                    }
 
-                        Text {
-                            text: "Save schemas annotated by you or shared by the community are automatically persisted here.";
-                            font-size: 11px;
-                            color: #334155;
-                            horizontal-alignment: center;
+                    Rectangle {
+                        background: #111622;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #1e2738;
+
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 8px;
+
+                            HorizontalLayout {
+                                alignment: space-between;
+                                Text { text: "BALDUR'S GATE 3"; font-size: 13px; font-weight: 800; color: #f8fafc; }
+                                Text { text: "Patch 7 Verified"; font-size: 10px; color: #22c55e; }
+                            }
+                            Text { text: "Save Format: LSLIB PAK / LSF Struct\nOffsets Discovered: 388\nMemory Table: Gold, Inspiration, XP"; font-size: 11px; color: #94a3b8; }
                         }
                     }
                 }
             }
         }
 
-        // Footer Bar: System Telemetry & Shiva Stotra Status
+        // FOOTER STATUS BAR
         Rectangle {
             height: 32px;
-            background: #0c0f16;
+            background: #090c12ee;
             border-radius: 6px;
 
             HorizontalLayout {
@@ -735,9 +860,9 @@ export component MainWindow inherits Window {
                 alignment: space-between;
 
                 Text {
-                    text: "SHARABHA // OM NAMAH SHIVAYA // STATUS: READY";
+                    text: "SHARABHA // OM NAMAH SHIVAYA // ALL SUB-SYSTEMS NOMINAL";
                     font-size: 10px;
-                    font-weight: 700;
+                    font-weight: 800;
                     letter-spacing: 1px;
                     color: #eab308;
                     vertical-alignment: center;
@@ -747,24 +872,114 @@ export component MainWindow inherits Window {
                     spacing: 16px;
                     alignment: center;
 
-                    Text {
-                        text: "Architecture: Windows x64 Native";
-                        font-size: 10px;
-                        color: #64748b;
+                    Text { text: "OS: Windows x64 Native"; font-size: 10px; color: #64748b; vertical-alignment: center; }
+                    Text { text: "Core: Zig 0.17"; font-size: 10px; color: #ff4d2e; vertical-alignment: center; }
+                    Text { text: "UI: Slint Declarative"; font-size: 10px; color: #38bdf8; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 3: SPLASH SCREEN OVERLAY (WHEN SHOW_SPLASH IS ACTIVE)
+    // =========================================================================
+    if root.show_splash: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #07090d;
+
+        // Background Temple Artwork in Splash
+        Image {
+            source: @image-url("../../assets/media/bg_canvas_fallback.jpg");
+            width: 100%;
+            height: 100%;
+            image-fit: cover;
+            opacity: 0.35;
+        }
+
+        // Vignette Tint
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: @linear-gradient(180deg, #07090de6 0%, #07090d99 50%, #07090df2 100%);
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 28px;
+
+            // Mythic Center Emblem (Centered)
+            HorizontalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: 170px;
+                    height: 170px;
+                    border-radius: 85px;
+                    background: @radial-gradient(circle, #ff4d2e55 0%, transparent 70%);
+
+                    Image {
+                        source: @image-url("../../assets/media/app_icon.png");
+                        width: 150px;
+                        height: 150px;
+                        horizontal-alignment: center;
                         vertical-alignment: center;
                     }
+                }
+            }
 
-                    Text {
-                        text: "Core Engine: Zig 0.17";
-                        font-size: 10px;
-                        color: #ff4d2e;
-                        vertical-alignment: center;
+            VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+
+                Text {
+                    text: "SHARABHA";
+                    font-size: 42px;
+                    font-weight: 900;
+                    letter-spacing: 8px;
+                    color: #f8fafc;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "ॐ नमः शरभाय — THE DUAL ASPECT ENGINE";
+                    font-size: 14px;
+                    font-weight: 800;
+                    letter-spacing: 3px;
+                    color: #eab308;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: root.splash_status;
+                    font-size: 12px;
+                    color: #94a3b8;
+                    horizontal-alignment: center;
+                }
+            }
+
+            // Dismiss / Enter Sanctum Button (Centered)
+            HorizontalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: 240px;
+                    height: 48px;
+                    background: #ff4d2e;
+                    border-radius: 8px;
+                    TouchArea {
+                        clicked => {
+                            root.show_splash = false;
+                            root.dismiss_splash();
+                        }
                     }
-
                     Text {
-                        text: "UI: Slint Declarative";
-                        font-size: 10px;
-                        color: #38bdf8;
+                        text: "ENTER SANCTUM";
+                        font-size: 13px;
+                        font-weight: 900;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        horizontal-alignment: center;
                         vertical-alignment: center;
                     }
                 }
