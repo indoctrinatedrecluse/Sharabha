@@ -1,0 +1,17 @@
+# Zig build artifacts
+.zig-cache/
+zig-out/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Native build and OS files
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
+Thumbs.db
