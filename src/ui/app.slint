@@ -32,17 +32,18 @@ export struct SaveFieldEntry {
 }
 
 /* ==========================================================================
-   THEMATIC ACTION BUTTON WITH OPAQUE HOVER EXPLANATION
+   THEMATIC ACTION BUTTON WITH DUAL ENGLISH-SANSKRIT & HOVER EXPLANATION
    ========================================================================== */
 export component ThematicActionButton inherits Rectangle {
     in property <string> text;
+    in property <string> devanagari: "";
     in property <color> bg_color: #ff4d2e;
     in property <color> hover_color: #ff684a;
     in property <string> sanskrit_title: "";
     in property <string> feature_name: "";
     in property <string> explanation: "";
-    in property <length> btn_width: 140px;
-    in property <length> btn_height: 38px;
+    in property <length> btn_width: 155px;
+    in property <length> btn_height: 42px;
 
     callback clicked();
 
@@ -55,14 +56,26 @@ export component ThematicActionButton inherits Rectangle {
         clicked => { root.clicked(); }
     }
 
-    Text {
-        text: root.text;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        color: #ffffff;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    VerticalLayout {
+        alignment: center;
+        spacing: 1px;
+
+        Text {
+            text: root.text;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            horizontal-alignment: center;
+        }
+
+        if root.devanagari != "": Text {
+            text: root.devanagari;
+            font-size: 9px;
+            font-weight: 700;
+            color: #fef08a;
+            horizontal-alignment: center;
+        }
     }
 
     // Opaque Floating Description Card on Hover
@@ -70,7 +83,7 @@ export component ThematicActionButton inherits Rectangle {
         x: (parent.width - self.width) / 2;
         y: -self.height - 10px;
         width: 320px;
-        height: 82px;
+        height: 84px;
         background: #090c12;
         border-radius: 8px;
         border-width: 1.5px;
@@ -109,10 +122,11 @@ export component ThematicActionButton inherits Rectangle {
 }
 
 /* ==========================================================================
-   THEMATIC COLUMN HEADER WITH OPAQUE HOVER EXPLANATION
+   THEMATIC COLUMN HEADER WITH DUAL ENGLISH-SANSKRIT & HOVER EXPLANATION
    ========================================================================== */
 export component ThematicColumnHeader inherits Rectangle {
     in property <string> title;
+    in property <string> devanagari: "";
     in property <length> col_width: 100px;
     in property <color> text_color: #64748b;
     in property <string> sanskrit_title: "";
@@ -124,22 +138,31 @@ export component ThematicColumnHeader inherits Rectangle {
 
     touch := TouchArea {}
 
-    Text {
-        text: root.title;
-        width: 100%;
-        height: 100%;
-        font-size: 10px;
-        font-weight: 800;
-        color: touch.has_hover ? #eab308 : root.text_color;
-        vertical-alignment: center;
+    VerticalLayout {
+        alignment: center;
+        spacing: 1px;
+
+        Text {
+            text: root.title;
+            font-size: 10px;
+            font-weight: 800;
+            color: touch.has_hover ? #eab308 : root.text_color;
+        }
+
+        if root.devanagari != "": Text {
+            text: root.devanagari;
+            font-size: 8px;
+            font-weight: 700;
+            color: touch.has_hover ? #fef08a : #475569;
+        }
     }
 
     // Opaque Floating Tooltip
     if touch.has_hover && root.feature_name != "": Rectangle {
         x: 0px;
         y: -self.height - 8px;
-        width: 280px;
-        height: 74px;
+        width: 290px;
+        height: 76px;
         background: #090c12;
         border-radius: 6px;
         border-width: 1.5px;
@@ -411,8 +434,8 @@ export component MainWindow inherits Window {
                     alignment: center;
 
                     TabButton {
-                        title: "RUDRA TANDAVA";
-                        subtitle: "Samhara Memory Inquest [उग्र / Violent]";
+                        title: "RUDRA TANDAVA // Memory Inquest";
+                        subtitle: "रुद्र ताण्डव • Samhara Injection [उग्र / Violent]";
                         icon_text: "🔥";
                         is_active: root.active_tab == 0;
                         active_color: #ff4d2e;
@@ -423,8 +446,8 @@ export component MainWindow inherits Window {
                     }
 
                     TabButton {
-                        title: "KALYANA STHITI";
-                        subtitle: "Surgical Save Restoration [शान्त / Calm]";
+                        title: "KALYANA STHITI // Save Editor";
+                        subtitle: "कल्याण स्थिति • Surgical Restoration [शान्त / Calm]";
                         icon_text: "🧊";
                         is_active: root.active_tab == 1;
                         active_color: #38bdf8;
@@ -435,8 +458,8 @@ export component MainWindow inherits Window {
                     }
 
                     TabButton {
-                        title: "JNANA KOSHA";
-                        subtitle: "Cosmic Agama & Signatures [ज्ञान / Omniscient]";
+                        title: "JNANA KOSHA // Cosmic Archive";
+                        subtitle: "ज्ञान कोष • Game Agamas & Schemas [ज्ञान / Omniscient]";
                         icon_text: "📜";
                         is_active: root.active_tab == 2;
                         active_color: #eab308;
@@ -548,9 +571,10 @@ export component MainWindow inherits Window {
 
                         // Attach Button
                         ThematicActionButton {
-                            text: "BIND PROCESS (शरभ बन्धन)";
+                            text: "BIND PROCESS // Attach";
+                            devanagari: "शरभ बन्धन";
                             btn_width: 292px;
-                            btn_height: 42px;
+                            btn_height: 44px;
                             bg_color: #ff4d2e;
                             hover_color: #ff6548;
                             sanskrit_title: "शरभ बन्धन // PROCESS BINDING";
@@ -578,12 +602,12 @@ export component MainWindow inherits Window {
 
                             LineEdit {
                                 placeholder-text: "Target value (e.g. 500, 999999)...";
-                                height: 38px;
+                                height: 42px;
                             }
 
                             Rectangle {
                                 width: 140px;
-                                height: 38px;
+                                height: 42px;
                                 background: #1c2434;
                                 border-radius: 6px;
                                 Text {
@@ -597,9 +621,10 @@ export component MainWindow inherits Window {
                             }
 
                             ThematicActionButton {
-                                text: "PRATHAMA DRISHTI";
-                                btn_width: 145px;
-                                btn_height: 38px;
+                                text: "PRATHAMA DRISHTI // First Scan";
+                                devanagari: "प्रथम दृष्टि";
+                                btn_width: 180px;
+                                btn_height: 42px;
                                 bg_color: #ff4d2e;
                                 hover_color: #ff6548;
                                 sanskrit_title: "प्रथम दृष्टि // FIRST INQUEST";
@@ -609,9 +634,10 @@ export component MainWindow inherits Window {
                             }
 
                             ThematicActionButton {
-                                text: "PUNAR DRISHTI";
-                                btn_width: 135px;
-                                btn_height: 38px;
+                                text: "PUNAR DRISHTI // Next Scan";
+                                devanagari: "पुनर्दृष्टि";
+                                btn_width: 170px;
+                                btn_height: 42px;
                                 bg_color: #242e42;
                                 hover_color: #2e3b54;
                                 sanskrit_title: "पुनर्दृष्टि // REFINED INQUEST";
@@ -623,7 +649,7 @@ export component MainWindow inherits Window {
 
                         // Results Header
                         Rectangle {
-                            height: 32px;
+                            height: 38px;
                             background: #090c12;
                             border-radius: 4px;
 
@@ -634,7 +660,8 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "STAMBHANA";
-                                    col_width: 75px;
+                                    devanagari: "Freeze (स्तम्भन)";
+                                    col_width: 85px;
                                     text_color: #64748b;
                                     sanskrit_title: "स्तम्भन सिद्धि // IMMOBILIZE";
                                     feature_name: "Feature: Memory Freeze Lock";
@@ -643,6 +670,7 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "KSHETRA";
+                                    devanagari: "Address (क्षेत्र)";
                                     col_width: 130px;
                                     text_color: #ff7b00;
                                     sanskrit_title: "क्षेत्र // MEMORY FIELD";
@@ -652,6 +680,7 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "TATVA";
+                                    devanagari: "Value (तत्त्व)";
                                     col_width: 120px;
                                     text_color: #f8fafc;
                                     sanskrit_title: "तत्त्व // ELEMENTAL ESSENCE";
@@ -661,6 +690,7 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "PURVA";
+                                    devanagari: "Previous (पूर्व)";
                                     col_width: 110px;
                                     text_color: #64748b;
                                     sanskrit_title: "पूर्व // PRIOR STATE";
@@ -670,7 +700,8 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "RUPA";
-                                    col_width: 70px;
+                                    devanagari: "Type (रूप)";
+                                    col_width: 80px;
                                     text_color: #94a3b8;
                                     sanskrit_title: "रूप // DATA FORM";
                                     feature_name: "Feature: Primitive Data Type";
@@ -678,8 +709,9 @@ export component MainWindow inherits Window {
                                 }
 
                                 ThematicColumnHeader {
-                                    title: "NAMA & SUTRA (नाम व सूत्र)";
-                                    col_width: 220px;
+                                    title: "NAMA & SUTRA";
+                                    devanagari: "Label / Pointer (नाम व सूत्र)";
+                                    col_width: 200px;
                                     text_color: #64748b;
                                     sanskrit_title: "नाम व सूत्र // LABEL & POINTER";
                                     feature_name: "Feature: Variable Label & Pointer Chain";
@@ -802,9 +834,10 @@ export component MainWindow inherits Window {
                         }
 
                         ThematicActionButton {
-                            text: "📂 OPEN SAVE VESSEL (पात्र)";
+                            text: "OPEN SAVE VESSEL // Load Save";
+                            devanagari: "पात्र प्रवेश";
                             btn_width: 292px;
-                            btn_height: 42px;
+                            btn_height: 44px;
                             bg_color: #0284c7;
                             hover_color: #0396df;
                             sanskrit_title: "पात्र प्रवेश // OPEN VESSEL";
@@ -858,9 +891,10 @@ export component MainWindow inherits Window {
 
                         // Commit Button
                         ThematicActionButton {
-                            text: "STHITI SANKALPA & ATOMIC COMMIT";
+                            text: "STHITI SANKALPA // Atomic Commit";
+                            devanagari: "स्थिति संकल्प";
                             btn_width: 292px;
-                            btn_height: 42px;
+                            btn_height: 44px;
                             bg_color: #0369a1;
                             hover_color: #0779b8;
                             sanskrit_title: "स्थिति संकल्प // ATOMIC REWRITE VOW";
@@ -886,7 +920,7 @@ export component MainWindow inherits Window {
                             alignment: space-between;
 
                             Text {
-                                text: "INFERRED KEY-VALUE ENTRIES (अनुमानित तत्त्व)";
+                                text: "INFERRED KEY-VALUES // Heuristic Map (अनुमानित तत्त्व)";
                                 font-size: 12px;
                                 font-weight: 800;
                                 letter-spacing: 1px;
@@ -902,7 +936,7 @@ export component MainWindow inherits Window {
 
                         // Table Header
                         Rectangle {
-                            height: 32px;
+                            height: 38px;
                             background: #090c12;
                             border-radius: 4px;
 
@@ -912,8 +946,9 @@ export component MainWindow inherits Window {
                                 spacing: 10px;
 
                                 ThematicColumnHeader {
-                                    title: "OFFSET";
-                                    col_width: 90px;
+                                    title: "STHANA";
+                                    devanagari: "Offset (स्थान)";
+                                    col_width: 85px;
                                     text_color: #38bdf8;
                                     sanskrit_title: "स्थान // BYTE OFFSET";
                                     feature_name: "Feature: File Offset";
@@ -922,7 +957,8 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "VISHWAS";
-                                    col_width: 75px;
+                                    devanagari: "Confidence (विश्वास)";
+                                    col_width: 85px;
                                     text_color: #eab308;
                                     sanskrit_title: "विश्वास // CONFIDENCE";
                                     feature_name: "Feature: Heuristic Trust Score";
@@ -931,7 +967,8 @@ export component MainWindow inherits Window {
 
                                 ThematicColumnHeader {
                                     title: "RUPA";
-                                    col_width: 130px;
+                                    devanagari: "Inferred Type (रूप)";
+                                    col_width: 140px;
                                     text_color: #94a3b8;
                                     sanskrit_title: "रूप // DATA FORM";
                                     feature_name: "Feature: Inferred Type";
@@ -939,7 +976,8 @@ export component MainWindow inherits Window {
                                 }
 
                                 ThematicColumnHeader {
-                                    title: "LAKSHANA / KEY";
+                                    title: "LAKSHANA";
+                                    devanagari: "Key Label (लक्षण)";
                                     col_width: 170px;
                                     text_color: #cbd5e1;
                                     sanskrit_title: "लक्षण // KEY IDENTIFIER";
@@ -948,7 +986,8 @@ export component MainWindow inherits Window {
                                 }
 
                                 ThematicColumnHeader {
-                                    title: "TATVA (EDITABLE)";
+                                    title: "TATVA";
+                                    devanagari: "Editable Value (तत्त्व)";
                                     col_width: 180px;
                                     text_color: #cbd5e1;
                                     sanskrit_title: "तत्त्व // MODIFIABLE VALUE";
@@ -1048,9 +1087,10 @@ export component MainWindow inherits Window {
                     }
 
                     ThematicActionButton {
-                        text: "+ NEW AGAMA PROFILE";
-                        btn_width: 190px;
-                        btn_height: 38px;
+                        text: "+ NEW AGAMA // Register Profile";
+                        devanagari: "आगम रचना";
+                        btn_width: 220px;
+                        btn_height: 44px;
                         bg_color: #854d0e;
                         hover_color: #9e5b11;
                         sanskrit_title: "आगम रचना // AGAMA RECORD";
