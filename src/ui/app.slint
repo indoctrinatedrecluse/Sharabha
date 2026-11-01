@@ -31,12 +31,161 @@ export struct SaveFieldEntry {
     confidence: int,
 }
 
+/* ==========================================================================
+   THEMATIC ACTION BUTTON WITH OPAQUE HOVER EXPLANATION
+   ========================================================================== */
+export component ThematicActionButton inherits Rectangle {
+    in property <string> text;
+    in property <color> bg_color: #ff4d2e;
+    in property <color> hover_color: #ff684a;
+    in property <string> sanskrit_title: "";
+    in property <string> feature_name: "";
+    in property <string> explanation: "";
+    in property <length> btn_width: 140px;
+    in property <length> btn_height: 38px;
+
+    callback clicked();
+
+    width: btn_width;
+    height: btn_height;
+    background: touch.has_hover ? hover_color : bg_color;
+    border-radius: 6px;
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        text: root.text;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: #ffffff;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // Opaque Floating Description Card on Hover
+    if touch.has_hover && root.feature_name != "": Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: -self.height - 10px;
+        width: 320px;
+        height: 82px;
+        background: #090c12;
+        border-radius: 8px;
+        border-width: 1.5px;
+        border-color: #eab308;
+        drop-shadow-blur: 16px;
+        drop-shadow-color: #000000;
+        z: 1000;
+
+        VerticalLayout {
+            padding: 10px;
+            spacing: 3px;
+            alignment: center;
+
+            Text {
+                text: root.sanskrit_title;
+                font-size: 11px;
+                font-weight: 800;
+                color: #eab308;
+            }
+
+            Text {
+                text: root.feature_name;
+                font-size: 11px;
+                font-weight: 700;
+                color: #f8fafc;
+            }
+
+            Text {
+                text: root.explanation;
+                font-size: 10px;
+                color: #94a3b8;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+/* ==========================================================================
+   THEMATIC COLUMN HEADER WITH OPAQUE HOVER EXPLANATION
+   ========================================================================== */
+export component ThematicColumnHeader inherits Rectangle {
+    in property <string> title;
+    in property <length> col_width: 100px;
+    in property <color> text_color: #64748b;
+    in property <string> sanskrit_title: "";
+    in property <string> feature_name: "";
+    in property <string> explanation: "";
+
+    width: col_width;
+    height: 100%;
+
+    touch := TouchArea {}
+
+    Text {
+        text: root.title;
+        width: 100%;
+        height: 100%;
+        font-size: 10px;
+        font-weight: 800;
+        color: touch.has_hover ? #eab308 : root.text_color;
+        vertical-alignment: center;
+    }
+
+    // Opaque Floating Tooltip
+    if touch.has_hover && root.feature_name != "": Rectangle {
+        x: 0px;
+        y: -self.height - 8px;
+        width: 280px;
+        height: 74px;
+        background: #090c12;
+        border-radius: 6px;
+        border-width: 1.5px;
+        border-color: #eab308;
+        drop-shadow-blur: 14px;
+        drop-shadow-color: #000000;
+        z: 1000;
+
+        VerticalLayout {
+            padding: 8px;
+            spacing: 2px;
+            alignment: center;
+
+            Text {
+                text: root.sanskrit_title;
+                font-size: 10px;
+                font-weight: 800;
+                color: #eab308;
+            }
+
+            Text {
+                text: root.feature_name;
+                font-size: 10px;
+                font-weight: 700;
+                color: #ffffff;
+            }
+
+            Text {
+                text: root.explanation;
+                font-size: 9px;
+                color: #94a3b8;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
 export component TabButton inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
     in property <string> icon_text;
     in property <bool> is_active;
     in property <color> active_color: #ff4d2e;
+    in property <string> sanskrit_title: "";
+    in property <string> feature_name: "";
+    in property <string> explanation: "";
 
     callback clicked();
 
@@ -79,6 +228,48 @@ export component TabButton inherits Rectangle {
                 font-size: 10px;
                 font-weight: 600;
                 color: is_active ? active_color : #64748b;
+            }
+        }
+    }
+
+    // Opaque Floating Description Card on Hover
+    if touch.has_hover && root.feature_name != "": Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height + 8px;
+        width: 320px;
+        height: 78px;
+        background: #090c12;
+        border-radius: 8px;
+        border-width: 1.5px;
+        border-color: root.active_color;
+        drop-shadow-blur: 16px;
+        drop-shadow-color: #000000;
+        z: 1000;
+
+        VerticalLayout {
+            padding: 10px;
+            spacing: 2px;
+            alignment: center;
+
+            Text {
+                text: root.sanskrit_title;
+                font-size: 11px;
+                font-weight: 800;
+                color: root.active_color;
+            }
+
+            Text {
+                text: root.feature_name;
+                font-size: 11px;
+                font-weight: 700;
+                color: #f8fafc;
+            }
+
+            Text {
+                text: root.explanation;
+                font-size: 10px;
+                color: #94a3b8;
+                wrap: word-wrap;
             }
         }
     }
@@ -225,6 +416,9 @@ export component MainWindow inherits Window {
                         icon_text: "🔥";
                         is_active: root.active_tab == 0;
                         active_color: #ff4d2e;
+                        sanskrit_title: "रुद्र ताण्डव // RUDRA TANDAVA";
+                        feature_name: "Aspect: Memory Penetration & Needle Injection";
+                        explanation: "Win32 process attachment, SIMD memory scanning, variable freezing, and live code injection.";
                         clicked => { root.active_tab = 0; }
                     }
 
@@ -234,6 +428,9 @@ export component MainWindow inherits Window {
                         icon_text: "🧊";
                         is_active: root.active_tab == 1;
                         active_color: #38bdf8;
+                        sanskrit_title: "कल्याण स्थिति // KALYANA STHITI";
+                        feature_name: "Aspect: Universal Heuristic Save Editor";
+                        explanation: "Shannon entropy inference, candidate string/numeric table extraction, and atomic safe write.";
                         clicked => { root.active_tab = 1; }
                     }
 
@@ -243,6 +440,9 @@ export component MainWindow inherits Window {
                         icon_text: "📜";
                         is_active: root.active_tab == 2;
                         active_color: #eab308;
+                        sanskrit_title: "ज्ञान कोष // JNANA KOSHA";
+                        feature_name: "Aspect: Embedded SurrealDB Knowledge Graph";
+                        explanation: "Stores verified game save structures, format headers, and memory pointer tables.";
                         clicked => { root.active_tab = 2; }
                     }
                 }
@@ -347,21 +547,16 @@ export component MainWindow inherits Window {
                         }
 
                         // Attach Button
-                        Rectangle {
-                            height: 42px;
-                            background: #ff4d2e;
-                            border-radius: 6px;
-                            TouchArea {
-                                clicked => { root.attach_process(14208); }
-                            }
-                            Text {
-                                text: "BIND PROCESS (शरभ बन्धन)";
-                                font-size: 11px;
-                                font-weight: 800;
-                                color: #ffffff;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
+                        ThematicActionButton {
+                            text: "BIND PROCESS (शरभ बन्धन)";
+                            btn_width: 292px;
+                            btn_height: 42px;
+                            bg_color: #ff4d2e;
+                            hover_color: #ff6548;
+                            sanskrit_title: "शरभ बन्धन // PROCESS BINDING";
+                            feature_name: "Feature: OpenProcess Memory Handle";
+                            explanation: "Opens a full-access Win32 process handle (VM_READ | VM_WRITE) to attach hooks and scanner needles.";
+                            clicked => { root.attach_process(14208); }
                         }
                     }
                 }
@@ -401,34 +596,28 @@ export component MainWindow inherits Window {
                                 }
                             }
 
-                            Rectangle {
-                                width: 140px;
-                                height: 38px;
-                                background: #ff4d2e;
-                                border-radius: 6px;
-                                Text {
-                                    text: "PRATHAMA DRISHTI";
-                                    font-size: 10px;
-                                    font-weight: 800;
-                                    color: #ffffff;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                }
+                            ThematicActionButton {
+                                text: "PRATHAMA DRISHTI";
+                                btn_width: 145px;
+                                btn_height: 38px;
+                                bg_color: #ff4d2e;
+                                hover_color: #ff6548;
+                                sanskrit_title: "प्रथम दृष्टि // FIRST INQUEST";
+                                feature_name: "Feature: Initial RAM Value Scanner";
+                                explanation: "Queries VirtualQueryEx for committed writable pages and scans entire address space for the target value.";
+                                clicked => { root.start_memory_scan("100", "i32"); }
                             }
 
-                            Rectangle {
-                                width: 130px;
-                                height: 38px;
-                                background: #242e42;
-                                border-radius: 6px;
-                                Text {
-                                    text: "PUNAR DRISHTI";
-                                    font-size: 10px;
-                                    font-weight: 800;
-                                    color: #94a3b8;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                }
+                            ThematicActionButton {
+                                text: "PUNAR DRISHTI";
+                                btn_width: 135px;
+                                btn_height: 38px;
+                                bg_color: #242e42;
+                                hover_color: #2e3b54;
+                                sanskrit_title: "पुनर्दृष्टि // REFINED INQUEST";
+                                feature_name: "Feature: Next Scan Address Filter";
+                                explanation: "Re-reads only previously matched memory locations to isolate values that changed, increased, or stayed exact.";
+                                clicked => { root.rescan_memory("100"); }
                             }
                         }
 
@@ -443,12 +632,59 @@ export component MainWindow inherits Window {
                                 padding-right: 12px;
                                 spacing: 12px;
 
-                                Text { text: "STAMBHANA"; width: 68px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
-                                Text { text: "KSHETRA"; width: 130px; font-size: 11px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
-                                Text { text: "TATVA"; width: 120px; font-size: 11px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
-                                Text { text: "PURVA"; width: 110px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
-                                Text { text: "RUPA"; width: 70px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
-                                Text { text: "NAMA & SUTRA (नाम व सूत्र)"; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                ThematicColumnHeader {
+                                    title: "STAMBHANA";
+                                    col_width: 75px;
+                                    text_color: #64748b;
+                                    sanskrit_title: "स्तम्भन सिद्धि // IMMOBILIZE";
+                                    feature_name: "Feature: Memory Freeze Lock";
+                                    explanation: "Periodically writes back the chosen value on a 100ms timer to keep HP, Mana, or Gold locked.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "KSHETRA";
+                                    col_width: 130px;
+                                    text_color: #ff7b00;
+                                    sanskrit_title: "क्षेत्र // MEMORY FIELD";
+                                    feature_name: "Feature: Virtual Memory Address";
+                                    explanation: "The 64-bit virtual memory address pointer in the target process where this variable resides.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "TATVA";
+                                    col_width: 120px;
+                                    text_color: #f8fafc;
+                                    sanskrit_title: "तत्त्व // ELEMENTAL ESSENCE";
+                                    feature_name: "Feature: Live Address Value";
+                                    explanation: "The current numerical or textual value read directly from the target process's RAM.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "PURVA";
+                                    col_width: 110px;
+                                    text_color: #64748b;
+                                    sanskrit_title: "पूर्व // PRIOR STATE";
+                                    feature_name: "Feature: Previous Scan Value";
+                                    explanation: "The value held at this address during the preceding scan inquest cycle.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "RUPA";
+                                    col_width: 70px;
+                                    text_color: #94a3b8;
+                                    sanskrit_title: "रूप // DATA FORM";
+                                    feature_name: "Feature: Primitive Data Type";
+                                    explanation: "The binary interpretation format: i32, u32, i64, u64, f32, f64, or string.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "NAMA & SUTRA (नाम व सूत्र)";
+                                    col_width: 220px;
+                                    text_color: #64748b;
+                                    sanskrit_title: "नाम व सूत्र // LABEL & POINTER";
+                                    feature_name: "Feature: Variable Label & Pointer Chain";
+                                    explanation: "User-assigned label and multi-level base+offset pointer resolution path.";
+                                }
                             }
                         }
 
@@ -565,21 +801,16 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        Rectangle {
-                            height: 42px;
-                            background: #0284c7;
-                            border-radius: 6px;
-                            TouchArea {
-                                clicked => { root.open_save_file(); }
-                            }
-                            Text {
-                                text: "📂 OPEN SAVE VESSEL (पात्र)";
-                                font-size: 11px;
-                                font-weight: 800;
-                                color: #ffffff;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
+                        ThematicActionButton {
+                            text: "📂 OPEN SAVE VESSEL (पात्र)";
+                            btn_width: 292px;
+                            btn_height: 42px;
+                            bg_color: #0284c7;
+                            hover_color: #0396df;
+                            sanskrit_title: "पात्र प्रवेश // OPEN VESSEL";
+                            feature_name: "Feature: Load Save Binary / Struct";
+                            explanation: "Loads arbitrary save game files and initiates Shannon entropy and heuristic pattern scanning.";
+                            clicked => { root.open_save_file(); }
                         }
 
                         // File Stats Card
@@ -626,21 +857,16 @@ export component MainWindow inherits Window {
                         }
 
                         // Commit Button
-                        Rectangle {
-                            height: 42px;
-                            background: #0369a1;
-                            border-radius: 6px;
-                            TouchArea {
-                                clicked => { root.save_file_atomic(); }
-                            }
-                            Text {
-                                text: "STHITI SANKALPA & ATOMIC COMMIT";
-                                font-size: 11px;
-                                font-weight: 800;
-                                color: #ffffff;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
+                        ThematicActionButton {
+                            text: "STHITI SANKALPA & ATOMIC COMMIT";
+                            btn_width: 292px;
+                            btn_height: 42px;
+                            bg_color: #0369a1;
+                            hover_color: #0779b8;
+                            sanskrit_title: "स्थिति संकल्प // ATOMIC REWRITE VOW";
+                            feature_name: "Feature: Safe File Commit";
+                            explanation: "Duplicates original to .sharabha.bak, writes temporary shadow file, and swaps via MoveFileEx.";
+                            clicked => { root.save_file_atomic(); }
                         }
                     }
                 }
@@ -685,11 +911,50 @@ export component MainWindow inherits Window {
                                 padding-right: 12px;
                                 spacing: 10px;
 
-                                Text { text: "OFFSET"; width: 90px; font-size: 11px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
-                                Text { text: "VISHWAS"; width: 68px; font-size: 10px; font-weight: 800; color: #eab308; vertical-alignment: center; }
-                                Text { text: "RUPA"; width: 130px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
-                                Text { text: "LAKSHANA / KEY"; width: 180px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
-                                Text { text: "TATVA (EDITABLE)"; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                                ThematicColumnHeader {
+                                    title: "OFFSET";
+                                    col_width: 90px;
+                                    text_color: #38bdf8;
+                                    sanskrit_title: "स्थान // BYTE OFFSET";
+                                    feature_name: "Feature: File Offset";
+                                    explanation: "Zero-based hexadecimal position of this field within the save game binary file.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "VISHWAS";
+                                    col_width: 75px;
+                                    text_color: #eab308;
+                                    sanskrit_title: "विश्वास // CONFIDENCE";
+                                    feature_name: "Feature: Heuristic Trust Score";
+                                    explanation: "Statistical confidence rating (0-100%) indicating how certain the parser is about this type.";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "RUPA";
+                                    col_width: 130px;
+                                    text_color: #94a3b8;
+                                    sanskrit_title: "रूप // DATA FORM";
+                                    feature_name: "Feature: Inferred Type";
+                                    explanation: "Detected data type (ASCII string, UTF-16, little-endian i32/u32, or IEEE 754 float).";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "LAKSHANA / KEY";
+                                    col_width: 170px;
+                                    text_color: #cbd5e1;
+                                    sanskrit_title: "लक्षण // KEY IDENTIFIER";
+                                    feature_name: "Feature: Field Label";
+                                    explanation: "Suggested or user-assigned variable name for this entry (stored in Knowledge Base).";
+                                }
+
+                                ThematicColumnHeader {
+                                    title: "TATVA (EDITABLE)";
+                                    col_width: 180px;
+                                    text_color: #cbd5e1;
+                                    sanskrit_title: "तत्त्व // MODIFIABLE VALUE";
+                                    feature_name: "Feature: In-Place Value Editor";
+                                    explanation: "Double-click or edit this value to mutate the underlying bytes before committing.";
+                                }
                             }
                         }
 
@@ -782,19 +1047,15 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    Rectangle {
-                        width: 170px;
-                        height: 38px;
-                        background: #854d0e;
-                        border-radius: 6px;
-                        Text {
-                            text: "+ NEW AGAMA PROFILE";
-                            font-size: 11px;
-                            font-weight: 800;
-                            color: #fef08a;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
+                    ThematicActionButton {
+                        text: "+ NEW AGAMA PROFILE";
+                        btn_width: 190px;
+                        btn_height: 38px;
+                        bg_color: #854d0e;
+                        hover_color: #9e5b11;
+                        sanskrit_title: "आगम रचना // AGAMA RECORD";
+                        feature_name: "Feature: Register Game Schema";
+                        explanation: "Saves a new game structure in embedded SurrealDB to permanently remember save offsets and pointer chains.";
                     }
                 }
 
