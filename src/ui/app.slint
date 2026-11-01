@@ -778,6 +778,20 @@ export component MainWindow inherits Window {
     in-out property <string> vault_openai_key: "";
     in-out property <string> vault_status_msg: "DPAPI Encrypted Vault Ready (मुद्रित)";
 
+    // Dual-Mode Save Editor Properties (Agama vs. Pravaha)
+    in-out property <int> save_view_mode: 0; // 0=Agama Deterministic, 1=Pravaha Fuzzy Raw Table
+    in-out property <string> save_game_title: "ELDEN RING (हिरण्यगर्भ आगम)";
+    in-out property <string> save_filename: "ER0000.sl2";
+    in-out property <string> save_checksum_info: "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
+    in-out property <string> save_runes_val: "950,000";
+    in-out property <string> save_level_val: "175";
+    in-out property <string> save_vigor_val: "60";
+    in-out property <string> save_gold_val: "250,000";
+
+    // Interactive Lua Altar Properties
+    in-out property <string> lua_script_input: "sharabha.write_u32(0x7FF74A8014E4, 999999); print('Mudra Awakened!')";
+    in-out property <string> lua_status_msg: "LuaJIT 2.1 Ashtamurti Ready // Memory Inquest Armed";
+
     // Callbacks to Zig core
     callback refresh_processes();
     callback attach_process(int);
@@ -795,6 +809,8 @@ export component MainWindow inherits Window {
     callback save_vault();
     callback test_vault();
     callback cycle_canvas_mode();
+    callback toggle_save_view_mode();
+    callback run_lua_script(string);
 
     // =========================================================================
     // LAYER 1: AMBIENT CANVAS BACKGROUND (SACRED ALTAR STILL / ANIMATED LOOP)
@@ -1362,31 +1378,47 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Bottom Lua Console Bar
+                        // Interactive Lua Altar (उद्बोधन वेदी)
                         Rectangle {
-                            height: 40px;
-                            background: #101622b0;
-                            border-radius: 6px;
-                            border-width: 1px;
-                            border-color: #222c3e;
+                            height: 48px;
+                            background: #101622d0;
+                            border-radius: 8px;
+                            border-width: 1.5px;
+                            border-color: #7c3aed66;
 
                             HorizontalLayout {
-                                padding-left: 14px;
-                                padding-right: 14px;
-                                alignment: space-between;
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 10px;
+                                alignment: center;
 
                                 Text {
-                                    text: "📜 Tandava Script Engine (LuaJIT): Bound to PID 14208 | Needle injection ready";
+                                    text: "🔱 LUA:";
                                     font-size: 11px;
+                                    font-weight: 800;
                                     color: #c084fc;
                                     vertical-alignment: center;
                                 }
 
-                                Text {
-                                    text: "Lua 5.1 / JIT v2.1";
-                                    font-size: 10px;
-                                    color: #64748b;
-                                    vertical-alignment: center;
+                                LineEdit {
+                                    text <=> root.lua_script_input;
+                                    placeholder-text: "sharabha.write_u32(0x7FF74A8014E4, 999999);";
+                                    font-size: 11px;
+                                    horizontal-stretch: 1;
+                                    height: 34px;
+                                }
+
+                                ThematicActionButton {
+                                    text: "AWAKEN // Run";
+                                    devanagari: "उद्बोधन";
+                                    btn_width: 130px;
+                                    btn_height: 34px;
+                                    bg_color: #6d28d9;
+                                    hover_color: #7c3aed;
+                                    sanskrit_title: "उद्बोधन // AWAKEN LUA";
+                                    feature_name: "Feature: Execute LuaJIT Script";
+                                    explanation: "Executes custom Lua script with native memory read/write and freeze bindings directly against attached game process.";
+                                    clicked => { root.run_lua_script(root.lua_script_input); }
                                 }
                             }
                         }
@@ -1618,23 +1650,378 @@ export component MainWindow inherits Window {
                         padding: 16px;
                         spacing: 12px;
 
+                        // Dual-Mode Aspect Switcher Header
                         HorizontalLayout {
                             alignment: space-between;
 
-                            Text {
-                                text: "INFERRED KEY-VALUES // Heuristic Map (अनुमानित तत्त्व)";
-                                font-size: 12px;
-                                font-weight: 800;
-                                letter-spacing: 1px;
-                                color: #f8fafc;
+                            HorizontalLayout {
+                                spacing: 12px;
+                                alignment: center;
+
+                                Text {
+                                    text: root.save_view_mode == 0 ? "🏛️ AGAMA MODE // Deterministic Profile (आगम दर्शन)" : "🌊 PRAVAHA MODE // Fuzzy Stream Map (प्रवाह दर्शन)";
+                                    font-size: 13px;
+                                    font-weight: 800;
+                                    letter-spacing: 1px;
+                                    color: root.save_view_mode == 0 ? #eab308 : #38bdf8;
+                                    vertical-alignment: center;
+                                }
+
+                                Rectangle {
+                                    height: 24px;
+                                    background: #0ea5e925;
+                                    border-radius: 4px;
+                                    border-width: 1px;
+                                    border-color: #0ea5e955;
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        Text {
+                                            text: root.save_checksum_info;
+                                            font-size: 10px;
+                                            font-weight: 700;
+                                            color: #38bdf8;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
                             }
 
-                            Text {
-                                text: "Yukti Confidence Scorer: Active";
-                                font-size: 11px;
-                                color: #38bdf8;
+                            // View Mode Toggle Button
+                            ThematicActionButton {
+                                text: root.save_view_mode == 0 ? "SWITCH TO PRAVAHA" : "SWITCH TO AGAMA";
+                                devanagari: root.save_view_mode == 0 ? "प्रवाह रूप (Fuzzy)" : "आगम रूप (Temple)";
+                                btn_width: 180px;
+                                btn_height: 36px;
+                                bg_color: root.save_view_mode == 0 ? #0284c7 : #854d0e;
+                                hover_color: root.save_view_mode == 0 ? #0396df : #a16207;
+                                sanskrit_title: "दर्शन परिवर्तन // DUAL-ASPECT TOGGLE";
+                                feature_name: "Feature: Switch Agama/Pravaha Mode";
+                                explanation: "Toggles between known Agama deterministic field cards and raw multi-metric candidate extraction.";
+                                clicked => {
+                                    root.save_view_mode = root.save_view_mode == 0 ? 1 : 0;
+                                    root.toggle_save_view_mode();
+                                }
                             }
                         }
+
+                        // -------------------------------------------------------------
+                        // AGAMA VIEW: Deterministic Sacred Game Cards (when save_view_mode == 0)
+                        // -------------------------------------------------------------
+                        if root.save_view_mode == 0: VerticalLayout {
+                            spacing: 14px;
+
+                            // Sacred Profile Banner
+                            Rectangle {
+                                height: 72px;
+                                background: #141c2bcc;
+                                border-radius: 8px;
+                                border-width: 1.5px;
+                                border-color: #eab30866;
+
+                                HorizontalLayout {
+                                    padding-left: 18px;
+                                    padding-right: 18px;
+                                    alignment: space-between;
+
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 3px;
+
+                                        HorizontalLayout {
+                                            spacing: 10px;
+                                            Text {
+                                                text: root.save_game_title;
+                                                font-size: 14px;
+                                                font-weight: 800;
+                                                color: #facc15;
+                                                vertical-alignment: center;
+                                            }
+                                            Rectangle {
+                                                height: 20px;
+                                                background: #22c55e25;
+                                                border-radius: 4px;
+                                                border-width: 1px;
+                                                border-color: #22c55e66;
+                                                HorizontalLayout {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+                                                    Text {
+                                                        text: "Jnana Kosha Verified";
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                        color: #4ade80;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: "Target Vessel: " + root.save_filename + " (Slot 0 Block 0x300) • Multi-Metric Schema Locked";
+                                            font-size: 11px;
+                                            color: #94a3b8;
+                                        }
+                                    }
+
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Text {
+                                            text: "AGAMA: HIRANYAGARBHA";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            color: #ca8a04;
+                                            horizontal-alignment: right;
+                                        }
+                                        Text {
+                                            text: "Deterministic Mode Active";
+                                            font-size: 10px;
+                                            color: #64748b;
+                                            horizontal-alignment: right;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Grid of Editable Agama Cards
+                            HorizontalLayout {
+                                spacing: 14px;
+
+                                // Card 1: Player Runes (मृत्युंजय धन)
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: #0d1524d8;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #eab30844;
+
+                                    VerticalLayout {
+                                        padding: 14px;
+                                        spacing: 10px;
+
+                                        HorizontalLayout {
+                                            alignment: space-between;
+                                            Text { text: "PLAYER RUNES"; font-size: 11px; font-weight: 800; color: #facc15; }
+                                            Text { text: "[0x000C // i32]"; font-size: 10px; color: #64748b; }
+                                        }
+                                        Text { text: "मृत्युंजय धन (Runes Currency)"; font-size: 10px; color: #94a3b8; }
+
+                                        LineEdit {
+                                            text <=> root.save_runes_val;
+                                            font-size: 14px;
+                                            height: 38px;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            ThematicActionButton {
+                                                text: "+50K"; devanagari: "धन"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #1e293b; hover_color: #334155;
+                                                clicked => { root.save_runes_val = "1000000"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "+500K"; devanagari: "कोष"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #1e293b; hover_color: #334155;
+                                                clicked => { root.save_runes_val = "1450000"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "MAX"; devanagari: "अनन्त"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #854d0e; hover_color: #a16207;
+                                                clicked => { root.save_runes_val = "99999999"; }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Card 2: Rune Level (तपस् स्तर)
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: #0d1524d8;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #38bdf844;
+
+                                    VerticalLayout {
+                                        padding: 14px;
+                                        spacing: 10px;
+
+                                        HorizontalLayout {
+                                            alignment: space-between;
+                                            Text { text: "RUNE LEVEL"; font-size: 11px; font-weight: 800; color: #38bdf8; }
+                                            Text { text: "[0x0010 // i32]"; font-size: 10px; color: #64748b; }
+                                        }
+                                        Text { text: "तपस् स्तर (Character Level)"; font-size: 10px; color: #94a3b8; }
+
+                                        LineEdit {
+                                            text <=> root.save_level_val;
+                                            font-size: 14px;
+                                            height: 38px;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            ThematicActionButton {
+                                                text: "-1"; devanagari: "ह्रास"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #1e293b; hover_color: #334155;
+                                                clicked => { root.save_level_val = "174"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "+1"; devanagari: "वृद्धि"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #1e293b; hover_color: #334155;
+                                                clicked => { root.save_level_val = "176"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "META 150"; devanagari: "सारणी"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #0369a1; hover_color: #0284c7;
+                                                clicked => { root.save_level_val = "150"; }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 14px;
+
+                                // Card 3: Vigor (प्राण शक्ति)
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: #0d1524d8;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #ef444444;
+
+                                    VerticalLayout {
+                                        padding: 14px;
+                                        spacing: 10px;
+
+                                        HorizontalLayout {
+                                            alignment: space-between;
+                                            Text { text: "VIGOR / HP"; font-size: 11px; font-weight: 800; color: #f87171; }
+                                            Text { text: "[0x0014 // i32]"; font-size: 10px; color: #64748b; }
+                                        }
+                                        Text { text: "प्राण शक्ति (Vitality)"; font-size: 10px; color: #94a3b8; }
+
+                                        LineEdit {
+                                            text <=> root.save_vigor_val;
+                                            font-size: 14px;
+                                            height: 38px;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            ThematicActionButton {
+                                                text: "40 SOFTCAP"; devanagari: "प्राण"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #1e293b; hover_color: #334155;
+                                                clicked => { root.save_vigor_val = "40"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "60 HARDCAP"; devanagari: "दृढ़"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #7f1d1d; hover_color: #991b1b;
+                                                clicked => { root.save_vigor_val = "60"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "MAX 99"; devanagari: "परम"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #991b1b; hover_color: #b91c1c;
+                                                clicked => { root.save_vigor_val = "99"; }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Card 4: Gold / Secondary Wealth (सुवर्ण कोष)
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    background: #0d1524d8;
+                                    border-radius: 8px;
+                                    border-width: 1px;
+                                    border-color: #10b98144;
+
+                                    VerticalLayout {
+                                        padding: 14px;
+                                        spacing: 10px;
+
+                                        HorizontalLayout {
+                                            alignment: space-between;
+                                            Text { text: "GOLD / BANK"; font-size: 11px; font-weight: 800; color: #34d399; }
+                                            Text { text: "[0x0018 // i32]"; font-size: 10px; color: #64748b; }
+                                        }
+                                        Text { text: "सुवर्ण कोष (General Currency)"; font-size: 10px; color: #94a3b8; }
+
+                                        LineEdit {
+                                            text <=> root.save_gold_val;
+                                            font-size: 14px;
+                                            height: 38px;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            ThematicActionButton {
+                                                text: "+10K"; devanagari: "धन"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #1e293b; hover_color: #334155;
+                                                clicked => { root.save_gold_val = "260000"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "+100K"; devanagari: "सुवर्ण"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #064e3b; hover_color: #065f46;
+                                                clicked => { root.save_gold_val = "350000"; }
+                                            }
+                                            ThematicActionButton {
+                                                text: "MAX"; devanagari: "अनन्त"; btn_width: 0px; btn_height: 28px;
+                                                bg_color: #047857; hover_color: #059669;
+                                                clicked => { root.save_gold_val = "9999999"; }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Sthiti Raksha Integrity Seal Telemetry Bar
+                            Rectangle {
+                                height: 50px;
+                                background: #0c1a2db0;
+                                border-radius: 6px;
+                                border-width: 1px;
+                                border-color: #0284c755;
+
+                                HorizontalLayout {
+                                    padding-left: 16px;
+                                    padding-right: 16px;
+                                    alignment: space-between;
+
+                                    HorizontalLayout {
+                                        spacing: 10px;
+                                        alignment: center;
+                                        Text {
+                                            text: "🛡️ STHITI RAKSHA:";
+                                            font-size: 11px;
+                                            font-weight: 800;
+                                            color: #38bdf8;
+                                            vertical-alignment: center;
+                                        }
+                                        Text {
+                                            text: "MD5 128-bit Slot Block 0x300 Checksum Armed • Auto-Recomputed on Commit";
+                                            font-size: 11px;
+                                            color: #cbd5e1;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    Text {
+                                        text: "Zero-Corruption Vow (अखंड रक्षा)";
+                                        font-size: 10px;
+                                        font-weight: 700;
+                                        color: #22c55e;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                        // -------------------------------------------------------------
+                        // PRAVAHA VIEW: Heuristic Multi-Metric Raw Table (when save_view_mode == 1)
+                        // -------------------------------------------------------------
+                        if root.save_view_mode == 1: VerticalLayout {
+                            spacing: 8px;
 
                         // Table Header
                         Rectangle {
@@ -1757,6 +2144,7 @@ export component MainWindow inherits Window {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }

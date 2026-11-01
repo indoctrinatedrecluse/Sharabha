@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const win = struct {
+pub const win = struct {
     pub const HANDLE = *anyopaque;
     pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(std.math.maxInt(usize));
 

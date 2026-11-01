@@ -193,6 +193,51 @@ pub fn main() !void {
     std.debug.print("  [✓] Intel Core Ultra 9 275HX Hardware GPU Texture Pipeline Primed.\n", .{});
     std.debug.print("  [✓] Zero-Lag Dynamic Mode: Background video loops at 24 FPS with 0.0% idle CPU.\n", .{});
 
+    std.debug.print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+    std.debug.print(" [8] 📜 MUDRA SUTRA — High-Speed AOB & Wildcard Pattern Matcher\n", .{});
+    std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+
+    var aob_pat = try Sharabha.aob.AobPattern.parse(allocator, "48 89 5C 24 ?? 57");
+    defer aob_pat.deinit();
+    const mock_code = [_]u8{ 0x90, 0x90, 0x48, 0x89, 0x5C, 0x24, 0x30, 0x57, 0xC3 };
+    const aob_match = aob_pat.findFirst(&mock_code);
+    if (aob_match) |off| {
+        std.debug.print("  [✓] Signature '48 89 5C 24 ?? 57' resolved at code offset +0x{X:0>4}\n", .{off});
+        std.debug.print("  [✓] Dynamic Code Hook Point: 0x{X:0>8} [Wildcard byte: 0x{X:0>2}]\n", .{
+            0x140001000 + off, mock_code[off + 4],
+        });
+    }
+
+    std.debug.print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+    std.debug.print(" [9] 🛡️ STHITI RAKSHA & AGAMA DUAL-MODE SAVE PARSER\n", .{});
+    std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+
+    // Test dual mode with mock Elden Ring save
+    var elden_mock: [128]u8 = @splat(0);
+    @memcpy(elden_mock[0..4], "BND4");
+    std.mem.writeInt(i32, elden_mock[12..16], 950000, .little); // Runes
+    std.mem.writeInt(i32, elden_mock[16..20], 175, .little); // Level
+    std.mem.writeInt(i32, elden_mock[20..24], 60, .little); // Vigor
+
+    var dual_state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, "ER0000.sl2", &elden_mock);
+    defer dual_state.deinit();
+
+    std.debug.print("  [✓] Detected Profile: {s} // {s}\n", .{ dual_state.game_title, dual_state.sanskrit_title });
+    std.debug.print("  [✓] Mode: {s} | Extracted Fields: {d}\n", .{
+        @tagName(dual_state.view_mode), dual_state.agama_fields.items.len,
+    });
+    for (dual_state.agama_fields.items) |f| {
+        std.debug.print("    • [{s}] {s} (0x{X:0>4}) => {d}\n", .{ f.sanskrit_name, f.name, f.offset, f.int_value });
+    }
+
+    // Verify Checksum Recomputation Engine
+    const crc = Sharabha.checksum.ChecksumEngine.computeCrc32(&elden_mock);
+    const adler = Sharabha.checksum.ChecksumEngine.computeAdler32(&elden_mock);
+    const md5_hash = Sharabha.checksum.ChecksumEngine.computeMd5(&elden_mock);
+    std.debug.print("  [✓] Sthiti Raksha Checksums -> CRC32: 0x{X:0>8} | Adler32: 0x{X:0>8} | MD5: {X:0>2}{X:0>2}{X:0>2}{X:0>2}...\n", .{
+        crc, adler, md5_hash[0], md5_hash[1], md5_hash[2], md5_hash[3],
+    });
+
     std.debug.print("\n========================================================================\n", .{});
     std.debug.print("  शरभेश्वर // ॐ नमः शिवाय // TRISHULA & ASHTAMURTI IN HARMONY\n", .{});
     std.debug.print("  Launch Slint GUI with: slint-viewer src/ui/app.slint\n", .{});
