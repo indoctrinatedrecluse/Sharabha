@@ -12,6 +12,8 @@ pub const switcher = @import("save/switcher.zig");
 pub const knowledge = @import("knowledge/profiles.zig");
 pub const security = @import("security/vault.zig");
 pub const ai = @import("ai/analyzer.zig");
+pub const scripting = @import("scripting/engine.zig");
+pub const jnanakosha = @import("knowledge/jnanakosha.zig");
 
 pub fn printBanner() void {
     std.debug.print(
@@ -37,4 +39,6 @@ test {
     _ = knowledge;
     _ = security;
     _ = ai;
+    _ = scripting;
+    _ = jnanakosha;
 }

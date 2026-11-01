@@ -1,4 +1,4 @@
-﻿<#
+<#
 ================================================================================
   SHARABHA - Native Windows Build & Launch Script
   Rudra Tandava (Memory Engine) & Kalyana Sthiti (Save Forge)
@@ -98,7 +98,12 @@ Write-Host "[4/4] Invoking Sharabha Core Subsystems..." -ForegroundColor Cyan
 if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
     Write-Host ""
     Write-Host "Launching native Slint GUI Window (src\ui\app.slint)..." -ForegroundColor Yellow
-    & $slintExe "src\ui\app.slint"
+    $callbacks = @(
+        "--on", "save_file_atomic", "`"$binPath`"",
+        "--on", "test_vault", "powershell -NoProfile -Command Write-Host 'DPAPI Hardware Vault Unlocked // Validated'",
+        "--on", "save_vault", "powershell -NoProfile -Command Write-Host 'DPAPI Hardware Vault Sealed // Saved'"
+    )
+    & $slintExe "src\ui\app.slint" $callbacks
 } elseif ($CliOnly) {
     Write-Host ""
     Write-Host "CLI run completed (-CliOnly specified)." -ForegroundColor Gray

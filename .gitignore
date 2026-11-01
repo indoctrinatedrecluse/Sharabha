@@ -15,3 +15,8 @@ zig-out/
 *.dll
 *.pdb
 Thumbs.db
+
+# Dependencies
+deps/surrealdb/
+deps/**/bin/*.exe
+!deps/luajit/bin/lua51.dll

@@ -2,9 +2,28 @@ const std = @import("std");
 const Sharabha = @import("Sharabha");
 
 pub fn main() !void {
-    Sharabha.printBanner();
-
     const allocator = std.heap.page_allocator;
+
+    // Check command line arguments via Win32 GetCommandLineW
+    const cmd_w = std.mem.span(Sharabha.memory.win.GetCommandLineW());
+    const cmd_utf8 = try std.unicode.utf16LeToUtf8Alloc(allocator, cmd_w);
+    defer allocator.free(cmd_utf8);
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--export-surreal") != null) {
+        var kosha = Sharabha.jnanakosha.JnanaKosha.init(allocator);
+        defer kosha.deinit();
+
+        var list: std.ArrayList(u8) = .empty;
+        defer list.deinit(allocator);
+        try kosha.exportSurrealQL(&list, allocator);
+
+        const stdout_h = Sharabha.memory.win.GetStdHandle(-11) orelse return;
+        var written: u32 = 0;
+        _ = Sharabha.memory.win.WriteFile(stdout_h, list.items.ptr, @as(u32, @intCast(list.items.len)), &written, null);
+        return;
+    }
+
+    Sharabha.printBanner();
 
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
     std.debug.print(" [1] 🔥 RUDRA TANDAVA — Process Inquest & Stambhana Freeze\n", .{});
@@ -99,7 +118,51 @@ pub fn main() !void {
     std.debug.print("  [✓] Divya Drishti (AI Oracle) prompt generated ({d} bytes).\n", .{prompt.len});
 
     std.debug.print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
-    std.debug.print(" [4] 🛡️ STHITI SANKALPA — Atomic Commit & Karma Kavacha\n", .{});
+    std.debug.print(" [4] 🦅 LUAJIT 2.1 — Embedded Scripting & Runtime Inquest\n", .{});
+    std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+
+    var lua_engine = try Sharabha.scripting.ScriptEngine.init(allocator, &freeze_mgr);
+    defer lua_engine.deinit();
+
+    const lua_script =
+        \\ sharabha.log("LuaJIT 2.1 Ashtamurti Sentinel Online")
+        \\ local health = 999
+        \\ assert(health > 0)
+    ;
+    try lua_engine.runString(lua_script);
+    std.debug.print("  [✓] LuaJIT 2.1 runtime primed with memory read/write & freeze bindings.\n", .{});
+
+    std.debug.print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+    std.debug.print(" [5] 🏛️ JNANA KOSHA — SurrealDB Embedded Knowledge Graph\n", .{});
+    std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+
+    var kosha = Sharabha.jnanakosha.JnanaKosha.init(allocator);
+    defer kosha.deinit();
+
+    const discovered_game = kosha.findGameByExecutable("eldenring.exe");
+    if (discovered_game) |g| {
+        std.debug.print("  [✓] Auto-Discovered: {s} ({s}) via {s}\n", .{
+            g.title, g.sanskrit_name, g.executable,
+        });
+
+        var ptrs: [4]Sharabha.jnanakosha.PointerPathNode = undefined;
+        const count = kosha.getPointersForGame(g.id, &ptrs);
+        if (count > 0) {
+            std.debug.print("      Graph Relation -> Pointer: '{s}' [Base: 0x{X}]\n", .{
+                ptrs[0].name, ptrs[0].base_offset,
+            });
+        }
+    }
+
+    const discovered_profile = kosha.findSaveProfileByExtension("game_save.sl2");
+    if (discovered_profile) |sp| {
+        std.debug.print("  [✓] Save Graph Link -> Ext: '{s}' | Metric: '{s}' | Extractor: '{s}'\n", .{
+            sp.file_extension, sp.default_metric, sp.default_extractor,
+        });
+    }
+
+    std.debug.print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+    std.debug.print(" [6] 🛡️ STHITI SANKALPA — Atomic Commit & Karma Kavacha\n", .{});
     std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
 
     var rewrite_engine = Sharabha.rewrite.SafeRewriteEngine.init(allocator);
