@@ -19,21 +19,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Zig Compiler
-        uses: mlugg/setup-zig@v1
-        with:
-          version: master
+      - name: Setup Official Zig 0.17.0
+        shell: pwsh
+        run: |
+          $zigUrl = "https://ziglang.org/download/0.17.0/zig-x86_64-windows-0.17.0.zip"
+          Write-Host "Downloading Zig 0.17.0 from $zigUrl..." -ForegroundColor Cyan
+          Invoke-WebRequest -Uri $zigUrl -OutFile "zig.zip"
+          Expand-Archive -Path "zig.zip" -DestinationPath "$env:RUNNER_TEMP\zig"
+          $zigBinDir = (Get-ChildItem "$env:RUNNER_TEMP\zig\zig-*" | Select-Object -First 1).FullName
+          Add-Content -Path $env:GITHUB_PATH -Value $zigBinDir
+          Write-Host "Added $zigBinDir to GITHUB_PATH" -ForegroundColor Green
 
-      - name: Cache Slint Viewer
-        uses: actions/cache@v4
-        id: cache-slint
-        with:
-          path: ~\.cargo\bin\slint-viewer.exe
-          key: ${{ runner.os }}-slint-viewer-1.18.0
-
-      - name: Install Slint Viewer
-        if: steps.cache-slint.outputs.cache-hit != 'true'
-        run: cargo install slint-viewer --version 1.18.0
+      - name: Setup Official Slint Viewer 1.18.0
+        shell: pwsh
+        run: |
+          $slintUrl = "https://github.com/slint-ui/slint/releases/download/v1.18.0/slint-viewer-windows-x86_64.zip"
+          Write-Host "Downloading Slint Viewer 1.18.0 from $slintUrl..." -ForegroundColor Cyan
+          Invoke-WebRequest -Uri $slintUrl -OutFile "slint.zip"
+          Expand-Archive -Path "slint.zip" -DestinationPath "$env:RUNNER_TEMP\slint"
+          $slintExe = (Get-ChildItem "$env:RUNNER_TEMP\slint" -Filter "slint-viewer.exe" -Recurse | Select-Object -First 1).FullName
+          $slintDir = Split-Path $slintExe -Parent
+          Add-Content -Path $env:GITHUB_PATH -Value $slintDir
+          Write-Host "Added $slintDir to GITHUB_PATH" -ForegroundColor Green
 
       - name: Prime Chitrapata Hardware Video Buffers
         shell: pwsh
@@ -46,7 +53,7 @@ jobs:
         shell: pwsh
         run: zig build test
 
-      - name: Compile Native Release Safe Binaries
+      - name: Compile Native Release Fast Binaries
         shell: pwsh
         run: zig build -Doptimize=ReleaseFast
 
@@ -62,10 +69,9 @@ jobs:
           New-Item -ItemType Directory -Path "$portableDir\bin" -Force | Out-Null
           Copy-Item "zig-out\bin\*" -Destination "$portableDir\bin" -Recurse -Force
 
-          $cargoSlint = (Get-Command slint-viewer -ErrorAction SilentlyContinue).Source
-          if (-not $cargoSlint) { $cargoSlint = "$env:USERPROFILE\.cargo\bin\slint-viewer.exe" }
-          if (Test-Path $cargoSlint) {
-              Copy-Item $cargoSlint -Destination "$portableDir\bin\slint-viewer.exe" -Force
+          $slintCmd = (Get-Command slint-viewer -ErrorAction SilentlyContinue).Source
+          if ($slintCmd) {
+              Copy-Item $slintCmd -Destination "$portableDir\bin\slint-viewer.exe" -Force
           }
 
           Copy-Item -Path "assets" -Destination "$portableDir\assets" -Recurse -Force
