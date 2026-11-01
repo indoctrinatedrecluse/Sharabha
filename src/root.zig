@@ -14,6 +14,7 @@ pub const security = @import("security/vault.zig");
 pub const ai = @import("ai/analyzer.zig");
 pub const scripting = @import("scripting/engine.zig");
 pub const jnanakosha = @import("knowledge/jnanakosha.zig");
+pub const chitrapata = @import("media/chitrapata.zig");
 
 pub fn printBanner() void {
     std.debug.print(
@@ -41,4 +42,5 @@ test {
     _ = ai;
     _ = scripting;
     _ = jnanakosha;
+    _ = chitrapata;
 }
