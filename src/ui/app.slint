@@ -1,0 +1,774 @@
+import { Button, VerticalBox, HorizontalBox, LineEdit, ScrollView, ListView } from "std-widgets.slint";
+
+/* ==========================================================================
+   SHARABHA THEME — Shaivite Mysticism & High-Tech Systems Duality
+   - Bhasma (Ash Charcoal): #0a0b0e, #14171d
+   - Rudra Agni (Third-Eye Ember): #ff4d2e, #ff7b00
+   - Shanti Ganga (Celestial Cyan): #38bdf8, #0ea5e9
+   - Trishula Suvarna (Sacred Bronze/Gold): #eab308, #ca8a04
+   - Translucent Glass Panels: rgba(18, 22, 30, 0.78)
+   ========================================================================== */
+
+export struct ProcessUiEntry {
+    pid: int,
+    name: string,
+    architecture: string,
+}
+
+export struct MemoryScanResult {
+    address: string,
+    value: string,
+    previous_value: string,
+    val_type: string,
+}
+
+export struct SaveFieldEntry {
+    offset: string,
+    label: string,
+    inferred_type: string,
+    value: string,
+    confidence: int,
+}
+
+export component TabButton inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> icon_text;
+    in property <bool> is_active;
+    in property <color> active_color: #ff4d2e;
+
+    callback clicked();
+
+    height: 58px;
+    background: is_active ? #1e2430 : (touch.has_hover ? #161b24 : transparent);
+    border-radius: 8px;
+    border-width: is_active ? 1px : 0px;
+    border-color: is_active ? active_color : transparent;
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        alignment: center;
+
+        Text {
+            text: root.icon_text;
+            font-size: 20px;
+            vertical-alignment: center;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+
+            Text {
+                text: root.title;
+                font-size: 13px;
+                font-weight: 700;
+                color: is_active ? #ffffff : #94a3b8;
+            }
+
+            Text {
+                text: root.subtitle;
+                font-size: 10px;
+                color: is_active ? active_color : #64748b;
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "SHARABHA — The Dual Aspect Engine (शरभ)";
+    min-width: 1100px;
+    min-height: 720px;
+    default-font-family: "Segoe UI, sans-serif";
+    background: #090b10;
+
+    // Active Tab: 0 = Rudra (Memory), 1 = Kalyana (Save Forge), 2 = Jnana (Knowledge Base)
+    in-out property <int> active_tab: 0;
+
+    // Callbacks to Zig core
+    callback refresh_processes();
+    callback attach_process(int);
+    callback start_memory_scan(string, string); // value, type
+    callback rescan_memory(string);
+    callback open_save_file();
+    callback execute_fuzzy_parse();
+    callback save_file_atomic();
+
+    // Background Canvas Layer (Ready for Video Background / Particle Canvas)
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: @linear-gradient(135deg, #090b10 0%, #0f141c 50%, #07090d 100%);
+
+        // Ambient Trishula / Tandava lighting glow
+        Rectangle {
+            x: 20%;
+            y: -10%;
+            width: 500px;
+            height: 500px;
+            border-radius: 250px;
+            background: radial-gradient(circle, #ff4d2e08 0%, transparent 70%);
+        }
+
+        Rectangle {
+            x: 70%;
+            y: 60%;
+            width: 600px;
+            height: 600px;
+            border-radius: 300px;
+            background: radial-gradient(circle, #0ea5e908 0%, transparent 70%);
+        }
+    }
+
+    // Main App Container (Glassmorphism layout)
+    VerticalLayout {
+        padding: 16px;
+        spacing: 14px;
+
+        // Header Bar: Trishula Logo & Dual-Aspect Manifestation
+        Rectangle {
+            height: 72px;
+            background: #11151e;
+            border-radius: 12px;
+            border-width: 1px;
+            border-color: #1e2638;
+
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                alignment: space-between;
+
+                // Brand & Mythos Title
+                HorizontalLayout {
+                    spacing: 14px;
+                    alignment: center;
+
+                    Text {
+                        text: "🔱";
+                        font-size: 32px;
+                        vertical-alignment: center;
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "SHARABHA";
+                                font-size: 20px;
+                                font-weight: 900;
+                                letter-spacing: 2px;
+                                color: #f8fafc;
+                            }
+                            Text {
+                                text: "शरभ";
+                                font-size: 16px;
+                                font-weight: 700;
+                                color: #eab308;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Text {
+                            text: "The Dual Aspect Game Engine — Subduing the Untamed Process";
+                            font-size: 11px;
+                            color: #64748b;
+                        }
+                    }
+                }
+
+                // Tab Switcher Bar
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: center;
+
+                    TabButton {
+                        title: "RUDRA ENGINE";
+                        subtitle: "Memory & Injection [Violent]";
+                        icon_text: "🔥";
+                        is_active: root.active_tab == 0;
+                        active_color: #ff4d2e;
+                        clicked => { root.active_tab = 0; }
+                    }
+
+                    TabButton {
+                        title: "SAVE FORGE";
+                        subtitle: "Fuzzy KV Parser [Calm]";
+                        icon_text: "🧊";
+                        is_active: root.active_tab == 1;
+                        active_color: #38bdf8;
+                        clicked => { root.active_tab = 1; }
+                    }
+
+                    TabButton {
+                        title: "JNANA KOSHA";
+                        subtitle: "Knowledge Base [Omniscient]";
+                        icon_text: "📜";
+                        is_active: root.active_tab == 2;
+                        active_color: #eab308;
+                        clicked => { root.active_tab = 2; }
+                    }
+                }
+            }
+        }
+
+        // Body Workspace (Switched by active_tab)
+        Rectangle {
+            background: #0f131b;
+            border-radius: 12px;
+            border-width: 1px;
+            border-color: #1e2638;
+
+            // ==============================================================
+            // TAB 0: RUDRA / MEMORY ENGINE
+            // ==============================================================
+            if root.active_tab == 0: HorizontalLayout {
+                padding: 16px;
+                spacing: 16px;
+
+                // Left Panel: Process Selector & Attach
+                Rectangle {
+                    width: 320px;
+                    background: #141924;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #232b3e;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: "TARGET PROCESSES";
+                                font-size: 12px;
+                                font-weight: 800;
+                                letter-spacing: 1px;
+                                color: #ff4d2e;
+                            }
+                            Text {
+                                text: "Win32 Toolhelp";
+                                font-size: 10px;
+                                color: #64748b;
+                            }
+                        }
+
+                        // Filter Box
+                        LineEdit {
+                            placeholder-text: "Filter process name / PID...";
+                            height: 36px;
+                        }
+
+                        // Process List Placeholder
+                        Rectangle {
+                            background: #0a0d14;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #1a202c;
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 8px;
+
+                                Text {
+                                    text: "Select a process to attach Trishula hooks:";
+                                    font-size: 11px;
+                                    color: #94a3b8;
+                                }
+
+                                Text {
+                                    text: "• Process enumerator loaded (Win32 active)\n• VirtualQueryEx region scanner ready\n• SIMD value scanner initialized";
+                                    font-size: 11px;
+                                    color: #64748b;
+                                }
+                            }
+                        }
+
+                        // Attach Button
+                        Rectangle {
+                            height: 42px;
+                            background: #ff4d2e;
+                            border-radius: 6px;
+                            touch_attach := TouchArea {
+                                clicked => { root.attach_process(0); }
+                            }
+                            Text {
+                                text: "ATTACH WITH SHARABHA";
+                                font-size: 12px;
+                                font-weight: 800;
+                                color: #ffffff;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Right Panel: Memory Scanner, Results & Lua Injection Console
+                Rectangle {
+                    background: #141924;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #232b3e;
+
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 14px;
+
+                        // Scanner Controls
+                        HorizontalLayout {
+                            spacing: 12px;
+
+                            LineEdit {
+                                placeholder-text: "Scan value (e.g. 100, 9999)...";
+                                height: 38px;
+                            }
+
+                            Rectangle {
+                                width: 140px;
+                                height: 38px;
+                                background: #222b3d;
+                                border-radius: 6px;
+                                Text {
+                                    text: "Type: i32 (Exact)";
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    color: #cbd5e1;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 120px;
+                                height: 38px;
+                                background: #ff4d2e;
+                                border-radius: 6px;
+                                Text {
+                                    text: "FIRST SCAN";
+                                    font-size: 11px;
+                                    font-weight: 800;
+                                    color: #ffffff;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 100px;
+                                height: 38px;
+                                background: #273145;
+                                border-radius: 6px;
+                                Text {
+                                    text: "NEXT SCAN";
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    color: #94a3b8;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Results Table Header
+                        Rectangle {
+                            height: 32px;
+                            background: #0d1017;
+                            border-radius: 4px;
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 10px;
+
+                                Text { text: "ADDRESS"; width: 140px; font-size: 11px; font-weight: 700; color: #ff7b00; vertical-alignment: center; }
+                                Text { text: "VALUE"; width: 120px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                                Text { text: "PREVIOUS"; width: 120px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                Text { text: "TYPE"; width: 80px; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                                Text { text: "DESCRIPTION"; font-size: 11px; font-weight: 700; color: #64748b; vertical-alignment: center; }
+                            }
+                        }
+
+                        // Scan Results Container
+                        Rectangle {
+                            background: #090c12;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #1a202c;
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 8px;
+
+                                Text {
+                                    text: "⚡ No Active Memory Scan";
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: #475569;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: "Attach to a process and enter an initial value to begin scanning committed pages.";
+                                    font-size: 11px;
+                                    color: #334155;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Lua Scripting Bar
+                        Rectangle {
+                            height: 40px;
+                            background: #111622;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #1e2638;
+
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                padding-right: 14px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: "📜 LuaJIT Injection Engine: Ready (Press ~ to open Tandava script console)";
+                                    font-size: 11px;
+                                    color: #a855f7;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Lua 5.1 / JIT v2.1";
+                                    font-size: 10px;
+                                    color: #64748b;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ==============================================================
+            // TAB 1: KALYANA / SAVE FORGE
+            // ==============================================================
+            if root.active_tab == 1: HorizontalLayout {
+                padding: 16px;
+                spacing: 16px;
+
+                // Left: File Information & Heuristic Controls
+                Rectangle {
+                    width: 320px;
+                    background: #141924;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #232b3e;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 12px;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: "SAVE FILE ANALYSIS";
+                                font-size: 12px;
+                                font-weight: 800;
+                                letter-spacing: 1px;
+                                color: #38bdf8;
+                            }
+                            Text {
+                                text: "Fuzzy Heuristic v1";
+                                font-size: 10px;
+                                color: #64748b;
+                            }
+                        }
+
+                        // Open File Button
+                        Rectangle {
+                            height: 42px;
+                            background: #0284c7;
+                            border-radius: 6px;
+                            Text {
+                                text: "📂 OPEN SAVE GAME FILE";
+                                font-size: 12px;
+                                font-weight: 800;
+                                color: #ffffff;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        // File Stats Card
+                        Rectangle {
+                            background: #0a0d14;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #1a202c;
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 6px;
+
+                                Text { text: "No save file loaded"; font-size: 12px; font-weight: 700; color: #94a3b8; }
+                                Text { text: "File Size: 0 bytes"; font-size: 11px; color: #64748b; }
+                                Text { text: "Entropy: -- (analyzing compression)"; font-size: 11px; color: #64748b; }
+                                Text { text: "Endianness: Auto-detect"; font-size: 11px; color: #64748b; }
+                            }
+                        }
+
+                        // Safety Guarantees
+                        Rectangle {
+                            background: #0f1622;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #0369a144;
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 4px;
+
+                                Text {
+                                    text: "🛡️ Sthiti (Safe Rewrite Protocol):";
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    color: #38bdf8;
+                                }
+                                Text {
+                                    text: "1. Automatic `.sharabha.bak` creation\n2. Shadow buffer write before commit\n3. Win32 MoveFileEx atomic swap";
+                                    font-size: 10px;
+                                    color: #64748b;
+                                }
+                            }
+                        }
+
+                        // Action: Safe Save
+                        Rectangle {
+                            height: 42px;
+                            background: #0369a1;
+                            border-radius: 6px;
+                            Text {
+                                text: "SAFE COMMIT & ATOMIC REWRITE";
+                                font-size: 11px;
+                                font-weight: 800;
+                                color: #ffffff;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Right: Editable KV Tree View & Hex Inspector
+                Rectangle {
+                    background: #141924;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #232b3e;
+
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+
+                            Text {
+                                text: "INFERRED KEY-VALUE ENTRIES";
+                                font-size: 12px;
+                                font-weight: 800;
+                                letter-spacing: 1px;
+                                color: #e2e8f0;
+                            }
+
+                            Text {
+                                text: "Confidence Scorer: Active";
+                                font-size: 11px;
+                                color: #38bdf8;
+                            }
+                        }
+
+                        // Table Header
+                        Rectangle {
+                            height: 32px;
+                            background: #0d1017;
+                            border-radius: 4px;
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 10px;
+
+                                Text { text: "OFFSET"; width: 100px; font-size: 11px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                                Text { text: "CONF."; width: 60px; font-size: 11px; font-weight: 700; color: #eab308; vertical-alignment: center; }
+                                Text { text: "INFERRED TYPE"; width: 120px; font-size: 11px; font-weight: 700; color: #94a3b8; vertical-alignment: center; }
+                                Text { text: "LABEL / KEY"; width: 180px; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                                Text { text: "EDITABLE VALUE"; font-size: 11px; font-weight: 700; color: #cbd5e1; vertical-alignment: center; }
+                            }
+                        }
+
+                        // Tree View Placeholder
+                        Rectangle {
+                            background: #090c12;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: #1a202c;
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 8px;
+
+                                Text {
+                                    text: "🧊 Drop or Open a Save File";
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: #475569;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: "Fuzzy parser will scan byte entropy, extract string tables, and score numeric candidates.";
+                                    font-size: 11px;
+                                    color: #334155;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ==============================================================
+            // TAB 2: JNANA KOSHA / KNOWLEDGE BASE
+            // ==============================================================
+            if root.active_tab == 2: VerticalLayout {
+                padding: 20px;
+                spacing: 16px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    VerticalLayout {
+                        spacing: 2px;
+                        Text {
+                            text: "JNANA KOSHA (SURREALDB KNOWLEDGE BASE)";
+                            font-size: 14px;
+                            font-weight: 800;
+                            letter-spacing: 1px;
+                            color: #eab308;
+                        }
+                        Text {
+                            text: "The Cosmic Archive of Game Schemas, Memory Tables, and Heuristic Overrides";
+                            font-size: 11px;
+                            color: #64748b;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 160px;
+                        height: 38px;
+                        background: #854d0e;
+                        border-radius: 6px;
+                        Text {
+                            text: "+ NEW GAME PROFILE";
+                            font-size: 11px;
+                            font-weight: 800;
+                            color: #fef08a;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Search Bar
+                LineEdit {
+                    placeholder-text: "Search game profiles, verified save schemas, or memory pointer tables...";
+                    height: 38px;
+                }
+
+                // Grid of Profiles Placeholder
+                Rectangle {
+                    background: #090c12;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #1a202c;
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 8px;
+
+                        Text {
+                            text: "📜 Embedded SurrealDB Knowledge Graph";
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: #475569;
+                            horizontal-alignment: center;
+                        }
+
+                        Text {
+                            text: "Save schemas annotated by you or shared by the community are automatically persisted here.";
+                            font-size: 11px;
+                            color: #334155;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Footer Bar: System Telemetry & Shiva Stotra Status
+        Rectangle {
+            height: 32px;
+            background: #0c0f16;
+            border-radius: 6px;
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                alignment: space-between;
+
+                Text {
+                    text: "SHARABHA // OM NAMAH SHIVAYA // STATUS: READY";
+                    font-size: 10px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    color: #eab308;
+                    vertical-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 16px;
+                    alignment: center;
+
+                    Text {
+                        text: "Architecture: Windows x64 Native";
+                        font-size: 10px;
+                        color: #64748b;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: "Core Engine: Zig 0.17";
+                        font-size: 10px;
+                        color: #ff4d2e;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: "UI: Slint Declarative";
+                        font-size: 10px;
+                        color: #38bdf8;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

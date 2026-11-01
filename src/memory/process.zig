@@ -10,7 +10,7 @@ pub const ProcessEntry = struct {
     }
 };
 
-const win = struct {
+pub const win = struct {
     pub const HANDLE = *anyopaque;
     pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(std.math.maxInt(usize));
     pub const TH32CS_SNAPPROCESS: u32 = 0x00000002;
@@ -40,6 +40,7 @@ const win = struct {
     pub extern "kernel32" fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) callconv(.winapi) ?HANDLE;
     pub extern "kernel32" fn ReadProcessMemory(hProcess: HANDLE, lpBaseAddress: ?*const anyopaque, lpBuffer: *anyopaque, nSize: usize, lpNumberOfBytesRead: ?*usize) callconv(.winapi) i32;
     pub extern "kernel32" fn WriteProcessMemory(hProcess: HANDLE, lpBaseAddress: ?*anyopaque, lpBuffer: *const anyopaque, nSize: usize, lpNumberOfBytesWritten: ?*usize) callconv(.winapi) i32;
+    pub extern "kernel32" fn DeleteFileW(lpFileName: [*:0]const u16) callconv(.winapi) i32;
 };
 
 pub const ProcessIterator = struct {

@@ -1,6 +1,11 @@
 const std = @import("std");
 
 pub const memory = @import("memory/process.zig");
+pub const scanner = @import("memory/scanner.zig");
+
+pub const entropy = @import("save/entropy.zig");
+pub const fuzzy = @import("save/fuzzy.zig");
+pub const rewrite = @import("save/rewrite.zig");
 
 pub fn printBanner() void {
     std.debug.print(
@@ -15,4 +20,8 @@ pub fn printBanner() void {
 
 test {
     _ = memory;
+    _ = scanner;
+    _ = entropy;
+    _ = fuzzy;
+    _ = rewrite;
 }
