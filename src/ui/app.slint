@@ -315,12 +315,295 @@ export component TabButton inherits Rectangle {
     }
 }
 
+export component PaletteItemRow inherits Rectangle {
+    in property <string> icon_text: "⚡";
+    in property <string> title: "";
+    in property <string> devanagari: "";
+    in property <string> category: "GENERAL";
+    in property <color> tag_color: #38bdf8;
+    in property <string> shortcut_hint: "";
+    callback clicked();
+
+    height: 44px;
+    background: touch.has_hover ? #1a2333 : #0b111caa;
+    border-radius: 6px;
+    border-width: touch.has_hover ? 1px : 0px;
+    border-color: root.tag_color;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: center;
+
+            Text {
+                text: root.icon_text;
+                font-size: 15px;
+                vertical-alignment: center;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: root.title;
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: touch.has_hover ? #ffffff : #f1f5f9;
+                        vertical-alignment: center;
+                    }
+                    if root.devanagari != "": Text {
+                        text: root.devanagari;
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #facc15;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: center;
+
+            Rectangle {
+                height: 20px;
+                background: root.tag_color.transparentize(0.85);
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: root.tag_color.transparentize(0.5);
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: root.category;
+                        font-size: 9px;
+                        font-weight: 800;
+                        color: root.tag_color;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            if root.shortcut_hint != "": Text {
+                text: root.shortcut_hint;
+                font-size: 10px;
+                color: #64748b;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component DocsArticleTile inherits Rectangle {
+    in property <string> icon_text: "📜";
+    in property <string> title: "";
+    in property <string> devanagari: "";
+    in property <string> category: "THEORY";
+    in property <color> tag_color: #eab308;
+    in property <bool> is_selected: false;
+    callback clicked();
+
+    height: 48px;
+    background: is_selected ? #1e293ecc : (touch.has_hover ? #141c2bcc : #0a0f19aa);
+    border-radius: 6px;
+    border-width: is_selected ? 1.5px : (touch.has_hover ? 1px : 0px);
+    border-color: is_selected ? #eab308 : #38bdf844;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: center;
+
+            Text {
+                text: root.icon_text;
+                font-size: 15px;
+                vertical-alignment: center;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+
+                Text {
+                    text: root.title;
+                    font-size: 11px;
+                    font-weight: 800;
+                    color: is_selected ? #ffffff : #e2e8f0;
+                }
+
+                if root.devanagari != "": Text {
+                    text: root.devanagari;
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: is_selected ? #fef08a : #94a3b8;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 18px;
+                background: root.tag_color.transparentize(0.85);
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: root.tag_color.transparentize(0.5);
+                HorizontalLayout {
+                    padding-left: 5px;
+                    padding-right: 5px;
+                    Text {
+                        text: root.category;
+                        font-size: 8px;
+                        font-weight: 800;
+                        color: root.tag_color;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
     min-width: 1180px;
     min-height: 760px;
     default-font-family: "Segoe UI, sans-serif";
     background: #07090d;
+
+    forward-focus: global_key_scope;
+
+    global_key_scope := FocusScope {
+        key-pressed(event) => {
+            if event.modifiers.control && (event.text == "p" || event.text == "P") {
+                root.show_command_palette = !root.show_command_palette;
+                return accept;
+            }
+            if event.text == Key.Escape {
+                if root.show_command_palette {
+                    root.show_command_palette = false;
+                    return accept;
+                }
+                if root.show_docs_modal {
+                    root.show_docs_modal = false;
+                    return accept;
+                }
+                if root.show_vault_modal {
+                    root.show_vault_modal = false;
+                    return accept;
+                }
+            }
+            return reject;
+        }
+    }
+
+    // Universal Command Palette & Documentation Knowledge Base State
+    in-out property <bool> show_command_palette: false;
+    in-out property <string> command_palette_search: "";
+    in-out property <bool> show_docs_modal: false;
+    in-out property <string> docs_search_query: "";
+    in-out property <int> docs_selected_category: 0;
+    in-out property <int> docs_active_article_idx: 0;
+
+    // Documentation Knowledge Base Structured Codex Arrays
+    in property <[string]> doc_titles: [
+        "ASHTAMURTI DUAL-ASPECT ARCHITECTURE",
+        "RUDRA TANDAVA // WIN32 MEMORY SCANNER",
+        "STAMBHANA SENTINEL // MEMORY FREEZING",
+        "MUDRA SUTRA // FAST AOB & WILDCARD MATCHER",
+        "KALYANA STHITI // DUAL-MODE SAVE FORGE",
+        "SHANNON ENTROPY MATHEMATICAL THEORY",
+        "CHI-SQUARE & BYTE DENSITY METRICS",
+        "STHITI RAKSHA // CHECKSUM RECOMPUTATION",
+        "STHITI SANKALPA // ATOMIC REWRITE VOW",
+        "GUPTA KOSHA // HARDWARE DPAPI VAULT",
+        "LUAJIT 2.1 ASHTAMURTI BINDINGS",
+        "UNIVERSAL COMMAND PALETTE CODEX"
+    ];
+
+    in property <[string]> doc_devanagaris: [
+        "अष्टमूर्ति व चित्रपट (Eight Aspects & Hardware Video Engine)",
+        "रुद्र ताण्डव अन्वेषण (Process Inquest & Page Enumeration)",
+        "स्तम्भन सिद्धि (100ms Sentinel Memory Preservation)",
+        "मुद्रा सूत्र अन्वेषण (Signature & Dynamic Hook Points)",
+        "कल्याण स्थिति रचना (Agama Deterministic & Pravaha Fuzzy)",
+        "संशय मान गणित (Entropy Formulations & Compression)",
+        "साम्य व घनत्व मान (Statistical Goodness-of-Fit & Sparsity)",
+        "स्थिति रक्षा मुद्रा (MD5, CRC-32, Adler-32 Auto-Seals)",
+        "कर्म कवच संकल्प (MoveFileEx Atomic Swap Guarantee)",
+        "गुप्त कोष मुद्रण (CryptProtectData & Zero Cloud Exposure)",
+        "लुआ उद्बोधन वेदी (Native Memory Hooks in LuaJIT)",
+        "सर्वज्ञ आज्ञा चक्र (Ctrl+P Fast Action Dispatcher)"
+    ];
+
+    in property <[string]> doc_theories: [
+        "Sharabha (शरभ) pairs Rudra Tandava (aggressive process memory surgery) with Kalyana Sthiti (peaceful heuristic save forging). The Chitrapata subsystem provides 24 FPS hardware video loop animation synchronized to Slint hardware timers. When in Sacred Altar (Still) or Obsidian (Off) modes, timer execution is suspended, consuming exactly 0.0% idle CPU on the Intel Core Ultra 9 275HX.",
+        "Rudra Tandava opens Win32 process handles via OpenProcess with VM_READ | VM_WRITE access. It scans the virtual address space using VirtualQueryEx to discover committed writable memory regions (PAGE_READWRITE, PAGE_EXECUTE_READWRITE). Scan passes evaluate Exact, Increased, Decreased, Changed, and Unchanged values across SIMD-aligned data buffers.",
+        "Stambhana (स्तम्भन सिद्धि) implements high-precision variable locking. When an address is marked as frozen, a dedicated background sentinel periodically overwrites the target RAM location on a 100ms cadence. This locks Player Health, Stamina, Runes, and Currency in real time without thread deadlocks or crashes.",
+        "Mudra Sutra is a high-speed Array of Bytes (AOB) signature pattern matcher. It compiles hex patterns containing single (?) or double (??) wildcards into mask vectors, scans executable segments, and resolves virtual addresses for live needle injection and dynamic code hooking.",
+        "Kalyana Sthiti operates in dual modes: (1) Agama Deterministic Mode leverages verified temple profiles for known games (Elden Ring, Unreal Engine, Cyberpunk 2077) with dedicated field cards; (2) Pravaha Fuzzy Mode employs multi-metric heuristic inference to reverse-engineer unknown binary saves without schemas.",
+        "Shannon Entropy measures the uncertainty in byte distributions: H(X) = -sum(P(x) * log2(P(x))). Saves with entropy >= 7.8 bits/byte indicate compressed or encrypted blobs (Zlib, Deflate, Oodle, AES). Entropy between 4.0 and 6.5 bits/byte indicates structured binary structs, while entropy < 2.5 reveals sparse, null-padded text and tables.",
+        "The Chi-Square test computes goodness-of-fit against a uniform distribution across 256 byte bins: chi^2 = sum((O_i - E_i)^2 / E_i). Byte density metrics analyze the ratio of null bytes (0x00) versus printable ASCII characters (0x20-0x7E) to automatically isolate structured string headers and numeric records.",
+        "Sthiti Raksha automatically computes and applies checksum seals before any file is rewritten. Supported algorithms include CRC-32 (IEEE 802.3), Adler-32 (Zlib rolling checksum), FromSoftware MD5 (128-bit slot digest for Elden Ring .sl2), and Sum32. This guarantees that modified saves pass game engine validation without corruption.",
+        "Sthiti Sankalpa guarantees zero-data-loss through Karma Kavacha: (1) An automatic .sharabha.bak backup is generated in the save directory; (2) Data is written to a temporary staging file; (3) Win32 MoveFileExW performs an atomic swap with MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH.",
+        "Gupta Kosha utilizes Windows Data Protection API (CryptProtectData / CryptUnprotectData) to seal user API keys using hardware-tied machine master keys. Supported BYOK providers include Google Gemini 2.5, DeepSeek R1/V3, and OpenAI-compatible local LLMs (Ollama, LM Studio) for Divya Drishti AI pre-analysis.",
+        "The embedded LuaJIT 2.1 scripting altar exposes native memory bindings to Lua: sharabha.read_i32(addr), sharabha.write_u32(addr, val), sharabha.freeze_u32(addr, val, label), and sharabha.log(msg). Scripts execute with native JIT speed directly against attached processes.",
+        "The Universal Command Palette (Ctrl+P) provides an all-in-one action dispatcher. Users can switch aspect workspaces, initiate memory scans, toggle locks, open save files, and cycle video modes. Press Esc at any time to dismiss."
+    ];
+
+    in property <[string]> doc_specs: [
+        "• Stack: Pure Zig 0.17 + Slint 1.18 + LuaJIT 2.1 + SurrealDB\n• Hardware: Intel Core Ultra 9 275HX GPU Texture Engine\n• FPS: 24.0 (42ms interval) | Zero CPU Overhead when idle",
+        "• Win32 APIs: OpenProcess, VirtualQueryEx, ReadProcessMemory, WriteProcessMemory\n• Protections: PAGE_READWRITE (0x04), PAGE_EXECUTE_READWRITE (0x40)\n• Candidate Filtering: Exact, Increased, Decreased, Changed, Unchanged",
+        "• Subsystem: Stambhana Goraksha Sentinel\n• Precision: 100ms non-blocking periodic timer\n• Safety: Non-reentrant, thread-safe memory lock tables",
+        "• Subsystem: Mudra Sutra (मुद्रा सूत्र)\n• Syntax: '48 89 5C 24 ?? 57' (hex bytes + wildcards)\n• Target: Dynamic hook injection & byte pattern resolution",
+        "• Engine: Agama Temple Profiles + Pravaha Multi-Metric Heuristics\n• Verified Containers: Elden Ring (.sl2), Unreal GVAS (.sav), Cyberpunk (.dat)\n• Output: Inferred Key-Value pairs with statistical confidence ratings",
+        "• Formula: H(X) = -Σ P(x) * log2(P(x)) [Shannon 1948]\n• Thresholds: >= 7.8 (Compressed/Encrypted) | 4.0 - 6.5 (Structs) | < 2.5 (Sparse)\n• Subsystem: src/metrics/shannon.zig",
+        "• Formulation: χ² = Σ ((O_i - E_i)² / E_i) over 256 byte frequency bins\n• Null Sparsity: Ratio of 0x00 bytes vs printable ASCII (0x20-0x7E)\n• Stride: Autocorrelation at 32, 64, 128 byte offsets",
+        "• Algorithms: CRC-32 (IEEE 802.3), Adler-32 (Zlib), MD5 (128-bit FromSoftware)\n• Target: Sthiti Raksha auto-seal on Elden Ring, Unreal GVAS, Cyberpunk saves\n• Subsystem: src/save/checksum.zig",
+        "• Win32 API: MoveFileExW(temp, target, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)\n• Backup: <save>.sharabha.bak created prior to write\n• Subsystem: src/save/rewrite.zig",
+        "• Win32 API: CryptProtectData / CryptUnprotectData\n• Cipher: Local Windows hardware-bound DPAPI master key\n• Zero Cloud Exposure: Keys stored exclusively in local encrypted vault",
+        "• Lua Runtime: LuaJIT 2.1 (x64 Windows Native)\n• Bindings: sharabha.read_i32, sharabha.write_u32, sharabha.freeze_u32, sharabha.log\n• Execution: JIT native memory inquest",
+        "• Shortcut: Ctrl + P (Global Key Scope)\n• Dismiss: Escape Key\n• Action: 20+ instant executable commands across all subsystems"
+    ];
+
+    in property <[string]> doc_actions: [
+        "CYCLE VIDEO ENGINE (चित्रपट)",
+        "SWITCH TO RUDRA TANDAVA",
+        "TOGGLE STAMBHANA FREEZE",
+        "EXECUTE PATTERN SCAN",
+        "SWITCH TO SAVE FORGE",
+        "SET METRIC: SHANNON ENTROPY",
+        "SET METRIC: CHI-SQUARE",
+        "VERIFY SAVE CHECKSUM",
+        "COMMIT SAVE ATOMICALLY",
+        "OPEN GUPTA KOSHA VAULT",
+        "OPEN LUA ALTAR",
+        "OPEN COMMAND PALETTE (Ctrl+P)"
+    ];
 
     // Splash State
     in-out property <bool> show_splash: false;
@@ -999,7 +1282,7 @@ export component MainWindow inherits Window {
                     ThematicActionButton {
                         text: "CANVAS";
                         devanagari: root.canvas_opacity_label;
-                        btn_width: 125px;
+                        btn_width: 110px;
                         btn_height: 42px;
                         bg_color: root.canvas_mode == 0 ? #0369a1 : (root.canvas_mode == 1 ? #6d28d9 : #1e293b);
                         hover_color: #38bdf8;
@@ -1032,8 +1315,8 @@ export component MainWindow inherits Window {
                     // Vault Button (Downwards & Right-Aligned Tooltip)
                     ThematicActionButton {
                         text: "VAULT";
-                        devanagari: "गुप्त कोष (BYOK)";
-                        btn_width: 130px;
+                        devanagari: "गुप्त कोष";
+                        btn_width: 105px;
                         btn_height: 42px;
                         bg_color: #1e293b;
                         hover_color: #334155;
@@ -1043,6 +1326,38 @@ export component MainWindow inherits Window {
                         feature_name: "Feature: Windows DPAPI Encrypted Vault";
                         explanation: "Encrypted BYOK storage for Gemini, DeepSeek, and OpenAI-compatible API keys via local Windows DPAPI.";
                         clicked => { root.show_vault_modal = !root.show_vault_modal; }
+                    }
+
+                    // Universal Command Palette Quick Trigger (Ctrl+P)
+                    ThematicActionButton {
+                        text: "PALETTE";
+                        devanagari: "⌘ P (आज्ञा)";
+                        btn_width: 110px;
+                        btn_height: 42px;
+                        bg_color: #312e81;
+                        hover_color: #4338ca;
+                        tooltip_down: true;
+                        tooltip_right_align: true;
+                        sanskrit_title: "सर्वज्ञ आज्ञा चक्र // COMMAND PALETTE";
+                        feature_name: "Feature: Universal Command Palette (Ctrl+P)";
+                        explanation: "Opens universal searchable action dispatcher. Instant access to memory scans, save tools, scripts, and navigation.";
+                        clicked => { root.show_command_palette = !root.show_command_palette; }
+                    }
+
+                    // Documentation Knowledge Base Quick Trigger
+                    ThematicActionButton {
+                        text: "DOCS";
+                        devanagari: "शास्त्र ज्ञान";
+                        btn_width: 100px;
+                        btn_height: 42px;
+                        bg_color: #713f12;
+                        hover_color: #854d0e;
+                        tooltip_down: true;
+                        tooltip_right_align: true;
+                        sanskrit_title: "शास्त्र पीठ // KNOWLEDGE BASE";
+                        feature_name: "Feature: Searchable Documentation Manual";
+                        explanation: "Interactive documentation codex covering Rudra memory inquest, Shannon entropy formulas, Chi-Square, and Lua bindings.";
+                        clicked => { root.show_docs_modal = !root.show_docs_modal; }
                     }
                 }
             }
@@ -2995,6 +3310,896 @@ export component MainWindow inherits Window {
                             }
                         }
                         Text { text: "TEST ORACLE // Unseal (परीक्षा)"; font-size: 11px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 5: SARVAJNA AJNA CHAKRA (सर्वज्ञ आज्ञा चक्र) — UNIVERSAL COMMAND PALETTE
+    // =========================================================================
+    if root.show_command_palette: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000c0;
+        z: 999999;
+
+        TouchArea {
+            clicked => { root.show_command_palette = false; }
+        }
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: 70px;
+            width: 740px;
+            height: 540px;
+            background: #080d16fa;
+            border-radius: 12px;
+            border-width: 2px;
+            border-color: #eab308;
+            drop-shadow-blur: 32px;
+            drop-shadow-color: #000000;
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+
+                // Palette Header & Hotkey Hint
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    VerticalLayout {
+                        spacing: 2px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "SARVAJNA AJNA CHAKRA (सर्वज्ञ आज्ञा चक्र)";
+                                font-size: 14px;
+                                font-weight: 900;
+                                color: #facc15;
+                            }
+                            Rectangle {
+                                height: 20px;
+                                background: #ca8a0433;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: #eab30866;
+                                HorizontalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    Text {
+                                        text: "Ctrl + P";
+                                        font-size: 10px;
+                                        font-weight: 800;
+                                        color: #fef08a;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                        Text {
+                            text: "Universal Action Dispatcher • Click an action or press Esc to dismiss";
+                            font-size: 10px;
+                            color: #64748b;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        background: #1e293b;
+                        border-radius: 14px;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.show_command_palette = false; }
+                        }
+                        Text { text: "✕"; font-size: 12px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+
+                // Search Filter LineEdit
+                LineEdit {
+                    text <=> root.command_palette_search;
+                    placeholder-text: "> Type to filter commands (e.g. scan, save, lua, vault, still, docs, bg3, elden)...";
+                    height: 42px;
+                    font-size: 12px;
+                }
+
+                // Scrollable Command List
+                ScrollView {
+                    height: 400px;
+
+                    VerticalLayout {
+                        spacing: 5px;
+                        padding-right: 6px;
+
+                        PaletteItemRow {
+                            icon_text: "🔥";
+                            title: "Switch to Rudra Tandava";
+                            devanagari: "रुद्र ताण्डव (Memory)";
+                            category: "NAV";
+                            tag_color: #ff4d2e;
+                            shortcut_hint: "Tab 1";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🧊";
+                            title: "Switch to Kalyana Sthiti";
+                            devanagari: "कल्याण स्थिति (Save Forge)";
+                            category: "NAV";
+                            tag_color: #38bdf8;
+                            shortcut_hint: "Tab 2";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "📜";
+                            title: "Switch to Jnana Kosha";
+                            devanagari: "ज्ञान कोष (Agama Graph)";
+                            category: "NAV";
+                            tag_color: #eab308;
+                            shortcut_hint: "Tab 3";
+                            clicked => {
+                                root.active_tab = 2;
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "📖";
+                            title: "Open Documentation Knowledge Base";
+                            devanagari: "शास्त्र पीठ (Manual)";
+                            category: "MANUAL";
+                            tag_color: #facc15;
+                            shortcut_hint: "Docs";
+                            clicked => {
+                                root.show_docs_modal = true;
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🎯";
+                            title: "Execute Initial Memory Scan";
+                            devanagari: "प्रथम अन्वेषण (First Scan)";
+                            category: "MEMORY";
+                            tag_color: #ff4d2e;
+                            shortcut_hint: "Scan";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.scan_result_count_str = "4 MATCHES";
+                                root.rudra_status_text = "First Scan Dispatched via Palette: " + root.scan_target_value;
+                                root.start_memory_scan(root.scan_target_value, root.data_type_name);
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔍";
+                            title: "Execute Refined Memory Rescan";
+                            devanagari: "पुनर्दृष्टि (Next Scan)";
+                            category: "MEMORY";
+                            tag_color: #ff7b00;
+                            shortcut_hint: "Rescan";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.scan_result_count_str = "1 MATCH";
+                                root.rudra_status_text = "Refined Rescan Dispatched via Palette";
+                                root.rescan_memory(root.scan_target_value);
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔗";
+                            title: "Bind Active Win32 Game Process";
+                            devanagari: "शरभ बन्धन (Attach)";
+                            category: "PROCESS";
+                            tag_color: #10b981;
+                            shortcut_hint: "Attach";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.process_bound = true;
+                                root.rudra_status_text = "Target Hooked via Palette: " + root.active_process_name;
+                                root.attach_process(root.active_process_pid);
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "❄️";
+                            title: "Toggle Stambhana Memory Freeze";
+                            devanagari: "स्तम्भन सिद्धि (Freeze Lock)";
+                            category: "MEMORY";
+                            tag_color: #22c55e;
+                            shortcut_hint: "Freeze";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.freeze_row1 = !root.freeze_row1;
+                                root.rudra_status_text = root.freeze_row1 ?
+                                    "STAMBHANA ACTIVE: 0x7FF74A8014E4 locked at " + root.scan_target_value :
+                                    "Stambhana Unlocked: Address 0x7FF74A8014E4 unfrozen";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔱";
+                            title: "Awaken LuaJIT 2.1 Altar Script";
+                            devanagari: "उद्बोधन (Execute Lua)";
+                            category: "LUA";
+                            tag_color: #c084fc;
+                            shortcut_hint: "Run";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.rudra_status_text = "🔱 Lua Script Awakened via Palette";
+                                root.run_lua_script(root.lua_script_input);
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "📂";
+                            title: "Open Game Save Vessel";
+                            devanagari: "पात्र प्रवेश (Load Save)";
+                            category: "SAVE";
+                            tag_color: #0284c7;
+                            shortcut_hint: "Open";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.open_save_file();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🛡️";
+                            title: "Sthiti Sankalpa: Atomic Commit";
+                            devanagari: "स्थिति संकल्प (Commit)";
+                            category: "SAVE";
+                            tag_color: #0369a1;
+                            shortcut_hint: "Commit";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.save_commit_feedback = "🛡️ Sthiti Sankalpa Dispatched via Palette";
+                                root.save_file_atomic();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🏛️";
+                            title: "Toggle Agama / Pravaha View";
+                            devanagari: "दर्शन रूप (Agama / Fuzzy)";
+                            category: "SAVE";
+                            tag_color: #eab308;
+                            shortcut_hint: "Toggle";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.save_view_mode = root.save_view_mode == 0 ? 1 : 0;
+                                root.toggle_save_view_mode();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "📊";
+                            title: "Cycle Multi-Metric Analysis Formula";
+                            devanagari: "मान परीक्षा (Metric Switch)";
+                            category: "ALGO";
+                            tag_color: #a855f7;
+                            shortcut_hint: "Cycle";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.selected_metric = Math.mod(root.selected_metric + 1, 5);
+                                root.cycle_metric();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "⚙️";
+                            title: "Cycle Extractor Engine";
+                            devanagari: "निष्कर्षण युक्ति (Extractor)";
+                            category: "ALGO";
+                            tag_color: #0369a1;
+                            shortcut_hint: "Cycle";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.selected_extractor = Math.mod(root.selected_extractor + 1, 5);
+                                root.cycle_extractor();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔮";
+                            title: "Toggle Divya Drishti AI Oracle";
+                            devanagari: "दिव्य दृष्टि (AI Guidance)";
+                            category: "AI";
+                            tag_color: #38bdf8;
+                            shortcut_hint: "Toggle";
+                            clicked => {
+                                root.active_tab = 1;
+                                root.ai_guidance_active = !root.ai_guidance_active;
+                                root.ai_guidance_status = root.ai_guidance_active ? "DIVYA DRISHTI // Active [BYOK Vault]" : "DIVYA DRISHTI // Ready [BYOK]";
+                                root.toggle_ai_guidance();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🎬";
+                            title: "Cycle Chitrapata Video Mode";
+                            devanagari: "चित्रपट चक्र (Still/Motion/Off)";
+                            category: "DISPLAY";
+                            tag_color: #9333ea;
+                            shortcut_hint: "Cycle";
+                            clicked => {
+                                root.cycle_canvas_mode();
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "🔐";
+                            title: "Open Gupta Kosha DPAPI Vault";
+                            devanagari: "गुप्त कोष (Hardware DPAPI)";
+                            category: "SECURITY";
+                            tag_color: #10b981;
+                            shortcut_hint: "Vault";
+                            clicked => {
+                                root.show_vault_modal = true;
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "⚡";
+                            title: "Preset: Load Elden Ring Agama";
+                            devanagari: "हिरण्यगर्भ आगम (Elden Ring)";
+                            category: "PRESET";
+                            tag_color: #eab308;
+                            shortcut_hint: "Preset";
+                            clicked => {
+                                root.save_filename = "ER0000.sl2";
+                                root.save_game_title = "ELDEN RING (हिरण्यगर्भ आगम)";
+                                root.save_checksum_info = "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
+                                root.save_runes_val = "950,000";
+                                root.save_level_val = "175";
+                                root.save_vigor_val = "60";
+                                root.save_gold_val = "250,000";
+                                root.save_view_mode = 0;
+                                root.active_tab = 1;
+                                root.save_commit_feedback = "Preset Loaded via Palette: Elden Ring v1.12";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "⚡";
+                            title: "Preset: Load Baldur's Gate 3 Agama";
+                            devanagari: "माया संचय (Baldur's Gate 3)";
+                            category: "PRESET";
+                            tag_color: #38bdf8;
+                            shortcut_hint: "Preset";
+                            clicked => {
+                                root.save_filename = "SaveGame.sav";
+                                root.save_game_title = "BALDUR'S GATE 3 (माया संचय)";
+                                root.save_checksum_info = "Sthiti Raksha: CRC32 IEEE Seal Armed";
+                                root.save_runes_val = "0";
+                                root.save_level_val = "12";
+                                root.save_vigor_val = "45";
+                                root.save_gold_val = "45,000";
+                                root.save_view_mode = 0;
+                                root.active_tab = 1;
+                                root.save_commit_feedback = "Preset Loaded via Palette: Baldur's Gate 3 Patch 7";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "⚡";
+                            title: "Preset: Load Cyberpunk 2077 Agama";
+                            devanagari: "माया चक्र (Cyberpunk 2077)";
+                            category: "PRESET";
+                            tag_color: #ef4444;
+                            shortcut_hint: "Preset";
+                            clicked => {
+                                root.save_filename = "cyberpunk_manual.dat";
+                                root.save_game_title = "CYBERPUNK 2077 (माया चक्र)";
+                                root.save_checksum_info = "Sthiti Raksha: CRC32 Header Seal Armed";
+                                root.save_runes_val = "0";
+                                root.save_level_val = "50";
+                                root.save_vigor_val = "20";
+                                root.save_gold_val = "1,250,000";
+                                root.save_view_mode = 0;
+                                root.active_tab = 1;
+                                root.save_commit_feedback = "Preset Loaded via Palette: Cyberpunk 2077 Patch 2.13";
+                                root.show_command_palette = false;
+                            }
+                        }
+                    }
+                }
+
+                // Keyboard hints footer
+                HorizontalLayout {
+                    alignment: space-between;
+                    Text { text: "⚡ Click any action to execute instantly"; font-size: 10px; color: #94a3b8; }
+                    Text { text: "Esc: Dismiss • Ctrl+P: Toggle Palette"; font-size: 10px; color: #64748b; }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 6: SHASTRA PITHA (शास्त्र पीठ) — SEARCHABLE DOCUMENTATION KNOWLEDGE BASE
+    // =========================================================================
+    if root.show_docs_modal: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000dd;
+        z: 999998;
+
+        TouchArea {
+            clicked => { root.show_docs_modal = false; }
+        }
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 1100px;
+            height: 690px;
+            background: #080d16fa;
+            border-radius: 12px;
+            border-width: 2px;
+            border-color: #eab308;
+            drop-shadow-blur: 32px;
+            drop-shadow-color: #000000;
+
+            VerticalLayout {
+                padding: 20px;
+                spacing: 14px;
+
+                // Header
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    VerticalLayout {
+                        spacing: 2px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "SHASTRA PITHA // Dynamic Knowledge Base & Architectural Codex";
+                                font-size: 15px;
+                                font-weight: 800;
+                                color: #f8fafc;
+                            }
+                            Text {
+                                text: "शास्त्र पीठ";
+                                font-size: 15px;
+                                font-weight: 800;
+                                color: #eab308;
+                            }
+                        }
+                        Text {
+                            text: "Comprehensive System Manual • Mathematical Formulations • Win32 Inquest • Ashtamurti Reference";
+                            font-size: 10px;
+                            color: #94a3b8;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        background: #1e293b;
+                        border-radius: 16px;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.show_docs_modal = false; }
+                        }
+                        Text { text: "✕"; font-size: 13px; font-weight: 800; color: #f8fafc; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+
+                // Top Controls: Search Input + Category Chips
+                HorizontalLayout {
+                    spacing: 12px;
+
+                    LineEdit {
+                        text <=> root.docs_search_query;
+                        placeholder-text: "🔍 Search manuals, formulas (Shannon, Chi-Square), Win32 APIs, Lua bindings, checksums...";
+                        horizontal-stretch: 1;
+                        height: 36px;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 6px;
+
+                        Rectangle {
+                            height: 36px;
+                            background: root.docs_selected_category == 0 ? #eab308 : #1e293b;
+                            border-radius: 6px;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.docs_selected_category = 0; } }
+                            Text { text: "ALL (सर्व)"; font-size: 10px; font-weight: 800; color: root.docs_selected_category == 0 ? #07090d : #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 36px;
+                            background: root.docs_selected_category == 1 ? #ff4d2e : #1e293b;
+                            border-radius: 6px;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.docs_selected_category = 1; } }
+                            Text { text: "RUDRA"; font-size: 10px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 36px;
+                            background: root.docs_selected_category == 2 ? #38bdf8 : #1e293b;
+                            border-radius: 6px;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.docs_selected_category = 2; } }
+                            Text { text: "KALYANA"; font-size: 10px; font-weight: 800; color: root.docs_selected_category == 2 ? #07090d : #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 36px;
+                            background: root.docs_selected_category == 3 ? #a855f7 : #1e293b;
+                            border-radius: 6px;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.docs_selected_category = 3; } }
+                            Text { text: "METRICS"; font-size: 10px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 36px;
+                            background: root.docs_selected_category == 4 ? #10b981 : #1e293b;
+                            border-radius: 6px;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.docs_selected_category = 4; } }
+                            Text { text: "SECURITY"; font-size: 10px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 36px;
+                            background: root.docs_selected_category == 5 ? #c084fc : #1e293b;
+                            border-radius: 6px;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.docs_selected_category = 5; } }
+                            Text { text: "SCRIPTING"; font-size: 10px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+
+                // Master-Detail Body Layout
+                HorizontalLayout {
+                    spacing: 16px;
+                    horizontal-stretch: 1;
+
+                    // Left Directory (310px)
+                    Rectangle {
+                        width: 310px;
+                        background: #090e18b8;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #1e2738;
+
+                        ScrollView {
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 5px;
+
+                                DocsArticleTile {
+                                    icon_text: "🔱";
+                                    title: "1. Ashtamurti Dual Aspect";
+                                    devanagari: "अष्टमूर्ति व चित्रपट";
+                                    category: "CORE";
+                                    tag_color: #eab308;
+                                    is_selected: root.docs_active_article_idx == 0;
+                                    clicked => { root.docs_active_article_idx = 0; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "🔥";
+                                    title: "2. Rudra Memory Scanner";
+                                    devanagari: "रुद्र ताण्डव अन्वेषण";
+                                    category: "RUDRA";
+                                    tag_color: #ff4d2e;
+                                    is_selected: root.docs_active_article_idx == 1;
+                                    clicked => { root.docs_active_article_idx = 1; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "❄️";
+                                    title: "3. Stambhana Sentinel Freeze";
+                                    devanagari: "स्तम्भन सिद्धि";
+                                    category: "RUDRA";
+                                    tag_color: #ff4d2e;
+                                    is_selected: root.docs_active_article_idx == 2;
+                                    clicked => { root.docs_active_article_idx = 2; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "📜";
+                                    title: "4. Mudra Sutra AOB Matcher";
+                                    devanagari: "मुद्रा सूत्र अन्वेषण";
+                                    category: "RUDRA";
+                                    tag_color: #ff7b00;
+                                    is_selected: root.docs_active_article_idx == 3;
+                                    clicked => { root.docs_active_article_idx = 3; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "🧊";
+                                    title: "5. Kalyana Save Forge";
+                                    devanagari: "कल्याण स्थिति रचना";
+                                    category: "KALYANA";
+                                    tag_color: #38bdf8;
+                                    is_selected: root.docs_active_article_idx == 4;
+                                    clicked => { root.docs_active_article_idx = 4; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "📊";
+                                    title: "6. Shannon Entropy Theory";
+                                    devanagari: "संशय मान गणित";
+                                    category: "METRICS";
+                                    tag_color: #a855f7;
+                                    is_selected: root.docs_active_article_idx == 5;
+                                    clicked => { root.docs_active_article_idx = 5; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "📈";
+                                    title: "7. Chi-Square & Density";
+                                    devanagari: "साम्य व घनत्व मान";
+                                    category: "METRICS";
+                                    tag_color: #a855f7;
+                                    is_selected: root.docs_active_article_idx == 6;
+                                    clicked => { root.docs_active_article_idx = 6; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "🛡️";
+                                    title: "8. Sthiti Raksha Checksums";
+                                    devanagari: "स्थिति रक्षा मुद्रा";
+                                    category: "SECURITY";
+                                    tag_color: #10b981;
+                                    is_selected: root.docs_active_article_idx == 7;
+                                    clicked => { root.docs_active_article_idx = 7; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "⚔️";
+                                    title: "9. Sthiti Sankalpa Atomic";
+                                    devanagari: "कर्म कवच संकल्प";
+                                    category: "SECURITY";
+                                    tag_color: #10b981;
+                                    is_selected: root.docs_active_article_idx == 8;
+                                    clicked => { root.docs_active_article_idx = 8; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "🔐";
+                                    title: "10. Gupta Kosha DPAPI Vault";
+                                    devanagari: "गुप्त कोष मुद्रण";
+                                    category: "SECURITY";
+                                    tag_color: #10b981;
+                                    is_selected: root.docs_active_article_idx == 9;
+                                    clicked => { root.docs_active_article_idx = 9; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "🔱";
+                                    title: "11. LuaJIT 2.1 Bindings";
+                                    devanagari: "लुआ उद्बोधन वेदी";
+                                    category: "SCRIPTING";
+                                    tag_color: #c084fc;
+                                    is_selected: root.docs_active_article_idx == 10;
+                                    clicked => { root.docs_active_article_idx = 10; }
+                                }
+
+                                DocsArticleTile {
+                                    icon_text: "⚡";
+                                    title: "12. Command Palette Codex";
+                                    devanagari: "सर्वज्ञ आज्ञा चक्र";
+                                    category: "CORE";
+                                    tag_color: #eab308;
+                                    is_selected: root.docs_active_article_idx == 11;
+                                    clicked => { root.docs_active_article_idx = 11; }
+                                }
+                            }
+                        }
+                    }
+
+                    // Right Article Reader (Fills remainder)
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: #090e18b8;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #1e2738;
+
+                        VerticalLayout {
+                            padding: 20px;
+                            spacing: 14px;
+
+                            // Article Title Banner
+                            HorizontalLayout {
+                                alignment: space-between;
+
+                                VerticalLayout {
+                                    spacing: 3px;
+
+                                    Text {
+                                        text: root.doc_titles[root.docs_active_article_idx];
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        color: #facc15;
+                                    }
+
+                                    Text {
+                                        text: root.doc_devanagaris[root.docs_active_article_idx];
+                                        font-size: 11px;
+                                        color: #94a3b8;
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 24px;
+                                    background: #0284c725;
+                                    border-radius: 4px;
+                                    border-width: 1px;
+                                    border-color: #0284c766;
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        Text {
+                                            text: "VERIFIED CODEX";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            color: #38bdf8;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Article Body Exposition
+                            ScrollView {
+                                height: 380px;
+
+                                VerticalLayout {
+                                    padding-right: 12px;
+                                    spacing: 12px;
+
+                                    Rectangle {
+                                        background: #0b111caa;
+                                        border-radius: 6px;
+                                        border-width: 1px;
+                                        border-color: #1e293b;
+
+                                        VerticalLayout {
+                                            padding: 14px;
+                                            spacing: 8px;
+
+                                            Text {
+                                                text: "ARCHITECTURE & THEORETICAL PRINCIPLES:";
+                                                font-size: 11px;
+                                                font-weight: 800;
+                                                color: #38bdf8;
+                                            }
+
+                                            Text {
+                                                text: root.doc_theories[root.docs_active_article_idx];
+                                                font-size: 11px;
+                                                color: #cbd5e1;
+                                                wrap: word-wrap;
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        background: #0b111caa;
+                                        border-radius: 6px;
+                                        border-width: 1px;
+                                        border-color: #1e293b;
+
+                                        VerticalLayout {
+                                            padding: 14px;
+                                            spacing: 6px;
+
+                                            Text {
+                                                text: "SYSTEMS SPECIFICATION & INTEGRATION APIS:";
+                                                font-size: 11px;
+                                                font-weight: 800;
+                                                color: #eab308;
+                                            }
+
+                                            Text {
+                                                text: root.doc_specs[root.docs_active_article_idx];
+                                                font-size: 10px;
+                                                color: #94a3b8;
+                                                wrap: word-wrap;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Quick Action Button
+                            HorizontalLayout {
+                                alignment: space-between;
+
+                                Text {
+                                    text: "Interactive Action Dispatcher Available:";
+                                    font-size: 10px;
+                                    color: #64748b;
+                                    vertical-alignment: center;
+                                }
+
+                                ThematicActionButton {
+                                    text: root.doc_actions[root.docs_active_article_idx];
+                                    devanagari: "प्रवेश";
+                                    btn_width: 240px;
+                                    btn_height: 38px;
+                                    bg_color: #0284c7;
+                                    hover_color: #0396df;
+                                    sanskrit_title: "क्रिया प्रवेश // EXECUTE ACTION";
+                                    feature_name: "Feature: Jump to Active Subsystem";
+                                    explanation: "Applies the chosen documentation settings and switches workspace to the target subsystem.";
+                                    clicked => {
+                                        if root.docs_active_article_idx == 0 {
+                                            root.cycle_canvas_mode();
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 1 {
+                                            root.active_tab = 0;
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 2 {
+                                            root.active_tab = 0;
+                                            root.freeze_row1 = !root.freeze_row1;
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 3 {
+                                            root.active_tab = 0;
+                                            root.start_memory_scan("48 89 5C", "AOB");
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 4 {
+                                            root.active_tab = 1;
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 5 {
+                                            root.active_tab = 1;
+                                            root.selected_metric = 1;
+                                            root.metric_display_name = "SHANNON ENTROPY (संशय मान)";
+                                            root.metric_score_value = "1.393 bits/byte";
+                                            root.metric_verdict_value = "SparseOrText (शुद्ध पाठ/रिक्त)";
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 6 {
+                                            root.active_tab = 1;
+                                            root.selected_metric = 2;
+                                            root.metric_display_name = "CHI-SQUARE TEST (साम्य परीक्षा)";
+                                            root.metric_score_value = "χ² = 0.0 (p < 0.001)";
+                                            root.metric_verdict_value = "HighlyStructured (अत्यन्त व्यवस्थित)";
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 7 {
+                                            root.active_tab = 1;
+                                            root.save_file_atomic();
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 8 {
+                                            root.active_tab = 1;
+                                            root.save_file_atomic();
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 9 {
+                                            root.show_vault_modal = true;
+                                            root.show_docs_modal = false;
+                                        } else if root.docs_active_article_idx == 10 {
+                                            root.active_tab = 0;
+                                            root.show_docs_modal = false;
+                                        } else {
+                                            root.show_command_palette = true;
+                                            root.show_docs_modal = false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
