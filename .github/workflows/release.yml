@@ -42,6 +42,14 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value $slintDir
           Write-Host "Added $slintDir to GITHUB_PATH" -ForegroundColor Green
 
+      - name: Configure LuaJIT Runtime Environment
+        shell: pwsh
+        run: |
+          $luaBin = (Resolve-Path "deps/luajit/bin").Path
+          Add-Content -Path $env:GITHUB_PATH -Value $luaBin
+          Copy-Item "deps/luajit/bin/lua51.dll" -Destination "." -Force
+          Write-Host "Configured LuaJIT runtime: $luaBin" -ForegroundColor Green
+
       - name: Prime Chitrapata Hardware Video Buffers
         shell: pwsh
         run: |
