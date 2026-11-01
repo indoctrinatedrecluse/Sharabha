@@ -312,15 +312,49 @@ export component MainWindow inherits Window {
     // Active Tab: 0 = Rudra (Memory), 1 = Kalyana (Save Forge), 2 = Jnana (Knowledge Base)
     in-out property <int> active_tab: 0;
 
+    // Engine State Properties
+    in-out property <int> selected_scan_type: 0;
+    in-out property <string> scan_type_name: "EXACT (सटीक मान)";
+    in-out property <int> selected_data_type: 0;
+    in-out property <string> data_type_name: "Type: i32";
+
+    in-out property <int> selected_metric: 0;
+    in-out property <string> metric_display_name: "AUTO-DETECT (सर्वज्ञ मान)";
+    in-out property <string> metric_score_value: "4.812 bits/byte";
+    in-out property <string> metric_verdict_value: "StructuredBinary (प्रपत्र)";
+    in-out property <string> container_sig_value: "RawCustomBinary (द्वि-आधारी)";
+
+    in-out property <int> selected_extractor: 0;
+    in-out property <string> extractor_display_name: "AUTO HEURISTIC (स्वयंसिद्ध)";
+
+    in-out property <bool> ai_guidance_active: false;
+    in-out property <string> ai_guidance_status: "DIVYA DRISHTI // Ready [BYOK]";
+
+    // Vault Modal State
+    in-out property <bool> show_vault_modal: false;
+    in-out property <int> vault_provider_index: 0;
+    in-out property <string> vault_gemini_key: "";
+    in-out property <string> vault_deepseek_key: "";
+    in-out property <string> vault_openai_endpoint: "https://api.openai.com/v1";
+    in-out property <string> vault_openai_key: "";
+    in-out property <string> vault_status_msg: "DPAPI Encrypted Vault Ready (मुद्रित)";
+
     // Callbacks to Zig core
     callback refresh_processes();
     callback attach_process(int);
     callback start_memory_scan(string, string);
     callback rescan_memory(string);
+    callback cycle_scan_type();
+    callback cycle_data_type();
     callback open_save_file();
     callback execute_fuzzy_parse();
+    callback cycle_metric();
+    callback cycle_extractor();
+    callback toggle_ai_guidance();
     callback save_file_atomic();
     callback dismiss_splash();
+    callback save_vault();
+    callback test_vault();
 
     // =========================================================================
     // LAYER 1: AMBIENT CANVAS BACKGROUND (FALLBACK IMAGE + GLOWS)
@@ -468,6 +502,19 @@ export component MainWindow inherits Window {
                         explanation: "Stores verified game save structures, format headers, and memory pointer tables.";
                         clicked => { root.active_tab = 2; }
                     }
+
+                    ThematicActionButton {
+                        text: "GUPTA KOSHA // Vault";
+                        devanagari: "गुप्त कोष (BYOK)";
+                        btn_width: 170px;
+                        btn_height: 42px;
+                        bg_color: #1e293b;
+                        hover_color: #334155;
+                        sanskrit_title: "गुप्त कोष // SECURE VAULT";
+                        feature_name: "Feature: Windows DPAPI Encrypted Vault";
+                        explanation: "Encrypted BYOK storage for Gemini, DeepSeek, and OpenAI-compatible API keys via local Windows DPAPI.";
+                        clicked => { root.show_vault_modal = !root.show_vault_modal; }
+                    }
                 }
             }
         }
@@ -606,15 +653,40 @@ export component MainWindow inherits Window {
                             }
 
                             Rectangle {
-                                width: 140px;
+                                width: 175px;
                                 height: 42px;
                                 background: #1c2434;
                                 border-radius: 6px;
+                                border-width: 1px;
+                                border-color: #2e3b52;
+                                TouchArea {
+                                    clicked => { root.cycle_scan_type(); }
+                                }
                                 Text {
-                                    text: "Type: i32 (Exact)";
-                                    font-size: 11px;
+                                    text: root.scan_type_name;
+                                    font-size: 10px;
                                     font-weight: 700;
-                                    color: #cbd5e1;
+                                    color: #ff7b00;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 110px;
+                                height: 42px;
+                                background: #1c2434;
+                                border-radius: 6px;
+                                border-width: 1px;
+                                border-color: #2e3b52;
+                                TouchArea {
+                                    clicked => { root.cycle_data_type(); }
+                                }
+                                Text {
+                                    text: root.data_type_name;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    color: #38bdf8;
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
                                 }
@@ -846,7 +918,65 @@ export component MainWindow inherits Window {
                             clicked => { root.open_save_file(); }
                         }
 
-                        // File Stats Card
+                        // Metric Switcher Selector
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "PARIKSHA MANA // Metric Switcher (मान परीक्षा)";
+                                font-size: 10px;
+                                font-weight: 800;
+                                color: #94a3b8;
+                            }
+                            Rectangle {
+                                height: 38px;
+                                background: #1c2434;
+                                border-radius: 6px;
+                                border-width: 1px;
+                                border-color: #0284c7;
+                                TouchArea {
+                                    clicked => { root.cycle_metric(); }
+                                }
+                                Text {
+                                    text: root.metric_display_name;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    color: #38bdf8;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Extractor Switcher Selector
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "NISKARSHANA // Extractor (निष्कर्षण युक्ति)";
+                                font-size: 10px;
+                                font-weight: 800;
+                                color: #94a3b8;
+                            }
+                            Rectangle {
+                                height: 38px;
+                                background: #1c2434;
+                                border-radius: 6px;
+                                border-width: 1px;
+                                border-color: #0369a1;
+                                TouchArea {
+                                    clicked => { root.cycle_extractor(); }
+                                }
+                                Text {
+                                    text: root.extractor_display_name;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    color: #eab308;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Telemetry Metric Score Card
                         Rectangle {
                             background: #090c12;
                             border-radius: 6px;
@@ -854,13 +984,43 @@ export component MainWindow inherits Window {
                             border-color: #18202e;
 
                             VerticalLayout {
-                                padding: 12px;
-                                spacing: 6px;
+                                padding: 10px;
+                                spacing: 4px;
 
-                                Text { text: "save_slot_01.sav"; font-size: 12px; font-weight: 700; color: #f8fafc; }
-                                Text { text: "File Size: 24,576 bytes"; font-size: 11px; color: #94a3b8; }
-                                Text { text: "Entropy: 4.812 bits/byte (Structured)"; font-size: 11px; color: #38bdf8; }
-                                Text { text: "Endianness: Little Endian"; font-size: 11px; color: #64748b; }
+                                Text { text: "Score: " + root.metric_score_value; font-size: 11px; font-weight: 700; color: #38bdf8; }
+                                Text { text: "Verdict: " + root.metric_verdict_value; font-size: 10px; color: #cbd5e1; }
+                                Text { text: "Container: " + root.container_sig_value; font-size: 10px; color: #94a3b8; }
+                            }
+                        }
+
+                        // AI Pre-Analysis (Divya Drishti) Toggle
+                        Rectangle {
+                            height: 38px;
+                            background: root.ai_guidance_active ? #1e3a5f : #0f172a;
+                            border-radius: 6px;
+                            border-width: 1.5px;
+                            border-color: root.ai_guidance_active ? #38bdf8 : #334155;
+                            TouchArea {
+                                clicked => { root.toggle_ai_guidance(); }
+                            }
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                alignment: space-between;
+                                Text {
+                                    text: "🔮 " + root.ai_guidance_status;
+                                    font-size: 10px;
+                                    font-weight: 800;
+                                    color: root.ai_guidance_active ? #7dd3fc : #94a3b8;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: root.ai_guidance_active ? "[ACTIVE]" : "[OFF]";
+                                    font-size: 10px;
+                                    font-weight: 900;
+                                    color: root.ai_guidance_active ? #38bdf8 : #64748b;
+                                    vertical-alignment: center;
+                                }
                             }
                         }
 
@@ -1282,6 +1442,162 @@ export component MainWindow inherits Window {
                         color: #ffffff;
                         horizontal-alignment: center;
                         vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 4: GUPTA KOSHA (गुप्त कोष) — DPAPI ENCRYPTED BYOK VAULT MODAL
+    // =========================================================================
+    if root.show_vault_modal: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000cc;
+
+        TouchArea {
+            clicked => { root.show_vault_modal = false; }
+        }
+
+        Rectangle {
+            width: 580px;
+            height: 480px;
+            background: #090c12;
+            border-radius: 12px;
+            border-width: 2px;
+            border-color: #eab308;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    VerticalLayout {
+                        spacing: 2px;
+                        Text {
+                            text: "GUPTA KOSHA // Secret AI Vault (गुप्त कोष)";
+                            font-size: 16px;
+                            font-weight: 800;
+                            color: #f8fafc;
+                        }
+                        Text {
+                            text: "Windows DPAPI Hardware-Tied Local Encryption • Zero Cloud Exposure";
+                            font-size: 10px;
+                            color: #eab308;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        background: #1e293b;
+                        border-radius: 16px;
+                        TouchArea { clicked => { root.show_vault_modal = false; } }
+                        Text { text: "✕"; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Rectangle {
+                        height: 34px;
+                        background: root.vault_provider_index == 0 ? #0284c7 : #1e293b;
+                        border-radius: 6px;
+                        TouchArea { clicked => { root.vault_provider_index = 0; } }
+                        Text { text: "Gemini 2.5"; font-size: 11px; font-weight: 700; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 34px;
+                        background: root.vault_provider_index == 1 ? #0284c7 : #1e293b;
+                        border-radius: 6px;
+                        TouchArea { clicked => { root.vault_provider_index = 1; } }
+                        Text { text: "DeepSeek R1/V3"; font-size: 11px; font-weight: 700; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 34px;
+                        background: root.vault_provider_index == 2 ? #0284c7 : #1e293b;
+                        border-radius: 6px;
+                        TouchArea { clicked => { root.vault_provider_index = 2; } }
+                        Text { text: "OpenAI / Local LLM"; font-size: 11px; font-weight: 700; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+
+                if root.vault_provider_index == 0: VerticalLayout {
+                    spacing: 4px;
+                    Text { text: "Google Gemini API Key (AIzaSy...):"; font-size: 11px; color: #cbd5e1; }
+                    LineEdit {
+                        text: root.vault_gemini_key;
+                        placeholder-text: "Enter Gemini API Key...";
+                        height: 40px;
+                        edited(val) => { root.vault_gemini_key = val; }
+                    }
+                }
+
+                if root.vault_provider_index == 1: VerticalLayout {
+                    spacing: 4px;
+                    Text { text: "DeepSeek API Key (sk-...):"; font-size: 11px; color: #cbd5e1; }
+                    LineEdit {
+                        text: root.vault_deepseek_key;
+                        placeholder-text: "Enter DeepSeek API Key...";
+                        height: 40px;
+                        edited(val) => { root.vault_deepseek_key = val; }
+                    }
+                }
+
+                if root.vault_provider_index == 2: VerticalLayout {
+                    spacing: 8px;
+                    VerticalLayout {
+                        spacing: 2px;
+                        Text { text: "Custom API Endpoint URL:"; font-size: 11px; color: #cbd5e1; }
+                        LineEdit {
+                            text: root.vault_openai_endpoint;
+                            placeholder-text: "https://api.openai.com/v1 or http://localhost:11434/v1";
+                            height: 40px;
+                            edited(val) => { root.vault_openai_endpoint = val; }
+                        }
+                    }
+                    VerticalLayout {
+                        spacing: 2px;
+                        Text { text: "OpenAI / Bearer Token:"; font-size: 11px; color: #cbd5e1; }
+                        LineEdit {
+                            text: root.vault_openai_key;
+                            placeholder-text: "Enter API Key / Token...";
+                            height: 40px;
+                            edited(val) => { root.vault_openai_key = val; }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 32px;
+                    background: #111827;
+                    border-radius: 4px;
+                    Text {
+                        text: "🔐 " + root.vault_status_msg;
+                        font-size: 10px;
+                        color: #10b981;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 12px;
+                    Rectangle {
+                        height: 44px;
+                        background: #059669;
+                        border-radius: 6px;
+                        TouchArea { clicked => { root.save_vault(); } }
+                        Text { text: "SEAL VAULT // Save DPAPI (मुद्रण)"; font-size: 11px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 44px;
+                        background: #334155;
+                        border-radius: 6px;
+                        TouchArea { clicked => { root.test_vault(); } }
+                        Text { text: "TEST ORACLE // Unseal (परीक्षा)"; font-size: 11px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
                     }
                 }
             }

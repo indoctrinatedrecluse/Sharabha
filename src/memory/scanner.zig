@@ -7,9 +7,14 @@ pub const ScanType = enum {
     DecreasedValue,
     ChangedValue,
     UnchangedValue,
+    ValueBetween,
 };
 
 pub const DataType = enum {
+    I8,
+    U8,
+    I16,
+    U16,
     I32,
     U32,
     I64,
@@ -19,6 +24,8 @@ pub const DataType = enum {
 
     pub fn size(self: DataType) usize {
         return switch (self) {
+            .I8, .U8 => 1,
+            .I16, .U16 => 2,
             .I32, .U32, .F32 => 4,
             .I64, .U64, .F64 => 8,
         };
@@ -26,6 +33,10 @@ pub const DataType = enum {
 };
 
 pub const ScanTargetValue = union(DataType) {
+    I8: i8,
+    U8: u8,
+    I16: i16,
+    U16: u16,
     I32: i32,
     U32: u32,
     I64: i64,
@@ -35,6 +46,8 @@ pub const ScanTargetValue = union(DataType) {
 
     pub fn size(self: ScanTargetValue) usize {
         return switch (self) {
+            .I8, .U8 => 1,
+            .I16, .U16 => 2,
             .I32, .U32, .F32 => 4,
             .I64, .U64, .F64 => 8,
         };
@@ -42,6 +55,22 @@ pub const ScanTargetValue = union(DataType) {
 
     pub fn matchesBytes(self: ScanTargetValue, bytes: []const u8) bool {
         switch (self) {
+            .I8 => |val| {
+                if (bytes.len < 1) return false;
+                return @as(i8, @bitCast(bytes[0])) == val;
+            },
+            .U8 => |val| {
+                if (bytes.len < 1) return false;
+                return bytes[0] == val;
+            },
+            .I16 => |val| {
+                if (bytes.len < 2) return false;
+                return std.mem.readInt(i16, bytes[0..2], .little) == val;
+            },
+            .U16 => |val| {
+                if (bytes.len < 2) return false;
+                return std.mem.readInt(u16, bytes[0..2], .little) == val;
+            },
             .I32 => |val| {
                 if (bytes.len < 4) return false;
                 const v = std.mem.readInt(i32, bytes[0..4], .little);
@@ -76,6 +105,21 @@ pub const ScanTargetValue = union(DataType) {
             },
         }
     }
+
+    pub fn toI64(self: ScanTargetValue) i64 {
+        return switch (self) {
+            .I8 => |v| v,
+            .U8 => |v| v,
+            .I16 => |v| v,
+            .U16 => |v| v,
+            .I32 => |v| v,
+            .U32 => |v| v,
+            .I64 => |v| v,
+            .U64 => |v| @as(i64, @intCast(@min(v, @as(u64, std.math.maxInt(i64))))),
+            .F32 => |v| @intFromFloat(v),
+            .F64 => |v| @intFromFloat(v),
+        };
+    }
 };
 
 const win = struct {
@@ -109,54 +153,50 @@ const win = struct {
 pub const MemoryRegion = struct {
     base_address: usize,
     size: usize,
-    is_writable: bool,
-
-    pub fn isScannable(self: *const MemoryRegion) bool {
-        return self.is_writable and self.size > 0;
-    }
+    protect: u32,
 };
 
 pub const RegionIterator = struct {
-    process_handle: *const process.ProcessHandle,
+    proc: *process.ProcessHandle,
     current_address: usize,
 
-    pub fn init(proc: *const process.ProcessHandle) RegionIterator {
-        return .{
-            .process_handle = proc,
+    pub fn init(proc: *process.ProcessHandle) RegionIterator {
+        return RegionIterator{
+            .proc = proc,
             .current_address = 0,
         };
     }
 
     pub fn next(self: *RegionIterator) ?MemoryRegion {
         var mbi: win.MEMORY_BASIC_INFORMATION = undefined;
-        while (self.current_address < 0x7FFF_FFFF_FFFF) {
-            const ptr: ?*const anyopaque = @ptrFromInt(self.current_address);
-            const res = win.VirtualQueryEx(
-                self.process_handle.handle,
-                ptr,
+
+        while (true) {
+            const query_res = win.VirtualQueryEx(
+                self.proc.handle,
+                @ptrFromInt(self.current_address),
                 &mbi,
                 @sizeOf(win.MEMORY_BASIC_INFORMATION),
             );
 
-            if (res == 0) break;
+            if (query_res == 0) return null;
 
-            const base: usize = @intFromPtr(mbi.BaseAddress);
+            const base = @intFromPtr(mbi.BaseAddress);
             const size = mbi.RegionSize;
             self.current_address = base + size;
 
-            // Only scan committed, non-guard, writable memory
-            if (mbi.State == win.MEM_COMMIT and (mbi.Protect & win.PAGE_GUARD) == 0 and (mbi.Protect & win.PAGE_NOACCESS) == 0) {
-                const writable = (mbi.Protect & (win.PAGE_READWRITE | win.PAGE_WRITECOPY | win.PAGE_EXECUTE_READWRITE | win.PAGE_EXECUTE_WRITECOPY)) != 0;
-                if (writable) {
-                    return MemoryRegion{
-                        .base_address = base,
-                        .size = size,
-                        .is_writable = true,
-                    };
-                }
+            const is_committed = (mbi.State & win.MEM_COMMIT) != 0;
+            const is_guarded = (mbi.Protect & win.PAGE_GUARD) != 0;
+            const is_noaccess = (mbi.Protect & win.PAGE_NOACCESS) != 0;
+            const is_writable = (mbi.Protect & (win.PAGE_READWRITE | win.PAGE_WRITECOPY | win.PAGE_EXECUTE_READWRITE | win.PAGE_EXECUTE_WRITECOPY)) != 0;
+
+            if (is_committed and !is_guarded and !is_noaccess and is_writable) {
+                return MemoryRegion{
+                    .base_address = base,
+                    .size = size,
+                    .protect = mbi.Protect,
+                };
             }
         }
-        return null;
     }
 };
 
@@ -168,14 +208,16 @@ pub const ScanResult = struct {
 
 pub const MemoryScanner = struct {
     allocator: std.mem.Allocator,
-    proc: *const process.ProcessHandle,
+    proc: *process.ProcessHandle,
     results: std.ArrayList(ScanResult),
+    alignment: usize,
 
-    pub fn init(allocator: std.mem.Allocator, proc: *const process.ProcessHandle) MemoryScanner {
-        return .{
+    pub fn init(allocator: std.mem.Allocator, proc: *process.ProcessHandle) MemoryScanner {
+        return MemoryScanner{
             .allocator = allocator,
             .proc = proc,
             .results = .empty,
+            .alignment = 4,
         };
     }
 
@@ -183,7 +225,11 @@ pub const MemoryScanner = struct {
         self.results.deinit(self.allocator);
     }
 
-    /// First scan across all writable committed memory regions
+    pub fn setAlignment(self: *MemoryScanner, align_bytes: usize) void {
+        self.alignment = if (align_bytes == 0) 1 else align_bytes;
+    }
+
+    /// First scan: searches all committed writable regions for `target`
     pub fn firstScan(self: *MemoryScanner, target: ScanTargetValue) !usize {
         self.results.clearRetainingCapacity();
 
@@ -200,18 +246,10 @@ pub const MemoryScanner = struct {
                 const bytes_read = self.proc.readMemory(region.base_address + offset, buffer[0..to_read]) catch 0;
                 if (bytes_read >= val_size) {
                     var i: usize = 0;
-                    // Scan with natural 4-byte alignment
-                    while (i + val_size <= bytes_read) : (i += 4) {
+                    while (i + val_size <= bytes_read) : (i += self.alignment) {
                         if (target.matchesBytes(buffer[i .. i + val_size])) {
                             const addr = region.base_address + offset + i;
-                            const val_i64: i64 = switch (target) {
-                                .I32 => std.mem.readInt(i32, buffer[i..][0..4], .little),
-                                .U32 => std.mem.readInt(u32, buffer[i..][0..4], .little),
-                                .I64 => std.mem.readInt(i64, buffer[i..][0..8], .little),
-                                .U64 => @intCast(std.mem.readInt(u64, buffer[i..][0..8], .little)),
-                                .F32 => @intFromFloat(@as(f32, @bitCast(std.mem.readInt(u32, buffer[i..][0..4], .little)))),
-                                .F64 => @intFromFloat(@as(f64, @bitCast(std.mem.readInt(u64, buffer[i..][0..8], .little)))),
-                            };
+                            const val_i64: i64 = readValueToI64(buffer[i..], target);
                             try self.results.append(self.allocator, .{
                                 .address = addr,
                                 .current_value = val_i64,
@@ -226,8 +264,41 @@ pub const MemoryScanner = struct {
         return self.results.items.len;
     }
 
-    /// Next scan / filter: re-reads only previously matched addresses
-    pub fn nextScan(self: *MemoryScanner, target: ScanTargetValue) !usize {
+    /// Searches for byte patterns / ASCII strings
+    pub fn firstScanPattern(self: *MemoryScanner, pattern: []const u8) !usize {
+        self.results.clearRetainingCapacity();
+        if (pattern.len == 0) return 0;
+
+        var reg_iter = RegionIterator.init(self.proc);
+        const chunk_size = 64 * 1024;
+        var buffer: [chunk_size]u8 = undefined;
+
+        while (reg_iter.next()) |region| {
+            var offset: usize = 0;
+            while (offset < region.size) {
+                const to_read = @min(chunk_size, region.size - offset);
+                const bytes_read = self.proc.readMemory(region.base_address + offset, buffer[0..to_read]) catch 0;
+                if (bytes_read >= pattern.len) {
+                    var i: usize = 0;
+                    while (i + pattern.len <= bytes_read) : (i += 1) {
+                        if (std.mem.eql(u8, buffer[i .. i + pattern.len], pattern)) {
+                            const addr = region.base_address + offset + i;
+                            try self.results.append(self.allocator, .{
+                                .address = addr,
+                                .current_value = @intCast(pattern.len),
+                                .previous_value = @intCast(pattern.len),
+                            });
+                        }
+                    }
+                }
+                offset += to_read;
+            }
+        }
+        return self.results.items.len;
+    }
+
+    /// Next scan / filter: re-reads only previously matched addresses for an exact value
+    pub fn nextScanExact(self: *MemoryScanner, target: ScanTargetValue) !usize {
         var keep_idx: usize = 0;
         var buf: [8]u8 = undefined;
         const val_size = target.size();
@@ -237,14 +308,7 @@ pub const MemoryScanner = struct {
             if (bytes_read == val_size and target.matchesBytes(buf[0..val_size])) {
                 self.results.items[keep_idx] = .{
                     .address = entry.address,
-                    .current_value = switch (target) {
-                        .I32 => std.mem.readInt(i32, buf[0..4], .little),
-                        .U32 => std.mem.readInt(u32, buf[0..4], .little),
-                        .I64 => std.mem.readInt(i64, buf[0..8], .little),
-                        .U64 => @intCast(std.mem.readInt(u64, buf[0..8], .little)),
-                        .F32 => @intFromFloat(@as(f32, @bitCast(std.mem.readInt(u32, buf[0..4], .little)))),
-                        .F64 => @intFromFloat(@as(f64, @bitCast(std.mem.readInt(u64, buf[0..8], .little)))),
-                    },
+                    .current_value = readValueToI64(buf[0..val_size], target),
                     .previous_value = entry.current_value,
                 };
                 keep_idx += 1;
@@ -254,4 +318,80 @@ pub const MemoryScanner = struct {
         self.results.shrinkRetainingCapacity(keep_idx);
         return keep_idx;
     }
+
+    /// Differential next scan: filter by Increased, Decreased, Changed, or Unchanged
+    pub fn nextScanDifferential(self: *MemoryScanner, scan_type: ScanType, data_type: DataType) !usize {
+        var keep_idx: usize = 0;
+        var buf: [8]u8 = undefined;
+        const val_size = data_type.size();
+
+        for (self.results.items) |entry| {
+            const bytes_read = self.proc.readMemory(entry.address, buf[0..val_size]) catch 0;
+            if (bytes_read == val_size) {
+                const cur_val = readRawToI64(buf[0..val_size], data_type);
+                const prev_val = entry.current_value;
+
+                const keep = switch (scan_type) {
+                    .IncreasedValue => cur_val > prev_val,
+                    .DecreasedValue => cur_val < prev_val,
+                    .ChangedValue => cur_val != prev_val,
+                    .UnchangedValue => cur_val == prev_val,
+                    else => false,
+                };
+
+                if (keep) {
+                    self.results.items[keep_idx] = .{
+                        .address = entry.address,
+                        .current_value = cur_val,
+                        .previous_value = prev_val,
+                    };
+                    keep_idx += 1;
+                }
+            }
+        }
+
+        self.results.shrinkRetainingCapacity(keep_idx);
+        return keep_idx;
+    }
+
+    fn readValueToI64(bytes: []const u8, target: ScanTargetValue) i64 {
+        return switch (target) {
+            .I8 => @as(i8, @bitCast(bytes[0])),
+            .U8 => bytes[0],
+            .I16 => std.mem.readInt(i16, bytes[0..2], .little),
+            .U16 => std.mem.readInt(u16, bytes[0..2], .little),
+            .I32 => std.mem.readInt(i32, bytes[0..4], .little),
+            .U32 => std.mem.readInt(u32, bytes[0..4], .little),
+            .I64 => std.mem.readInt(i64, bytes[0..8], .little),
+            .U64 => @as(i64, @intCast(@min(std.mem.readInt(u64, bytes[0..8], .little), @as(u64, std.math.maxInt(i64))))),
+            .F32 => @intFromFloat(@as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little)))),
+            .F64 => @intFromFloat(@as(f64, @bitCast(std.mem.readInt(u64, bytes[0..8], .little)))),
+        };
+    }
+
+    fn readRawToI64(bytes: []const u8, data_type: DataType) i64 {
+        return switch (data_type) {
+            .I8 => @as(i8, @bitCast(bytes[0])),
+            .U8 => bytes[0],
+            .I16 => std.mem.readInt(i16, bytes[0..2], .little),
+            .U16 => std.mem.readInt(u16, bytes[0..2], .little),
+            .I32 => std.mem.readInt(i32, bytes[0..4], .little),
+            .U32 => std.mem.readInt(u32, bytes[0..4], .little),
+            .I64 => std.mem.readInt(i64, bytes[0..8], .little),
+            .U64 => @as(i64, @intCast(@min(std.mem.readInt(u64, bytes[0..8], .little), @as(u64, std.math.maxInt(i64))))),
+            .F32 => @intFromFloat(@as(f32, @bitCast(std.mem.readInt(u32, bytes[0..4], .little)))),
+            .F64 => @intFromFloat(@as(f64, @bitCast(std.mem.readInt(u64, bytes[0..8], .little)))),
+        };
+    }
 };
+
+test "ScanTargetValue matches" {
+    const val: i32 = 42;
+    const target = ScanTargetValue{ .I32 = val };
+    var buf: [4]u8 = undefined;
+    std.mem.writeInt(i32, &buf, 42, .little);
+    try std.testing.expect(target.matchesBytes(&buf));
+
+    std.mem.writeInt(i32, &buf, 43, .little);
+    try std.testing.expect(!target.matchesBytes(&buf));
+}

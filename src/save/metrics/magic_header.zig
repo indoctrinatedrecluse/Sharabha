@@ -1,0 +1,90 @@
+const std = @import("std");
+
+pub const ContainerType = enum {
+    RawCustomBinary,
+    PlainText,
+    GzipCompressed,
+    ZlibCompressed,
+    ZipContainer,
+    SQLiteDatabase,
+    UnrealEngineGVAS,
+    UnitySerialized,
+    BsonFormat,
+    Unknown,
+
+    pub fn displayName(self: ContainerType) []const u8 {
+        return switch (self) {
+            .RawCustomBinary => "Raw Binary (प्राकृतिक द्वि-आधारी)",
+            .PlainText => "Plain Text / JSON / XML (शुद्ध पाठ)",
+            .GzipCompressed => "Gzip Stream [1F 8B] (संकोच)",
+            .ZlibCompressed => "Zlib Stream [78 9C/DA] (संकोच)",
+            .ZipContainer => "ZIP Container [PK..] (कोशिका)",
+            .SQLiteDatabase => "SQLite 3 Engine (आधार स्तम्भ)",
+            .UnrealEngineGVAS => "Unreal Engine GVAS (माया संपुट)",
+            .UnitySerialized => "Unity Engine Serialization (एकीकृत प्रारूप)",
+            .BsonFormat => "BSON Binary Document (बीसॉन)",
+            .Unknown => "Unrecognized Container (अविज्ञात)",
+        };
+    }
+};
+
+pub fn detectMagicHeader(buffer: []const u8) ContainerType {
+    if (buffer.len < 4) return .Unknown;
+
+    // Unreal Engine GVAS
+    if (buffer.len >= 4 and std.mem.eql(u8, buffer[0..4], "GVAS")) {
+        return .UnrealEngineGVAS;
+    }
+
+    // SQLite
+    if (buffer.len >= 16 and std.mem.eql(u8, buffer[0..15], "SQLite format 3")) {
+        return .SQLiteDatabase;
+    }
+
+    // ZIP / PK
+    if (buffer[0] == 0x50 and buffer[1] == 0x4B and buffer[2] == 0x03 and buffer[3] == 0x04) {
+        return .ZipContainer;
+    }
+
+    // GZIP
+    if (buffer[0] == 0x1F and buffer[1] == 0x8B) {
+        return .GzipCompressed;
+    }
+
+    // ZLIB
+    if (buffer[0] == 0x78 and (buffer[1] == 0x01 or buffer[1] == 0x9C or buffer[1] == 0xDA or buffer[1] == 0x5E)) {
+        return .ZlibCompressed;
+    }
+
+    // Unity
+    if (buffer.len >= 7 and (std.mem.eql(u8, buffer[0..7], "UnityFS") or std.mem.eql(u8, buffer[0..7], "UnityRa"))) {
+        return .UnitySerialized;
+    }
+
+    // Plain text check
+    var is_text = true;
+    const check_len = @min(buffer.len, 64);
+    for (buffer[0..check_len]) |b| {
+        if (b < 0x09 or (b > 0x0D and b < 0x20) or b > 0x7E) {
+            is_text = false;
+            break;
+        }
+    }
+    if (is_text) return .PlainText;
+
+    return .RawCustomBinary;
+}
+
+test "Magic header detection" {
+    const gvas = "GVAS\x03\x00\x00\x00";
+    try std.testing.expectEqual(ContainerType.UnrealEngineGVAS, detectMagicHeader(gvas));
+
+    const zlib = "\x78\x9C\x01\x00";
+    try std.testing.expectEqual(ContainerType.ZlibCompressed, detectMagicHeader(zlib));
+
+    const zip = "\x50\x4B\x03\x04\x14\x00";
+    try std.testing.expectEqual(ContainerType.ZipContainer, detectMagicHeader(zip));
+
+    const text = "{\"hero\": \"Rudra\"}";
+    try std.testing.expectEqual(ContainerType.PlainText, detectMagicHeader(text));
+}
