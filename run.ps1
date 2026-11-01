@@ -96,40 +96,41 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$binPath = "zig-out\bin\Sharabha.exe"
-if (-not (Test-Path $binPath)) {
-    Write-Error "Target executable not found at $binPath"
+$cliBinPath = "zig-out\bin\SharabhaCli.exe"
+$guiBinPath = "zig-out\bin\Sharabha.exe"
+if (-not (Test-Path $cliBinPath) -or -not (Test-Path $guiBinPath)) {
+    Write-Error "Target executable not found in zig-out\bin"
     exit 1
 }
-Write-Host "  [OK] Native binary compiled: $binPath" -ForegroundColor Green
+Write-Host "  [OK] Native binaries compiled: $guiBinPath (GUI Launcher) & $cliBinPath (CLI Engine)" -ForegroundColor Green
 
 # 4. Execute Core Diagnostics & Launch Slint Desktop UI
 Write-Host ""
 Write-Host "[4/4] Invoking Sharabha Core Subsystems..." -ForegroundColor Cyan
-& $binPath
+& $cliBinPath
 
 if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
     Write-Host ""
     Write-Host "  - Harvesting real host processes via Netra Inquest..." -ForegroundColor Yellow
-    powershell -NoProfile -ExecutionPolicy Bypass -File "tools/refresh_processes.ps1"
+    powershell -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File "tools/refresh_processes.ps1"
 
-    $binExe = (Convert-Path $binPath).Replace('\', '/')
+    $binExe = (Convert-Path $cliBinPath).Replace('\', '/')
     Write-Host "Launching native Slint GUI Window (src/ui/app.slint)..." -ForegroundColor Yellow
     $callbacks = @(
-        "--on", "refresh_processes", "powershell -NoProfile -ExecutionPolicy Bypass -File tools/refresh_processes.ps1",
+        "--on", "refresh_processes", "powershell -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/refresh_processes.ps1",
         "--on", "attach_process", "$binExe --attach `$1",
         "--on", "start_memory_scan", "$binExe --scan `$1 `$2",
         "--on", "rescan_memory", "$binExe --rescan `$1",
         "--on", "run_lua_script", "$binExe --run-lua `"`$1`"",
-        "--on", "open_save_file", "powershell -Sta -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1",
+        "--on", "open_save_file", "powershell -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1",
         "--on", "save_file_atomic", "$binExe --commit-save assets/saves/ER0000.sl2",
-        "--on", "cycle_metric", "powershell -NoProfile -Command Write-Host '[OK] Metric Evaluated via Switching Engine'",
-        "--on", "cycle_extractor", "powershell -NoProfile -Command Write-Host '[OK] Extractor Switched via Agama Engine'",
-        "--on", "toggle_ai_guidance", "powershell -NoProfile -Command Write-Host '[OK] Divya Drishti AI Oracle Toggled'",
+        "--on", "cycle_metric", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Metric Evaluated via Switching Engine'",
+        "--on", "cycle_extractor", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Extractor Switched via Agama Engine'",
+        "--on", "toggle_ai_guidance", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Divya Drishti AI Oracle Toggled'",
         "--on", "test_vault", "$binExe --test-vault",
         "--on", "save_vault", "$binExe --seal-vault",
-        "--on", "toggle_save_view_mode", "powershell -NoProfile -Command Write-Host '[OK] Dual-Mode View Switched'",
-        "--on", "cycle_canvas_mode", "powershell -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'",
+        "--on", "toggle_save_view_mode", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Dual-Mode View Switched'",
+        "--on", "cycle_canvas_mode", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'",
         "--on", "register_agama_profile", "$binExe --export-surreal"
     )
     & $slintExe "src/ui/app.slint" --auto-reload $callbacks

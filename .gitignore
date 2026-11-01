@@ -14,6 +14,7 @@ zig-out/
 *.exe
 *.dll
 *.pdb
+*.zip
 Thumbs.db
 
 # Vault and temporary backup files

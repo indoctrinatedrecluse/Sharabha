@@ -1,0 +1,98 @@
+name: Release Sharabha Engine
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Zig Compiler
+        uses: mlugg/setup-zig@v1
+        with:
+          version: master
+
+      - name: Cache Slint Viewer
+        uses: actions/cache@v4
+        id: cache-slint
+        with:
+          path: ~\.cargo\bin\slint-viewer.exe
+          key: ${{ runner.os }}-slint-viewer-1.18.0
+
+      - name: Install Slint Viewer
+        if: steps.cache-slint.outputs.cache-hit != 'true'
+        run: cargo install slint-viewer --version 1.18.0
+
+      - name: Prime Chitrapata Hardware Video Buffers
+        shell: pwsh
+        run: |
+          pip install opencv-python numpy
+          python -c "import cv2, os; os.makedirs('assets/media/loop_frames', exist_ok=True); cap = cv2.VideoCapture('assets/media/bg_canvas_loop.mp4'); total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)); [cv2.imwrite(f'assets/media/loop_frames/frame_{i:03d}.jpg', cv2.resize(cap.read()[1], (1280, 720), interpolation=cv2.INTER_AREA), [int(cv2.IMWRITE_JPEG_QUALITY), 80]) for i in range(total)]; cap.release()"
+          python -c "import cv2, os; os.makedirs('assets/media/splash_frames', exist_ok=True); cap = cv2.VideoCapture('assets/media/splash_sharabha.mp4'); total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)); [cv2.imwrite(f'assets/media/splash_frames/frame_{i:03d}.jpg', cv2.resize(cap.read()[1], (1280, 720), interpolation=cv2.INTER_AREA), [int(cv2.IMWRITE_JPEG_QUALITY), 80]) for i in range(total)]; cap.release()"
+
+      - name: Run Test Suite
+        shell: pwsh
+        run: zig build test
+
+      - name: Compile Native Release Safe Binaries
+        shell: pwsh
+        run: zig build -Doptimize=ReleaseFast
+
+      - name: Assemble Release Artifacts (Portable & Setup)
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if (-not $tag) { $tag = "v0.1.0" }
+          Write-Host "Assembling release packages for $tag..." -ForegroundColor Cyan
+
+          # 1. Portable Bundle
+          $portableDir = "Sharabha-$tag-windows-x64-portable"
+          New-Item -ItemType Directory -Path "$portableDir\bin" -Force | Out-Null
+          Copy-Item "zig-out\bin\*" -Destination "$portableDir\bin" -Recurse -Force
+
+          $cargoSlint = (Get-Command slint-viewer -ErrorAction SilentlyContinue).Source
+          if (-not $cargoSlint) { $cargoSlint = "$env:USERPROFILE\.cargo\bin\slint-viewer.exe" }
+          if (Test-Path $cargoSlint) {
+              Copy-Item $cargoSlint -Destination "$portableDir\bin\slint-viewer.exe" -Force
+          }
+
+          Copy-Item -Path "assets" -Destination "$portableDir\assets" -Recurse -Force
+          Copy-Item -Path "src\ui" -Destination "$portableDir\src\ui" -Recurse -Force
+          Copy-Item -Path "tools" -Destination "$portableDir\tools" -Recurse -Force
+          if (Test-Path "deps") { Copy-Item -Path "deps" -Destination "$portableDir\deps" -Recurse -Force }
+          Copy-Item -Path "README.md" -Destination "$portableDir\" -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "CHANGELOG.md" -Destination "$portableDir\" -Force -ErrorAction SilentlyContinue
+
+          Compress-Archive -Path "$portableDir\*" -DestinationPath "Sharabha-$tag-windows-x64-portable.zip" -Force
+          Write-Host "[OK] Created Sharabha-$tag-windows-x64-portable.zip" -ForegroundColor Green
+
+          # 2. Standalone Setup Executable
+          Copy-Item "zig-out\bin\SharabhaSetup.exe" -Destination "Sharabha-$tag-windows-x64-setup.exe" -Force
+          Write-Host "[OK] Created Sharabha-$tag-windows-x64-setup.exe" -ForegroundColor Green
+
+          # 3. Extract Release Notes for this Tag
+          powershell -ExecutionPolicy Bypass -File tools/extract_release_notes.ps1 -Tag $tag -OutputPath release_notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Sharabha ${{ github.ref_name }} — The Dual Aspect Engine
+          body_path: release_notes.md
+          files: |
+            Sharabha-*-windows-x64-portable.zip
+            Sharabha-*-windows-x64-setup.exe
+          draft: false
+          prerelease: false

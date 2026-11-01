@@ -48,8 +48,8 @@ pub fn build(b: *std.Build) void {
     mod.addLibraryPath(b.path("deps/luajit/lib"));
     mod.linkSystemLibrary("lua51", .{});
 
-    const exe = b.addExecutable(.{
-        .name = "Sharabha",
+    const cli_exe = b.addExecutable(.{
+        .name = "SharabhaCli",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
@@ -62,11 +62,42 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.root_module.addIncludePath(b.path("deps/luajit/include"));
-    exe.root_module.addLibraryPath(b.path("deps/luajit/lib"));
-    exe.root_module.linkSystemLibrary("lua51", .{});
+    cli_exe.root_module.addIncludePath(b.path("deps/luajit/include"));
+    cli_exe.root_module.addLibraryPath(b.path("deps/luajit/lib"));
+    cli_exe.root_module.linkSystemLibrary("lua51", .{});
+    cli_exe.root_module.addWin32ResourceFile(.{ .file = b.path("res/sharabha.rc") });
 
-    b.installArtifact(exe);
+    b.installArtifact(cli_exe);
+
+    // Native Windows GUI Subsystem Launcher (Zero Console Window)
+    const gui_exe = b.addExecutable(.{
+        .name = "Sharabha",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/launcher.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    gui_exe.subsystem = .windows;
+    gui_exe.root_module.addWin32ResourceFile(.{ .file = b.path("res/sharabha.rc") });
+
+    b.installArtifact(gui_exe);
+
+    // Flashy Native Windows GUI Setup & Installer Executable
+    const installer_exe = b.addExecutable(.{
+        .name = "SharabhaSetup",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/installer_launcher.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    installer_exe.subsystem = .windows;
+    installer_exe.root_module.addWin32ResourceFile(.{ .file = b.path("res/sharabha.rc") });
+
+    b.installArtifact(installer_exe);
 
     const copy_dll = b.addInstallFile(b.path("deps/luajit/bin/lua51.dll"), "bin/lua51.dll");
     b.getInstallStep().dependOn(&copy_dll.step);
@@ -84,7 +115,7 @@ pub fn build(b: *std.Build) void {
     // or if another step depends on it, so it's up to you to define when and
     // how this Run step will be executed. In our case we want to run it when
     // the user runs `zig build run`, so we create a dependency link.
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(cli_exe);
     run_step.dependOn(&run_cmd.step);
 
     // By making the run step depend on the default step, it will be run from the
@@ -109,7 +140,7 @@ pub fn build(b: *std.Build) void {
     // root module. Note that test executables only test one module at a time,
     // hence why we have to create two separate ones.
     const exe_tests = b.addTest(.{
-        .root_module = exe.root_module,
+        .root_module = cli_exe.root_module,
     });
 
     // A run step that will run the second test executable.
