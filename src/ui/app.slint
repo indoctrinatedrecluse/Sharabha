@@ -180,7 +180,7 @@ export component ThematicColumnHeader inherits Rectangle {
         y: -self.height - 8px;
         width: 290px;
         height: 76px;
-        background: #090c12;
+        background: #080d16a8;
         border-radius: 6px;
         border-width: 1.5px;
         border-color: #eab308;
@@ -278,7 +278,7 @@ export component TabButton inherits Rectangle {
         y: parent.height + 8px;
         width: 320px;
         height: 78px;
-        background: #090c12;
+        background: #080d16a8;
         border-radius: 8px;
         border-width: 1.5px;
         border-color: root.active_color;
@@ -338,8 +338,8 @@ export component MainWindow inherits Window {
     // Ambient Altar Canvas & Video Controller (Chitrapata)
     in-out property <int> canvas_mode: 0; // 0=Sacred Altar (Still), 1=Animated Loop (Motion), 2=Obsidian (Off)
     in-out property <string> canvas_mode_name: "SACRED ALTAR (स्थिर वेदी)";
-    in-out property <float> canvas_opacity: 0.72; // Default 72% so art shines brightly through frosted glass!
-    in-out property <string> canvas_opacity_label: "ALTAR 72%";
+    in-out property <float> canvas_opacity: 0.88; // Default 72% so art shines brightly through frosted glass!
+    in-out property <string> canvas_opacity_label: "ALTAR 88%";
 
     // Engine State Properties
     in-out property <int> selected_scan_type: 0;
@@ -445,7 +445,7 @@ export component MainWindow inherits Window {
         // TOP HEADER BAR: Trishula Logo & Aspect Selector (Frosted Glass, High-Z)
         Rectangle {
             height: 68px;
-            background: #090d16dd;
+            background: #070b14b0;
             border-radius: 12px;
             border-width: 1.5px;
             border-color: #2e3b5288;
@@ -557,8 +557,8 @@ export component MainWindow inherits Window {
                             if root.canvas_mode == 0 {
                                 root.canvas_mode = 1;
                                 root.canvas_mode_name = "ANIMATED LOOP (सजीव चित्रपट)";
-                                root.canvas_opacity = 0.85;
-                                root.canvas_opacity_label = "LOOP 85%";
+                                root.canvas_opacity = 0.92;
+                                root.canvas_opacity_label = "LOOP 92%";
                             } else if root.canvas_mode == 1 {
                                 root.canvas_mode = 2;
                                 root.canvas_mode_name = "MINIMAL OBSIDIAN (निराकार)";
@@ -567,8 +567,8 @@ export component MainWindow inherits Window {
                             } else {
                                 root.canvas_mode = 0;
                                 root.canvas_mode_name = "SACRED ALTAR (स्थिर वेदी)";
-                                root.canvas_opacity = 0.72;
-                                root.canvas_opacity_label = "ALTAR 72%";
+                                root.canvas_opacity = 0.88;
+                                root.canvas_opacity_label = "ALTAR 88%";
                             }
                             root.cycle_canvas_mode();
                         }
@@ -595,7 +595,7 @@ export component MainWindow inherits Window {
 
         // BODY WORKSPACE CONTAINER (Frosted Glass)
         Rectangle {
-            background: #07090db8;
+            background: #05080f70;
             border-radius: 12px;
             border-width: 1.5px;
             border-color: #1e293b88;
@@ -610,7 +610,7 @@ export component MainWindow inherits Window {
                 // Process Selector Panel (Resizable)
                 Rectangle {
                     width: root.rudra_left_width;
-                    background: #0d121dd8;
+                    background: #090e1899;
                     border-radius: 10px;
                     border-width: 1px;
                     border-color: #243048aa;
@@ -643,7 +643,7 @@ export component MainWindow inherits Window {
 
                         // Active Process Mock List
                         Rectangle {
-                            background: #090c12;
+                            background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #18202e;
@@ -654,7 +654,7 @@ export component MainWindow inherits Window {
 
                                 Rectangle {
                                     height: 36px;
-                                    background: #1a2335;
+                                    background: #1e293ecc;
                                     border-radius: 4px;
                                     HorizontalLayout {
                                         padding-left: 10px;
@@ -724,7 +724,7 @@ export component MainWindow inherits Window {
                 // Memory Scanner & Match Results Panel (Fills remainder)
                 Rectangle {
                     horizontal-stretch: 1;
-                    background: #0d121dd8;
+                    background: #090e1899;
                     border-radius: 10px;
                     border-width: 1px;
                     border-color: #243048aa;
@@ -750,7 +750,7 @@ export component MainWindow inherits Window {
                                 horizontal-stretch: 2;
                                 min-width: 120px;
                                 height: 42px;
-                                background: #1c2434;
+                                background: #162032b8;
                                 border-radius: 6px;
                                 border-width: 1px;
                                 border-color: #2e3b52;
@@ -774,7 +774,7 @@ export component MainWindow inherits Window {
                                 horizontal-stretch: 1;
                                 min-width: 80px;
                                 height: 42px;
-                                background: #1c2434;
+                                background: #162032b8;
                                 border-radius: 6px;
                                 border-width: 1px;
                                 border-color: #2e3b52;
@@ -827,7 +827,7 @@ export component MainWindow inherits Window {
                         // Results Header
                         Rectangle {
                             height: 38px;
-                            background: #090c12;
+                            background: #080d16a8;
                             border-radius: 4px;
 
                             HorizontalLayout {
@@ -899,7 +899,7 @@ export component MainWindow inherits Window {
 
                         // Mock Matches Table
                         Rectangle {
-                            background: #090c12;
+                            background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #18202e;
@@ -910,7 +910,7 @@ export component MainWindow inherits Window {
 
                                 Rectangle {
                                     height: 36px;
-                                    background: #141b26;
+                                    background: #141e2ecc;
                                     border-radius: 4px;
                                     HorizontalLayout {
                                         padding-left: 12px;
@@ -946,7 +946,7 @@ export component MainWindow inherits Window {
                         // Bottom Lua Console Bar
                         Rectangle {
                             height: 40px;
-                            background: #151b27;
+                            background: #101622b0;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #222c3e;
@@ -985,7 +985,7 @@ export component MainWindow inherits Window {
                 // Left: File Information & Multi-Metric Switcher (Resizable)
                 Rectangle {
                     width: root.kalyana_left_width;
-                    background: #0d121dd8;
+                    background: #090e1899;
                     border-radius: 10px;
                     border-width: 1px;
                     border-color: #243048aa;
@@ -1036,7 +1036,7 @@ export component MainWindow inherits Window {
                             }
                             Rectangle {
                                 height: 38px;
-                                background: #1c2434;
+                                background: #162032b8;
                                 border-radius: 6px;
                                 border-width: 1px;
                                 border-color: #0284c7;
@@ -1065,7 +1065,7 @@ export component MainWindow inherits Window {
                             }
                             Rectangle {
                                 height: 38px;
-                                background: #1c2434;
+                                background: #162032b8;
                                 border-radius: 6px;
                                 border-width: 1px;
                                 border-color: #0369a1;
@@ -1085,7 +1085,7 @@ export component MainWindow inherits Window {
 
                         // Telemetry Metric Score Card
                         Rectangle {
-                            background: #090c12;
+                            background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #18202e;
@@ -1133,7 +1133,7 @@ export component MainWindow inherits Window {
 
                         // Sthiti Safety Guarantees
                         Rectangle {
-                            background: #0d1522;
+                            background: #0b111caa;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #0369a144;
@@ -1189,7 +1189,7 @@ export component MainWindow inherits Window {
                 // Right: Editable Key-Value Table (Fills remainder)
                 Rectangle {
                     horizontal-stretch: 1;
-                    background: #0d121dd8;
+                    background: #090e1899;
                     border-radius: 10px;
                     border-width: 1px;
                     border-color: #243048aa;
@@ -1220,7 +1220,7 @@ export component MainWindow inherits Window {
                         // Table Header
                         Rectangle {
                             height: 38px;
-                            background: #090c12;
+                            background: #080d16a8;
                             border-radius: 4px;
 
                             HorizontalLayout {
@@ -1282,7 +1282,7 @@ export component MainWindow inherits Window {
 
                         // Sample Inferred Rows
                         Rectangle {
-                            background: #090c12;
+                            background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #18202e;
@@ -1293,7 +1293,7 @@ export component MainWindow inherits Window {
 
                                 Rectangle {
                                     height: 38px;
-                                    background: #131924;
+                                    background: #141e2ecc;
                                     border-radius: 4px;
                                     HorizontalLayout {
                                         padding-left: 12px;
@@ -1324,7 +1324,7 @@ export component MainWindow inherits Window {
 
                                 Rectangle {
                                     height: 38px;
-                                    background: #131924;
+                                    background: #141e2ecc;
                                     border-radius: 4px;
                                     HorizontalLayout {
                                         padding-left: 12px;
@@ -1392,7 +1392,7 @@ export component MainWindow inherits Window {
                     spacing: 14px;
 
                     Rectangle {
-                        background: #111622;
+                        background: #090e1899;
                         border-radius: 8px;
                         border-width: 1px;
                         border-color: #1e2738;
@@ -1411,7 +1411,7 @@ export component MainWindow inherits Window {
                     }
 
                     Rectangle {
-                        background: #111622;
+                        background: #090e1899;
                         border-radius: 8px;
                         border-width: 1px;
                         border-color: #1e2738;
@@ -1432,94 +1432,63 @@ export component MainWindow inherits Window {
             }
         }
 
-        // FOOTER STATUS BAR
+        // FOOTER STATUS BAR (LAKSHANA VIVARANA)
         Rectangle {
-            height: 32px;
-            background: #090c12ee;
+            height: 36px;
+            background: #070b14aa;
             border-radius: 6px;
+            border-width: 1px;
+            border-color: #2e3b5266;
 
             HorizontalLayout {
-                padding-left: 14px;
-                padding-right: 14px;
+                padding-left: 16px;
+                padding-right: 16px;
                 alignment: space-between;
 
-                Text {
-                    text: "शरभेश्वर // ॐ नमः शिवाय // TRISHULA & ASHTAMURTI IN HARMONY";
-                    font-size: 10px;
-                    font-weight: 800;
-                    letter-spacing: 1px;
-                    color: #eab308;
-                    vertical-alignment: center;
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: center;
+
+                    Text {
+                        text: "🦁 ॐ नमः शरभाय";
+                        font-size: 11px;
+                        font-weight: 800;
+                        color: #eab308;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.active_tab == 0 ? ("RUDRA TANDAVA // Process: " + root.active_process_name + " • Stambhana: Armed") :
+                              (root.active_tab == 1 ? ("KALYANA STHITI // Metric: " + root.metric_display_name + " • Sthiti Kavacha: Armed") :
+                              "JNANA KOSHA // Sacred Agama Knowledge Base • SurrealDB Store Online");
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: root.active_tab == 0 ? #ff7b00 : (root.active_tab == 1 ? #38bdf8 : #facc15);
+                        vertical-alignment: center;
+                    }
                 }
 
                 HorizontalLayout {
                     spacing: 16px;
                     alignment: center;
 
-                    Text { text: "OS: Windows x64 Native"; font-size: 10px; color: #64748b; vertical-alignment: center; }
-                    Text { text: "Core: Zig 0.17"; font-size: 10px; color: #ff4d2e; vertical-alignment: center; }
-                    Text { text: "UI: Slint Declarative"; font-size: 10px; color: #38bdf8; vertical-alignment: center; }
-                }
-            }
-            // PERMANENT LAKSHANA VIVARANA STATUS BAR (लक्षण विवरण)
-            Rectangle {
-                height: 38px;
-                background: #090c12ee;
-                border-radius: 6px;
-                border-width: 1px;
-                border-color: #eab30855;
-
-                HorizontalLayout {
-                    padding-left: 16px;
-                    padding-right: 16px;
-                    alignment: space-between;
-
-                    HorizontalLayout {
-                        spacing: 12px;
-                        alignment: center;
-
-                        Text {
-                            text: "🦁 ॐ नमः शरभाय";
-                            font-size: 11px;
-                            font-weight: 800;
-                            color: #eab308;
-                            vertical-alignment: center;
-                        }
-
-                        Text {
-                            text: root.active_tab == 0 ? ("RUDRA TANDAVA // Active Process: " + root.active_process_name + " • Stambhana Sentinel: Armed") :
-                                  (root.active_tab == 1 ? ("KALYANA STHITI // Metric: " + root.metric_display_name + " • Extractor: " + root.extractor_display_name + " • Sthiti Kavacha: Armed") :
-                                  "JNANA KOSHA // Sacred Agama Knowledge Base • SurrealDB Store Online");
-                            font-size: 11px;
-                            font-weight: 700;
-                            color: root.active_tab == 0 ? #ff7b00 : (root.active_tab == 1 ? #38bdf8 : #facc15);
-                            vertical-alignment: center;
-                        }
+                    Text {
+                        text: "CHITRAPATA: " + root.canvas_mode_name;
+                        font-size: 10px;
+                        color: #94a3b8;
+                        vertical-alignment: center;
                     }
 
-                    HorizontalLayout {
-                        spacing: 12px;
-                        alignment: center;
-
-                        Text {
-                            text: "CHITRAPATA: " + root.canvas_mode_name;
-                            font-size: 10px;
-                            color: #94a3b8;
-                            vertical-alignment: center;
-                        }
-
-                        Text {
-                            text: "SPLITTERS: Active [Drag <-> to Resize]";
-                            font-size: 10px;
-                            color: #64748b;
-                            vertical-alignment: center;
-                        }
+                    Text {
+                        text: "OS: Win x64 • Zig 0.17 • Slint";
+                        font-size: 10px;
+                        color: #64748b;
+                        vertical-alignment: center;
                     }
                 }
             }
         }
     }
-
     // =========================================================================
     // LAYER 3: SPLASH SCREEN OVERLAY (WHEN SHOW_SPLASH IS ACTIVE)
     // =========================================================================
@@ -1642,7 +1611,7 @@ export component MainWindow inherits Window {
         Rectangle {
             width: 580px;
             height: 480px;
-            background: #090c12;
+            background: #080d16a8;
             border-radius: 12px;
             border-width: 2px;
             border-color: #eab308;
