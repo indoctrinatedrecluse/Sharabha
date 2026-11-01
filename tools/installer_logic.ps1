@@ -1,5 +1,9 @@
 ﻿param(
+    [string]$SourcePath = "",
     [string]$TargetPath = "$env:LOCALAPPDATA\Programs\Sharabha",
+    [string]$DesktopFlag = "true",
+    [string]$StartMenuFlag = "true",
+    [string]$LaunchFlag = "true",
     [switch]$CreateDesktopShortcut,
     [switch]$CreateStartMenu,
     [switch]$LaunchAfter
@@ -9,8 +13,16 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$projectRoot = if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
+$makeDesktop = ($DesktopFlag -eq "true" -or $DesktopFlag -eq "True" -or $CreateDesktopShortcut)
+$makeStartMenu = ($StartMenuFlag -eq "true" -or $StartMenuFlag -eq "True" -or $CreateStartMenu)
+$doLaunch = ($LaunchFlag -eq "true" -or $LaunchFlag -eq "True" -or $LaunchAfter)
+
+$projectRoot = if ($SourcePath -and (Test-Path $SourcePath)) {
+    (Resolve-Path $SourcePath).Path
+} else {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
+}
 
 Write-Host "========================================================================"
 Write-Host "  SHARABHA // CONSECRATING APPLICATION VESSEL (प्रतिष्ठापन)"
@@ -45,27 +57,43 @@ foreach ($d in $dirsToCreate) {
 
 # 2. Copy Binaries
 Write-Host "  [1/5] Deploying Native Binaries (Sharabha.exe, SharabhaCli.exe, lua51.dll)..." -ForegroundColor Cyan
-$binSource = Join-Path $projectRoot "zig-out\bin"
-if (Test-Path $binSource) {
-    Copy-Item -Path "$binSource\*" -Destination (Join-Path $TargetPath "bin") -Recurse -Force
+if (Test-Path "$projectRoot\bin") {
+    Copy-Item -Path "$projectRoot\bin\*" -Destination (Join-Path $TargetPath "bin") -Recurse -Force
+}
+if (Test-Path "$projectRoot\zig-out\bin") {
+    Copy-Item -Path "$projectRoot\zig-out\bin\*" -Destination (Join-Path $TargetPath "bin") -Recurse -Force
 }
 
 # Ensure slint-viewer is available in bin
-$localSlint = Join-Path $env:USERPROFILE ".cargo\bin\slint-viewer.exe"
-if (Test-Path $localSlint) {
-    Copy-Item -Path $localSlint -Destination (Join-Path $TargetPath "bin\slint-viewer.exe") -Force
+if (-not (Test-Path (Join-Path $TargetPath "bin\slint-viewer.exe"))) {
+    $localSlint = Join-Path $env:USERPROFILE ".cargo\bin\slint-viewer.exe"
+    if (Test-Path $localSlint) {
+        Copy-Item -Path $localSlint -Destination (Join-Path $TargetPath "bin\slint-viewer.exe") -Force
+    }
 }
 
 # 3. Copy Assets & Hardware Frames
 Write-Host "  [2/5] Copying Chitrapata Hardware Video Buffers & Sacred Media..." -ForegroundColor Cyan
-Copy-Item -Path "$projectRoot\assets\*" -Destination (Join-Path $TargetPath "assets") -Recurse -Force
+if (Test-Path "$projectRoot\assets") {
+    Copy-Item -Path "$projectRoot\assets\*" -Destination (Join-Path $TargetPath "assets") -Recurse -Force
+}
 
 # 4. Copy UI Declarations & Tools
 Write-Host "  [3/5] Deploying Slint 1.18 Hardware Declarations & Inquest Tools..." -ForegroundColor Cyan
-Copy-Item -Path "$projectRoot\src\ui\*" -Destination (Join-Path $TargetPath "src\ui") -Recurse -Force
-Copy-Item -Path "$projectRoot\tools\*" -Destination (Join-Path $TargetPath "tools") -Recurse -Force
+if (Test-Path "$projectRoot\src\ui") {
+    Copy-Item -Path "$projectRoot\src\ui\*" -Destination (Join-Path $TargetPath "src\ui") -Recurse -Force
+}
+if (Test-Path "$projectRoot\tools") {
+    Copy-Item -Path "$projectRoot\tools\*" -Destination (Join-Path $TargetPath "tools") -Recurse -Force
+}
 if (Test-Path "$projectRoot\deps") {
     Copy-Item -Path "$projectRoot\deps\*" -Destination (Join-Path $TargetPath "deps") -Recurse -Force
+}
+if (Test-Path "$projectRoot\README.md") {
+    Copy-Item -Path "$projectRoot\README.md" -Destination (Join-Path $TargetPath "README.md") -Force -ErrorAction SilentlyContinue
+}
+if (Test-Path "$projectRoot\CHANGELOG.md") {
+    Copy-Item -Path "$projectRoot\CHANGELOG.md" -Destination (Join-Path $TargetPath "CHANGELOG.md") -Force -ErrorAction SilentlyContinue
 }
 
 # 5. Create Desktop & Start Menu Shortcuts
@@ -73,7 +101,7 @@ $wsh = New-Object -ComObject WScript.Shell
 $mainExe = Join-Path $TargetPath "bin\Sharabha.exe"
 $icoPath = Join-Path $TargetPath "assets\media\app_icon.ico"
 
-if ($CreateDesktopShortcut -or $PSBoundParameters.ContainsKey('CreateDesktopShortcut')) {
+if ($makeDesktop) {
     Write-Host "  [4/5] Forging Trishula Desktop Shortcut with Mythic App Icon..." -ForegroundColor Cyan
     $desktopDir = [System.Environment]::GetFolderPath('Desktop')
     $shortcutPath = Join-Path $desktopDir "Sharabha.lnk"
@@ -81,19 +109,19 @@ if ($CreateDesktopShortcut -or $PSBoundParameters.ContainsKey('CreateDesktopShor
     $shortcut.TargetPath = $mainExe
     $shortcut.WorkingDirectory = $TargetPath
     $shortcut.IconLocation = "$icoPath, 0"
-    $shortcut.Description = "Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.1.0)"
+    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.1.0)'
     $shortcut.Save()
     Write-Host "    [✓] Desktop shortcut created: $shortcutPath" -ForegroundColor Green
 }
 
-if ($CreateStartMenu -or $PSBoundParameters.ContainsKey('CreateStartMenu')) {
+if ($makeStartMenu) {
     $programsDir = [System.Environment]::GetFolderPath('Programs')
     $shortcutPath = Join-Path $programsDir "Sharabha.lnk"
     $shortcut = $wsh.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = $mainExe
     $shortcut.WorkingDirectory = $TargetPath
     $shortcut.IconLocation = "$icoPath, 0"
-    $shortcut.Description = "Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.1.0)"
+    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.1.0)'
     $shortcut.Save()
     Write-Host "    [✓] Start Menu shortcut created: $shortcutPath" -ForegroundColor Green
 }
@@ -118,7 +146,7 @@ Write-Host "  [OK] CONSECRATION COMPLETE // SHARABHA READY FOR TEMPLE LAUNCH!" -
 Write-Host "========================================================================"
 
 # 7. Launch Sharabha if Requested
-if ($LaunchAfter -or $PSBoundParameters.ContainsKey('LaunchAfter')) {
+if ($doLaunch) {
     Write-Host "  - Awakening Sharabha Native Engine in Background..." -ForegroundColor Yellow
     Start-Process -FilePath $mainExe -WorkingDirectory $TargetPath
 }

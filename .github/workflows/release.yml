@@ -70,33 +70,7 @@ jobs:
         run: |
           $tag = $env:GITHUB_REF_NAME
           if (-not $tag) { $tag = "v0.1.0" }
-          Write-Host "Assembling release packages for $tag..." -ForegroundColor Cyan
-
-          # 1. Portable Bundle
-          $portableDir = "Sharabha-$tag-windows-x64-portable"
-          New-Item -ItemType Directory -Path "$portableDir\bin" -Force | Out-Null
-          Copy-Item "zig-out\bin\*" -Destination "$portableDir\bin" -Recurse -Force
-
-          $slintCmd = (Get-Command slint-viewer -ErrorAction SilentlyContinue).Source
-          if ($slintCmd) {
-              Copy-Item $slintCmd -Destination "$portableDir\bin\slint-viewer.exe" -Force
-          }
-
-          Copy-Item -Path "assets" -Destination "$portableDir\assets" -Recurse -Force
-          Copy-Item -Path "src\ui" -Destination "$portableDir\src\ui" -Recurse -Force
-          Copy-Item -Path "tools" -Destination "$portableDir\tools" -Recurse -Force
-          if (Test-Path "deps") { Copy-Item -Path "deps" -Destination "$portableDir\deps" -Recurse -Force }
-          Copy-Item -Path "README.md" -Destination "$portableDir\" -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path "CHANGELOG.md" -Destination "$portableDir\" -Force -ErrorAction SilentlyContinue
-
-          Compress-Archive -Path "$portableDir\*" -DestinationPath "Sharabha-$tag-windows-x64-portable.zip" -Force
-          Write-Host "[OK] Created Sharabha-$tag-windows-x64-portable.zip" -ForegroundColor Green
-
-          # 2. Standalone Setup Executable
-          Copy-Item "zig-out\bin\SharabhaSetup.exe" -Destination "Sharabha-$tag-windows-x64-setup.exe" -Force
-          Write-Host "[OK] Created Sharabha-$tag-windows-x64-setup.exe" -ForegroundColor Green
-
-          # 3. Extract Release Notes for this Tag
+          powershell -ExecutionPolicy Bypass -File tools/package.ps1 -Tag $tag
           powershell -ExecutionPolicy Bypass -File tools/extract_release_notes.ps1 -Tag $tag -OutputPath release_notes.md
 
       - name: Publish GitHub Release

@@ -34,6 +34,30 @@ export component InstallerWindow inherits Window {
         }
     }
 
+    // Installation Progress Animation Timer
+    install_timer := Timer {
+        interval: 120ms;
+        running: root.page == 1;
+        triggered() => {
+            if (root.install_progress < 0.25) {
+                root.install_step_text = "Deploying Native Binaries (Sharabha.exe, SharabhaCli.exe)...";
+                root.install_progress += 0.04;
+            } else if (root.install_progress < 0.55) {
+                root.install_step_text = "Copying Chitrapata Hardware Video Buffers & Sacred Media...";
+                root.install_progress += 0.03;
+            } else if (root.install_progress < 0.85) {
+                root.install_step_text = "Deploying Slint 1.18 Hardware Declarations & Tools...";
+                root.install_progress += 0.025;
+            } else if (root.install_progress < 0.98) {
+                root.install_step_text = "Forging Trishula Shortcuts & Windows Shell Registration...";
+                root.install_progress += 0.02;
+            } else {
+                root.install_progress = 1.0;
+                root.page = 2; // Transition to Complete
+            }
+        }
+    }
+
     // Callbacks to Native Windows Backend
     callback browse_dir();
     callback start_install(string, bool, bool, bool);
@@ -612,6 +636,7 @@ export component InstallerWindow inherits Window {
                     border-radius: 6px;
                     TouchArea {
                         clicked => {
+                            root.page = 1;
                             root.start_install(root.install_path, root.create_desktop_shortcut, root.create_start_menu, root.launch_after_install);
                         }
                     }
