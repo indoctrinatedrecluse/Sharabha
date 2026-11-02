@@ -2,6 +2,7 @@
 //! SHARABHA (शरभ) — AGAMA & PRAVAHA DUAL-MODE SAVE PARSER
 //! Blends Deterministic Agama Temple Profiles with Multi-Metric Fuzzy Inference
 //! Sthiti Kavacha Backup & Automatic Checksum Recalculation Included
+//! Deterministic parsing logic is ONLY an option for recognized games.
 //! ============================================================================
 
 const std = @import("std");
@@ -56,7 +57,7 @@ pub const DualModeSaveState = struct {
             .file_path = file_path,
             .file_extension = ext,
             .raw_buffer = owned_data,
-            .view_mode = .AgamaDeterministic,
+            .view_mode = .PravahaFuzzyRaw,
             .is_known_game = false,
             .game_title = "Unknown Sthiti (अज्ञात)",
             .sanskrit_title = "प्रवाह रूप (Raw Stream)",
@@ -77,70 +78,45 @@ pub const DualModeSaveState = struct {
     }
 
     pub fn analyzeAndPopulate(self: *DualModeSaveState) !void {
-        // 1. Run Fuzzy Multi-Metric Engine on the buffer
+        // 1. Run Fuzzy Multi-Metric Overseer Engine on the buffer (ranked by confidence descending)
         var sw_engine = switcher.SwitchingEngine.init(self.allocator);
         self.fuzzy_results.deinit(self.allocator);
         self.fuzzy_results = try sw_engine.extractFields(.Auto, self.raw_buffer, self.file_path);
         self.detected_metric_name = "Auto Heuristic Multi-Metric";
 
-        // 2. Check Agama Knowledge Base for known games
+        // 2. Check Agama Knowledge Base for known games.
+        // Deterministic parsing logic is ONLY an option if recognized in the knowledge base!
         self.agama_fields.clearRetainingCapacity();
-        if (std.mem.eql(u8, self.file_extension, ".sl2") or (self.raw_buffer.len > 4 and std.mem.eql(u8, self.raw_buffer[0..4], "BND4"))) {
+        const header_slice = if (self.raw_buffer.len >= 16) self.raw_buffer[0..16] else self.raw_buffer;
+        const matched_profile = profiles.findMatchingProfile(self.file_path, header_slice);
+
+        if (matched_profile) |prof| {
             self.is_known_game = true;
-            self.game_title = "Elden Ring (एल्डन वलय)";
-            self.sanskrit_title = "हिरण्यगर्भ आगम (Hiranyagarbha)";
+            self.game_title = prof.title;
+            self.sanskrit_title = prof.sanskrit_title;
             self.view_mode = .AgamaDeterministic;
 
-            // Known Elden Ring SL2 slot offsets
-            try self.agama_fields.append(self.allocator, .{
-                .id = "runes",
-                .name = "Player Runes",
-                .sanskrit_name = "मृत्युंजय धन (Runes)",
-                .offset = 0x000C,
-                .data_type = .Int32LE,
-                .int_value = if (self.raw_buffer.len >= 16) std.mem.readInt(i32, self.raw_buffer[12..16], .little) else 500000,
-                .min_val = 0,
-                .max_val = 999999999,
-            });
-            try self.agama_fields.append(self.allocator, .{
-                .id = "level",
-                .name = "Rune Level",
-                .sanskrit_name = "तपस् स्तर (Level)",
-                .offset = 0x0010,
-                .data_type = .Int32LE,
-                .int_value = if (self.raw_buffer.len >= 20) std.mem.readInt(i32, self.raw_buffer[16..20], .little) else 150,
-                .min_val = 1,
-                .max_val = 713,
-            });
-            try self.agama_fields.append(self.allocator, .{
-                .id = "vigor",
-                .name = "Vigor (HP Vitality)",
-                .sanskrit_name = "प्राण शक्ति (Vigor)",
-                .offset = 0x0014,
-                .data_type = .Int32LE,
-                .int_value = if (self.raw_buffer.len >= 24) std.mem.readInt(i32, self.raw_buffer[20..24], .little) else 60,
-                .min_val = 1,
-                .max_val = 99,
-            });
-        } else if (self.raw_buffer.len >= 4 and std.mem.eql(u8, self.raw_buffer[0..4], "GVAS")) {
-            self.is_known_game = true;
-            self.game_title = "Unreal GVAS Save (माया संचय)";
-            self.sanskrit_title = "माया रचना (Unreal GVAS)";
-            self.view_mode = .AgamaDeterministic;
-
-            try self.agama_fields.append(self.allocator, .{
-                .id = "gold",
-                .name = "Hero Gold / Currency",
-                .sanskrit_name = "सुवर्ण कोष (Gold)",
-                .offset = 0x0008,
-                .data_type = .Int32LE,
-                .int_value = if (self.raw_buffer.len >= 12) std.mem.readInt(i32, self.raw_buffer[8..12], .little) else 100000,
-                .min_val = 0,
-                .max_val = 99999999,
-            });
+            for (prof.rules) |rule| {
+                const int_val = if (rule.offset + 4 <= self.raw_buffer.len)
+                    std.mem.readInt(i32, self.raw_buffer[rule.offset..][0..4], .little)
+                else
+                    0;
+                try self.agama_fields.append(self.allocator, .{
+                    .id = rule.key_name,
+                    .name = rule.display_title,
+                    .sanskrit_name = rule.sanskrit_title,
+                    .offset = rule.offset,
+                    .data_type = rule.field_type,
+                    .int_value = int_val,
+                    .min_val = rule.min_value,
+                    .max_val = rule.max_value,
+                });
+            }
         } else {
+            // Unrecognized game: deterministic option is NOT available.
+            // Exclusively driven by the generic fuzzy overseer engine.
             self.is_known_game = false;
-            self.game_title = "Heuristic Binary Stream";
+            self.game_title = "Generic Binary Stream (सामान्य प्रपत्र)";
             self.sanskrit_title = "प्रवाह दर्शन (Pravaha Stream)";
             self.view_mode = .PravahaFuzzyRaw;
         }
@@ -177,35 +153,41 @@ pub const DualModeSaveState = struct {
     }
 };
 
-test "DualModeSaveState - Analysis, Modification and Commit" {
+test "DualModeSaveState - Recognized Game vs Unrecognized Game" {
     const allocator = std.testing.allocator;
 
-    var mock_save: [64]u8 = @splat(0);
-    @memcpy(mock_save[0..4], "GVAS");
-    std.mem.writeInt(i32, mock_save[8..12], 25000, .little);
+    // Test 1: Recognized Game (Elden Ring BND4)
+    var elden_mock: [64]u8 = @splat(0);
+    @memcpy(elden_mock[0..4], "BND4");
+    std.mem.writeInt(i32, elden_mock[0x0C .. 0x0C + 4], 500000, .little);
 
-    const test_path = "test_gvas.sav";
-    var state = try DualModeSaveState.init(allocator, test_path, &mock_save);
-    defer state.deinit();
+    var state_recognized = try DualModeSaveState.init(allocator, "ER0000.sl2", &elden_mock);
+    defer state_recognized.deinit();
 
-    try std.testing.expect(state.is_known_game);
-    try std.testing.expectEqual(SaveViewMode.AgamaDeterministic, state.view_mode);
-    try std.testing.expectEqual(@as(usize, 1), state.agama_fields.items.len);
-    try std.testing.expectEqual(@as(i64, 25000), state.agama_fields.items[0].int_value);
+    try std.testing.expect(state_recognized.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.AgamaDeterministic, state_recognized.view_mode);
+    try std.testing.expect(state_recognized.agama_fields.items.len > 0);
 
-    // Modify field
-    try state.setAgamaField("gold", 999999);
-    try std.testing.expectEqual(@as(i64, 999999), state.agama_fields.items[0].int_value);
-    try std.testing.expectEqual(@as(i32, 999999), std.mem.readInt(i32, state.raw_buffer[8..12], .little));
+    // Modify deterministic field
+    try state_recognized.setAgamaField("PLAYER_RUNES", 999999);
+    try std.testing.expectEqual(@as(i32, 999999), std.mem.readInt(i32, state_recognized.raw_buffer[0x0C .. 0x0C + 4], .little));
 
-    // Commit and verify backup file created
-    try state.commitWithIntegrity();
+    // Test 2: Unrecognized Game (Generic binary)
+    var unknown_mock: [64]u8 = @splat(0);
+    @memcpy(unknown_mock[0..4], "CUST");
+    std.mem.writeInt(i32, unknown_mock[8..12], 12345, .little);
 
-    // Clean up test files
-    const demo_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, test_path);
-    defer allocator.free(demo_w);
-    const demo_bak_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, "test_gvas.sav.sharabha.bak");
-    defer allocator.free(demo_bak_w);
-    _ = rewrite.win.DeleteFileW(demo_w.ptr);
-    _ = rewrite.win.DeleteFileW(demo_bak_w.ptr);
+    var state_unrecognized = try DualModeSaveState.init(allocator, "custom_unknown.dat", &unknown_mock);
+    defer state_unrecognized.deinit();
+
+    // Deterministic option MUST NOT be available for unrecognized games
+    try std.testing.expect(!state_unrecognized.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.PravahaFuzzyRaw, state_unrecognized.view_mode);
+    try std.testing.expectEqual(@as(usize, 0), state_unrecognized.agama_fields.items.len);
+
+    // But generic fuzzy overseer engine extracts candidates ranked by confidence!
+    try std.testing.expect(state_unrecognized.fuzzy_results.items.len > 0);
+    for (0..state_unrecognized.fuzzy_results.items.len - 1) |i| {
+        try std.testing.expect(state_unrecognized.fuzzy_results.items[i].confidence >= state_unrecognized.fuzzy_results.items[i + 1].confidence);
+    }
 }

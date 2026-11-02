@@ -17,7 +17,7 @@ pub const HybridExtractor = struct {
         var results: std.ArrayList(fuzzy.InferredField) = .empty;
         errdefer results.deinit(self.allocator);
 
-        // 1. Check for deterministic Agama game profile
+        // 1. Check for deterministic Agama game profile (only if recognized in knowledge base)
         const header_slice = if (buffer.len >= 16) buffer[0..16] else buffer;
         const matched_profile = profiles.findMatchingProfile(filename, header_slice);
 
@@ -30,7 +30,7 @@ pub const HybridExtractor = struct {
                     var field = fuzzy.InferredField{
                         .offset = rule.offset,
                         .length = 4,
-                        .confidence = 99,
+                        .confidence = 100, // Deterministic profile rules carry 100% confidence
                         .inferred_type = rule.field_type,
                         .display_value = @splat(0),
                         .display_value_len = 0,
@@ -44,6 +44,10 @@ pub const HybridExtractor = struct {
 
                     if (rule.field_type == .Int32LE) {
                         const val = std.mem.readInt(i32, buffer[rule.offset..][0..4], .little);
+                        const disp = std.fmt.bufPrint(&field.display_value, "{d}", .{val}) catch "ERR";
+                        field.display_value_len = disp.len;
+                    } else if (rule.field_type == .UInt32LE) {
+                        const val = std.mem.readInt(u32, buffer[rule.offset..][0..4], .little);
                         const disp = std.fmt.bufPrint(&field.display_value, "{d}", .{val}) catch "ERR";
                         field.display_value_len = disp.len;
                     } else if (rule.field_type == .Float32LE) {
@@ -61,7 +65,7 @@ pub const HybridExtractor = struct {
             }
         }
 
-        // 2. Fuzzy extraction for unknown remaining regions
+        // 2. Generic fuzzy extraction for remaining regions (including lower confidence & unclassified values)
         var parser = fuzzy.FuzzyParser.init(self.allocator);
         defer parser.deinit();
 
@@ -82,30 +86,38 @@ pub const HybridExtractor = struct {
             }
         }
 
+        // 3. Rank entire combined results by confidence rating in descending order!
+        std.mem.sort(fuzzy.InferredField, results.items, {}, fuzzy.sortDescByConfidence);
+
         return results;
     }
 };
 
-test "HybridExtractor deterministic + fuzzy fusion" {
+test "HybridExtractor deterministic + fuzzy fusion ranked by confidence" {
     const allocator = std.testing.allocator;
     var hybrid = HybridExtractor.init(allocator);
 
-    // Mock save buffer conforming to generic_rpg:
-    // Offset 0x0C has 750000 (HERO_GOLD), offset 0x1C has float 985.50 (HP_FLOAT)
+    // Mock Elden Ring save buffer:
+    // Offset 0x0C has 750000 (PLAYER_RUNES), offset 0x10 has 150 (RUNE_LEVEL)
     var buf: [128]u8 = @splat(0);
+    @memcpy(buf[0..4], "BND4");
     std.mem.writeInt(i32, buf[0x0C .. 0x0C + 4], 750000, .little);
-    const hp: f32 = 985.50;
-    std.mem.writeInt(u32, buf[0x1C .. 0x1C + 4], @as(u32, @bitCast(hp)), .little);
+    std.mem.writeInt(i32, buf[0x10 .. 0x10 + 4], 150, .little);
 
-    // Additional arbitrary unknown string + number for fuzzy extractor
+    // Additional arbitrary unknown string + number for fuzzy overseer extractor
     @memcpy(buf[32..40], "MANA_MAX");
     std.mem.writeInt(i32, buf[44..48], 1500, .little);
+    std.mem.writeInt(u32, buf[60..64], 0xDEADBEEF, .little); // unclassified candidate
 
-    var fields = try hybrid.extract(&buf, "hero.sav");
+    var fields = try hybrid.extract(&buf, "ER0000.sl2");
     defer fields.deinit(allocator);
 
-    try std.testing.expect(fields.items.len >= 2);
-    // Deterministic rules should be at top with 99% confidence
-    try std.testing.expectEqual(@as(u8, 99), fields.items[0].confidence);
-    try std.testing.expectEqualStrings("HERO_GOLD", fields.items[0].getLabel());
+    try std.testing.expect(fields.items.len >= 3);
+    // Deterministic rules should be at top with 100% confidence
+    try std.testing.expectEqual(@as(u8, 100), fields.items[0].confidence);
+
+    // Verify descending sort order across all items
+    for (0..fields.items.len - 1) |i| {
+        try std.testing.expect(fields.items[i].confidence >= fields.items[i + 1].confidence);
+    }
 }

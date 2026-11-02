@@ -1369,6 +1369,7 @@ export component MainWindow inherits Window {
     in-out property <string> save_table_filter: "";
     in-out property <[SaveKeyValueRowData]> save_rows: LiveSave.rows;
     in-out property <int> save_extracted_count: LiveSave.total_extracted_count;
+    in-out property <bool> is_deterministic: LiveSave.is_deterministic_profile;
 
     // 10 Unified Extracted Key-Value Rows (सर्वेक्षण सारणी)
     in-out property <string> save_row_0_offset: LiveSave.row_0_offset;
@@ -3065,18 +3066,18 @@ export component MainWindow inherits Window {
                                         }
                                         Rectangle {
                                             height: 20px;
-                                            background: #22c55e25;
+                                            background: root.is_deterministic ? #22c55e25 : #eab30825;
                                             border-radius: 4px;
                                             border-width: 1px;
-                                            border-color: #22c55e66;
+                                            border-color: root.is_deterministic ? #22c55e66 : #eab30866;
                                             HorizontalLayout {
                                                 padding-left: 6px;
                                                 padding-right: 6px;
                                                 Text {
-                                                    text: "Heuristic Verified";
+                                                    text: root.is_deterministic ? "Deterministic Agama (प्रमाण)" : "Generic Fuzzy Overseer (प्रवाह)";
                                                     font-size: 10px;
                                                     font-weight: 700;
-                                                    color: #4ade80;
+                                                    color: root.is_deterministic ? #4ade80 : #facc15;
                                                     vertical-alignment: center;
                                                 }
                                             }
@@ -3112,7 +3113,7 @@ export component MainWindow inherits Window {
                                         }
                                     }
                                     Text {
-                                        text: "Tabular Key-Value Inspector Active";
+                                        text: "Ranked by Confidence ↓ • " + root.save_extracted_count + " Extracted K-V Pairs";
                                         font-size: 9px;
                                         color: #64748b;
                                         horizontal-alignment: right;
