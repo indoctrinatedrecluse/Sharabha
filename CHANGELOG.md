@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Marked deterministic Agama engine as **[WIP]** in both backend and UI pending user-supplied game-by-game rules.
 - **Unified Tabular Key-Value Save Editor (`SaveKeyValueRow`) in Kalyana Sthiti**:
   - Unified 7-column tabular editor with `OFFSET`, `KEY IDENTIFIER (लक्षण)`, `TYPE (रूप)`, `CONFIDENCE`, `HEX DUMP`, and editable in-place `PRE-LOADED VALUE`.
+  - **Interactive Resizable Column Dividers**: Implemented interactive vertical grip dividers (`mouse-cursor: col-resize`) between every column in the table header. Dragging any divider dynamically resizes column widths (`OFFSET`, `KEY IDENTIFIER`, `TYPE`, `CONFIDENCE`, `HEX DUMP`, and `VALUE`) across both header and table rows in real time.
+  - **Justified Column Alignment & Breathing Room**: Completely eliminated clumping by giving each column dedicated cell bounds, padding, and semantic alignment: left-aligned monospace offsets, bold key identifiers with key insignia, centered amber badges for types, centered emerald pill badges for confidence ratings, centered dark monospace hex cells, stretching value edit fields, and centered action buttons.
   - Individual `WRITE ✎` action buttons per row and bulk `APPLY ALL // Write (सर्व संस्कार)` commit bar.
   - Dynamic key-value search filter LineEdit for instant property filtering.
 - **Generic Memory Scanner & Live Inquest Engine (Rudra Tandava)**:
