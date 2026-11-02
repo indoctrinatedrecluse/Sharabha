@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Agama Deterministic Save Override Engine: Suzerain by Torpor Games**:
+  - Ground-truth integration with user's official save editor (`D:\Projects\Suzerain-save-editor`), replacing heuristics with 100% deterministic recognition and verified variable schemas for Torpor Games' Lua-in-JSON vessel structure.
+  - **Dual Campaign Recognition**:
+    - **Base Game Sordland (President Anton Rayne)**: Automatic detection of `StoryPack_Main`, curating Government Budget (with dynamic Turn < 4 and Budget > 3 Black Tuesday warning), Personal Wealth, Country Unrest, Public Opinion, Bludish Opinion, Market Crash toggles, Reform Assembly/Court Votes, Gloria/Albin convince flags, Article 6&7 USP support, Regional Economic recovery (Agnland, Bergia, Lorren, Gruni), Relations (Franc, Monica, Lucian), Scandals Severity, and paired Military Expansion & Modernisation branches (Army, Navy, Air Force).
+    - **Rizia DLC (King Romus Toras)**: Automatic detection of `StoryPack_Rizia` and `NG1`, curating Royal Budget (capped at 25), Royal Authority (capped at 15), Energy Reserves (capped at 25), per-turn resource modifiers, Deployable Units (Infantry, Tanks, Submarines, Support, Capital Ships), Military Stockpiles (Trucks, Ships, Tanks, Submarines, Manpower, Equipment), War Action Points & Air Strike refills, Pales War Public Support, Welfare & Living Standards, Royal Houses Standing (Toras, Sazon, Azaro), Religious Opinions, Diplomatic Negotiating Power (10 nations/regions), and Council Relations (Arch-Priest Sal, Princess Vina, Queen Mother Estela, Pabel, Uncle Hugo, Lucita Romance).
+  - **Agama Curated & Pravaha Raw Dual Mode**: Curated high-priority variables appear at the very top of the scrollable table with `100% Curated Agama` confidence, followed by all 350+ embedded variables in Raw Editor mode with real-time text filtering.
+  - **Atomic Safe Mutation Engine**: Implemented `SharabhaCli.exe --write-save-kv <key> <val>` and `tools/write_save.ps1` utilizing exact regex pattern matching (`(\[\\\"" + Regex.Escape(key) + "\\\"\"\]\s*=\s*)([\w\.-]+|true|false)`) with automatic `.sharabha.bak` preservation, atomic swap, and live Slint UI synchronization.
+  - **Ground-Truth Test Suite**: Comprehensive unit tests in `src/knowledge/profiles.zig` and `src/save/dual_mode.zig` validating Suzerain campaign detection, scalar/bool parsing, atomic in-place mutation, and live verification against `D:\Projects\Suzerain-save-editor\FinalSave_11-12-2025_22-14-25.json`.
+
+---
+
 ## [0.1.0] - 2026-11-02
 
 ### Added

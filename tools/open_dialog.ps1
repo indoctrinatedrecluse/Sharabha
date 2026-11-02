@@ -68,7 +68,7 @@ if (-not $selectedPath) {
 try {
     $saveDir = Split-Path -Parent $activeSaveFile
     if (-not (Test-Path $saveDir)) { New-Item -ItemType Directory -Path $saveDir -Force | Out-Null }
-    [System.IO.File]::WriteAllText($activeSaveFile, $selectedPath, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($activeSaveFile, $selectedPath, (New-Object System.Text.UTF8Encoding $false))
 } catch { }
 
 $file = Get-Item $selectedPath
@@ -175,10 +175,10 @@ if ($hasUnrealPackageMagic) {
 }
 
 # ==============================================================================
-# 1. PRAVAHA SŪKSHMA REKHA (प्रवाह सूक्ष्म रेखा) — UNIVERSAL FUZZY ENGINE
-# Deterministic Agama parsing is explicitly WIP until game-by-game profiles are added.
-# Zero overfitting: no game title, character name, or profile assumptions.
-# Extracts high-yield K-Vs with lower confidence thresholds ranked descending.
+# 1. PRAVAHA SŪKSHMA REKHA & AGAMA DETERMINISTIC PROFILE ENGINE
+# Deterministic parsing logic is loaded for recognized games (e.g. Suzerain).
+# Base Game Sordland (Anton Rayne) & Rizia DLC (King Romus Toras) campaigns supported.
+# Raw mode allows search and editing of all 300+ variables.
 # ==============================================================================
 
 $isDeterministicProfile = $false
@@ -188,69 +188,255 @@ if ($isJson) {
     try {
         $jsonContent = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
         $parsed = ConvertFrom-Json $jsonContent -ErrorAction Stop
-        $verdict = "Structured JSON Vessel"
 
-        # Universal JSON Walker: extracts nested properties AND embedded serialized K-Vs
-        function Walk-GenericJson($obj, $prefix, $depth) {
-            if ($depth -gt 6 -or $rows.Count -ge 300) { return }
-            $props = @()
-            if ($obj -is [PSCustomObject]) {
-                $props = $obj.PSObject.Properties
-            } elseif ($obj -is [System.Collections.IDictionary]) {
-                $props = $obj.GetEnumerator()
+        $isSuzerain = ($parsed.currentStoryPack -ne $null -or ($jsonContent -match 'Variable=\{\[\"'))
+
+        if ($isSuzerain) {
+            $isRizia = ($parsed.currentStoryPack -eq "StoryPack_Rizia" -or $parsed.campaignName -eq "NG1")
+            $campaignTitle = if ($isRizia) { "Rizia DLC (King Romus Toras)" } else { "Base Game Sordland (President Anton Rayne)" }
+            $gameTitle = "SUZERAIN // $campaignTitle (Torpor Agama // प्रमाण आगम)"
+            $verdict = "Torpor Games Save Vessel ($($parsed.currentStoryPack))"
+            $isDeterministicProfile = $true
+
+            # Extract all variables from embedded string
+            $suzerainVars = @{}
+            if ($parsed.variables) {
+                $kvMatches = [System.Text.RegularExpressions.Regex]::Matches($parsed.variables, '\[\"(?<k>[\w\._-]+)\"\]\s*=\s*(?<v>[\w\.-]+|true|false)')
+                foreach ($m in $kvMatches) {
+                    $suzerainVars[$m.Groups["k"].Value] = $m.Groups["v"].Value
+                }
             }
 
-            foreach ($p in $props) {
-                if ($rows.Count -ge 300) { break }
-                $k = if ($p.Name) { $p.Name } else { $p.Key }
-                $v = if ($p.Name) { $p.Value } else { $p.Value }
-                $fullKey = if ($prefix) { "$prefix.$k" } else { "$k" }
+            # Add top-level JSON metadata
+            $rows.Add([PSCustomObject]@{ offset = "METADATA: turnNo"; key = "turnNo"; type = "i32 (Turn)"; conf = "96% Root Value"; hex = "22 3A 22 20"; val = "$($parsed.turnNo)" })
+            $rows.Add([PSCustomObject]@{ offset = "METADATA: currentStoryPack"; key = "currentStoryPack"; type = "String"; conf = "96% Root Value"; hex = "22 53 54 52"; val = "$($parsed.currentStoryPack)" })
+            $rows.Add([PSCustomObject]@{ offset = "METADATA: campaignName"; key = "campaignName"; type = "String"; conf = "96% Root Value"; hex = "22 53 54 52"; val = "$($parsed.campaignName)" })
+            $rows.Add([PSCustomObject]@{ offset = "METADATA: version"; key = "version"; type = "String"; conf = "96% Root Value"; hex = "22 53 54 52"; val = "$($parsed.version)" })
 
-                if ($v -is [PSCustomObject] -or $v -is [System.Collections.IDictionary]) {
-                    Walk-GenericJson $v $fullKey ($depth + 1)
-                } elseif ($v -is [Array]) {
-                    $rows.Add([PSCustomObject]@{
-                        offset = "JSON: $fullKey"
-                        key = "$fullKey [Array]"
-                        type = "Array[$($v.Count)]"
-                        conf = "85% Array Collection"
-                        hex = "5B 5D 20 20"
-                        val = (ConvertTo-Json -Compress $v)
-                    })
-                } elseif ($v -is [string]) {
-                    $strVal = [string]$v
-                    # Check if this string contains serialized embedded key-values (e.g. Lua table, key-value pairs)
-                    if ($strVal.Length -gt 20 -and ($strVal -match '\[\".+\"\]\s*=' -or $strVal -match '[A-Za-z0-9_.\-]+[:=][A-Za-z0-9_.\-]+')) {
-                        $kvMatches = [System.Text.RegularExpressions.Regex]::Matches($strVal, '\[\"?([A-Za-z0-9_.\-]+)\"?\]\s*=\s*([^,\r\n\}\]]+)')
-                        if ($kvMatches.Count -gt 0) {
-                            foreach ($m in $kvMatches) {
-                                if ($rows.Count -ge 300) { break }
-                                $rawK = $m.Groups[1].Value.Trim()
-                                $rawV = $m.Groups[2].Value.Trim()
-                                
-                                $itemType = "String (Embedded)"
-                                $itemConf = "70% Embedded Metric"
-                                $itemHex = "45 4D 42 44"
-                                if ($rawV -eq "true" -or $rawV -eq "false") {
-                                    $itemType = "bool (State Flag)"
-                                    $itemConf = "82% Embedded Flag"
-                                    $itemHex = if ($rawV -eq "true") { "01 00 00 00" } else { "00 00 00 00" }
-                                } elseif ($rawV -match '^-?\d+$') {
-                                    $itemType = "i32 (Embedded Number)"
-                                    $itemConf = "88% Numeric Stat"
-                                    $itemHex = "4E 55 4D 31"
-                                } elseif ($rawV -match '^-?\d+\.\d+$') {
-                                    $itemType = "f64 (Embedded Float)"
-                                    $itemConf = "84% Float Stat"
-                                    $itemHex = "46 4C 54 31"
+            # Curated campaign rules matching D:\Projects\Suzerain-save-editor
+            $curatedRules = if ($isRizia) {
+                @(
+                    @{ key="RiziaDLC.Resources_Budget"; label="Royal Budget (Max 25)"; type="i32 (Economy)"; cat="ECONOMY" },
+                    @{ key="RiziaDLC.Resources_Authority"; label="Royal Authority (Max 15)"; type="i32 (Authority)"; cat="ECONOMY" },
+                    @{ key="RiziaDLC.Resources_Energy"; label="Energy Reserves (Max 25)"; type="i32 (Energy)"; cat="ECONOMY" },
+                    @{ key="RiziaDLC.Budget_Modifier_IncomeTax"; label="Income Tax Modifier"; type="i32 (Modifier)"; cat="ECONOMY" },
+                    @{ key="RiziaDLC.Energy_Modifier_BaseEnergy"; label="Base Energy Modifier"; type="i32 (Modifier)"; cat="ECONOMY" },
+                    @{ key="RiziaDLC.Authority_Modifier_BaseMonarchRomus"; label="Monarch Authority Modifier"; type="i32 (Modifier)"; cat="ECONOMY" },
+
+                    @{ key="RiziaDLC.Army_Unit_Infantry_Total"; label="Infantry Units Total"; type="i32 (Units)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Army_Unit_Tank_Total"; label="Tank Units Total"; type="i32 (Units)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Army_Unit_Submarine_Total"; label="Submarine Fleet Total"; type="i32 (Units)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Army_Unit_Support_Total"; label="Support Units Total"; type="i32 (Units)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Army_Unit_Ship_Total"; label="Capital Ships Total"; type="i32 (Units)"; cat="MILITARY" },
+
+                    @{ key="RiziaDLC.Resources_Military_Trucks"; label="Trucks Stockpile"; type="i32 (Stockpile)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Resources_Military_Ships"; label="Ships Stockpile"; type="i32 (Stockpile)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Resources_Military_Tanks"; label="Tanks Stockpile"; type="i32 (Stockpile)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Resources_Military_Submarines"; label="Submarines Stockpile"; type="i32 (Stockpile)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Resources_Military_Manpower"; label="Manpower Reserve"; type="i32 (Stockpile)"; cat="MILITARY" },
+                    @{ key="RiziaDLC.Resources_Military_Equipment"; label="Equipment Stockpile"; type="i32 (Stockpile)"; cat="MILITARY" },
+
+                    @{ key="RiziaDLC.War_ActionPoints"; label="War Action Points (Unlimited AP)"; type="i32 (War)"; cat="WAR" },
+                    @{ key="RiziaDLC.Resources_Military_AirStrikeRefillPerFragment"; label="Air Strike Refill per Fragment"; type="i32 (War)"; cat="WAR" },
+                    @{ key="RiziaDLC.War_Pales_PublicWarSupport"; label="Pales War Public Support"; type="i32 (War)"; cat="WAR" },
+
+                    @{ key="RiziaDLC.Country_ProductionCapacity"; label="Production Capacity"; type="i32 (Welfare)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_LivingStandards"; label="Living Standards"; type="i32 (Welfare)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_PublicOpinion"; label="Public Opinion (Rizia)"; type="i32 (Opinion)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_HouseToras"; label="House Toras Standing"; type="i32 (Houses)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_HouseSazon"; label="House Sazon Standing"; type="i32 (Houses)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_HouseAzaro"; label="House Azaro Standing"; type="i32 (Houses)"; cat="POLITICS" },
+
+                    @{ key="RiziaDLC.Country_GolcondistOpinion"; label="Golcondist Religion Opinion"; type="i32 (Religion)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_WruhecistOpinion"; label="Wruhecist Religion Opinion"; type="i32 (Religion)"; cat="POLITICS" },
+                    @{ key="RiziaDLC.Country_DastnuristOpinion"; label="Dastnurist Religion Opinion"; type="i32 (Religion)"; cat="POLITICS" },
+
+                    @{ key="RiziaDLC.Diplomacy_Derdia_NegotiatingPower"; label="Derdia Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Morella_NegotiatingPower"; label="Morella Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Sordland_NegotiatingPower"; label="Sordland Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Zille_ReferendumPower"; label="Zille Referendum Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Lespia_NegotiatingPower"; label="Lespia Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.CountryRelation_Lespia_Friendly"; label="Lespia Friendly Relation"; type="bool (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Valgsland_NegotiatingPower"; label="Valgsland Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Pales_NegotiatingPower"; label="Pales Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Rumburg_NegotiatingPower"; label="Rumburg Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+                    @{ key="RiziaDLC.Diplomacy_Wehlen_NegotiatingPower"; label="Wehlen Negotiating Power"; type="i32 (Diplomacy)"; cat="DIPLOMACY" },
+
+                    @{ key="RiziaDLC.Relations_Sal"; label="Arch-Priest Sal Relation"; type="i32 (Council)"; cat="RELATIONS" },
+                    @{ key="RiziaDLC.Relations_Vina"; label="Princess Vina Relation"; type="i32 (Council)"; cat="RELATIONS" },
+                    @{ key="RiziaDLC.Relations_Estela"; label="Queen Mother Estela Relation"; type="i32 (Council)"; cat="RELATIONS" },
+                    @{ key="RiziaDLC.Relations_Pabel"; label="Pabel Relation"; type="i32 (Council)"; cat="RELATIONS" },
+                    @{ key="RiziaDLC.Relations_Hugo"; label="Uncle Hugo Relation"; type="i32 (Council)"; cat="RELATIONS" },
+                    @{ key="RiziaDLC.Relations_Lucita_Romance"; label="Lucita Romance (Max 3)"; type="i32 (Council)"; cat="RELATIONS" }
+                )
+            } else {
+                @(
+                    @{ key="BaseGame.GovernmentBudget"; label="Government Budget (Warn > 3 Turn < 4)"; type="i32 (Budget)"; cat="ECONOMY" },
+                    @{ key="BaseGame.PersonalWealth"; label="Personal Wealth (Rayne's Pockets)"; type="i32 (Wealth)"; cat="ECONOMY" },
+                    @{ key="BaseGame.Country_Unrest"; label="Country Unrest"; type="i32 (Unrest)"; cat="POLITICS" },
+                    @{ key="BaseGame.Public_Opinion"; label="Public Opinion"; type="i32 (Opinion)"; cat="POLITICS" },
+                    @{ key="BaseGame.Bludish_Opinion"; label="Bludish Opinion"; type="i32 (Opinion)"; cat="POLITICS" },
+                    @{ key="Game.Turn"; label="Game Turn"; type="i32 (Turn)"; cat="CORE" },
+
+                    @{ key="BaseGame.BlackTuesdayHappened"; label="Black Tuesday Happened"; type="bool (Event)"; cat="EVENTS" },
+                    @{ key="Game.IsMarketCrashing"; label="Is Market Crashing"; type="bool (Event)"; cat="EVENTS" },
+
+                    @{ key="BaseGame.Reform_Assembly_Vote"; label="Reform Assembly Vote"; type="i32 (Vote)"; cat="POLITICS" },
+                    @{ key="BaseGame.Reform_Court_Vote"; label="Reform Supreme Court Vote"; type="i32 (Vote)"; cat="POLITICS" },
+                    @{ key="Albin_Convinced"; label="Albin Convinced"; type="bool (Convinced)"; cat="POLITICS" },
+                    @{ key="Gloria_Convinced"; label="Gloria Convinced"; type="bool (Convinced)"; cat="POLITICS" },
+                    @{ key="GameCondition.Turn04_A_Convince_Gloria"; label="Turn 4 Convince Gloria"; type="bool (Convinced)"; cat="POLITICS" },
+                    @{ key="GameCondition.Turn04_A_Convince_Albin"; label="Turn 4 Convince Albin"; type="bool (Convinced)"; cat="POLITICS" },
+                    @{ key="BaseGame.Amendment_USP_Gloria_Convinced"; label="USP Gloria Convinced (Art 6&7)"; type="bool (Convinced)"; cat="POLITICS" },
+                    @{ key="BaseGame.Faction_USP_AgainstProposal"; label="USP Against Proposal"; type="bool (Faction)"; cat="POLITICS" },
+
+                    @{ key="BaseGame.Economy_Agnland"; label="Agnland Economy (15=Recovered)"; type="i32 (Region)"; cat="ECONOMY" },
+                    @{ key="BaseGame.Economy_Bergia"; label="Bergia Economy (15=Recovered)"; type="i32 (Region)"; cat="ECONOMY" },
+                    @{ key="BaseGame.Economy_Lorren"; label="Lorren Economy (15=Recovered)"; type="i32 (Region)"; cat="ECONOMY" },
+                    @{ key="BaseGame.Economy_Gruni"; label="Gruni Economy (15=Recovered)"; type="i32 (Region)"; cat="ECONOMY" },
+                    @{ key="BaseGame.TradeAmount"; label="Trade Amount Modifier"; type="i32 (Trade)"; cat="ECONOMY" },
+
+                    @{ key="BaseGame.Relations_Franc_Opinion"; label="Franc Opinion"; type="i32 (Relations)"; cat="RELATIONS" },
+                    @{ key="BaseGame.Relations_Monica_Opinion"; label="Monica Opinion"; type="i32 (Relations)"; cat="RELATIONS" },
+                    @{ key="BaseGame.Relations_Lucian_Opinion"; label="Lucian Opinion"; type="i32 (Relations)"; cat="RELATIONS" },
+                    @{ key="BaseGame.Prologue_Studyplace_Deyr_History"; label="Study: Deyr History"; type="bool (Study)"; cat="RELATIONS" },
+                    @{ key="BaseGame.Prologue_Studyplace_Holsord_Law"; label="Study: Holsord Law"; type="bool (Study)"; cat="RELATIONS" },
+                    @{ key="BaseGame.Prologue_Studyplace_Lachaven_Economics"; label="Study: Lachaven Economics"; type="bool (Study)"; cat="RELATIONS" },
+                    @{ key="BaseGame.LeakedScandals_Severity"; label="Leaked Scandals Severity (0=None)"; type="i32 (Scandal)"; cat="RELATIONS" },
+                    @{ key="BaseGameIsolated.Turn09_A_TelevisionInterview_International_Empathy_Gained"; label="TV Interview Empathy Gained"; type="bool (Sanctions)"; cat="RELATIONS" },
+
+                    @{ key="BaseGame.Turn06_SnO_Expansion_Army"; label="Expanded Army (Turn 6 Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Situation_Military_ExpandedArmy"; label="Expanded Army (Situation Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Turn06_SnO_Expansion_Navy"; label="Expanded Navy (Turn 6 Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Situation_Military_ExpandedNavy"; label="Expanded Navy (Situation Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Turn06_SnO_Expansion_Airforce"; label="Expanded Air Force (Turn 6 Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Situation_Military_ExpandedAirForce"; label="Expanded Air Force (Situation Flag)"; type="bool (Military)"; cat="MILITARY" },
+
+                    @{ key="BaseGame.Turn06_SnO_Modernisation_Army"; label="Modernised Army (Turn 6 Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Situation_Military_ModernisedArmy"; label="Modernised Army (Situation Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Turn06_SnO_Modernisation_Navy"; label="Modernised Navy (Turn 6 Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Situation_Military_ModernisedNavy"; label="Modernised Navy (Situation Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Turn06_SnO_Modernisation_Airforce"; label="Modernised Air Force (Turn 6 Flag)"; type="bool (Military)"; cat="MILITARY" },
+                    @{ key="BaseGame.Situation_Military_ModernisedAirForce"; label="Modernised Air Force (Situation Flag)"; type="bool (Military)"; cat="MILITARY" }
+                )
+            }
+
+            # Add curated campaign variables FIRST (100% Curated Agama confidence)
+            $curatedKeySet = [System.Collections.Generic.HashSet[string]]::new()
+            foreach ($rule in $curatedRules) {
+                $curatedKeySet.Add($rule.key) | Out-Null
+                $val = if ($suzerainVars.ContainsKey($rule.key)) { $suzerainVars[$rule.key] } else { "(unset)" }
+                $hexStr = if ($val -eq "true") { "01 00 00 00" } elseif ($val -eq "false") { "00 00 00 00" } else { "41 47 41 4D" }
+                $rows.Add([PSCustomObject]@{
+                    offset = "AGAMA: $($rule.cat)"
+                    key = "$($rule.label) [$($rule.key)]"
+                    type = $rule.type
+                    conf = "100% Curated Agama"
+                    hex = $hexStr
+                    val = "$val"
+                })
+            }
+
+            # Follow with all remaining variables for Raw Editor mode
+            $sortedSuzerainKeys = $suzerainVars.Keys | Sort-Object
+            foreach ($k in $sortedSuzerainKeys) {
+                if ($rows.Count -ge 350) { break }
+                if ($curatedKeySet.Contains($k)) { continue }
+                $v = $suzerainVars[$k]
+                $itemType = "String (Embedded)"
+                $itemHex = "45 4D 42 44"
+                if ($v -eq "true" -or $v -eq "false") {
+                    $itemType = "bool (State Flag)"
+                    $itemHex = if ($v -eq "true") { "01 00 00 00" } else { "00 00 00 00" }
+                } elseif ($v -match '^-?\d+$') {
+                    $itemType = "i32 (Raw Variable)"
+                    $itemHex = "4E 55 4D 31"
+                } elseif ($v -match '^-?\d+\.\d+$') {
+                    $itemType = "f64 (Raw Variable)"
+                    $itemHex = "46 4C 54 31"
+                }
+                $rows.Add([PSCustomObject]@{
+                    offset = "RAW: " + $k
+                    key = $k
+                    type = $itemType
+                    conf = "80% Raw Save Variable"
+                    hex = $itemHex
+                    val = $v
+                })
+            }
+        } else {
+            $verdict = "Structured JSON Vessel"
+
+            # Universal JSON Walker: extracts nested properties AND embedded serialized K-Vs
+            function Walk-GenericJson($obj, $prefix, $depth) {
+                if ($depth -gt 6 -or $rows.Count -ge 300) { return }
+                $props = @()
+                if ($obj -is [PSCustomObject]) {
+                    $props = $obj.PSObject.Properties
+                } elseif ($obj -is [System.Collections.IDictionary]) {
+                    $props = $obj.GetEnumerator()
+                }
+
+                foreach ($p in $props) {
+                    if ($rows.Count -ge 300) { break }
+                    $k = if ($p.Name) { $p.Name } else { $p.Key }
+                    $v = if ($p.Name) { $p.Value } else { $p.Value }
+                    $fullKey = if ($prefix) { "$prefix.$k" } else { "$k" }
+
+                    if ($v -is [PSCustomObject] -or $v -is [System.Collections.IDictionary]) {
+                        Walk-GenericJson $v $fullKey ($depth + 1)
+                    } elseif ($v -is [Array]) {
+                        $rows.Add([PSCustomObject]@{
+                            offset = "JSON: $fullKey"
+                            key = "$fullKey [Array]"
+                            type = "Array[$($v.Count)]"
+                            conf = "85% Array Collection"
+                            hex = "5B 5D 20 20"
+                            val = (ConvertTo-Json -Compress $v)
+                        })
+                    } elseif ($v -is [string]) {
+                        $strVal = [string]$v
+                        if ($strVal.Length -gt 20 -and ($strVal -match '\[\".+\"\]\s*=' -or $strVal -match '[A-Za-z0-9_.\-]+[:=][A-Za-z0-9_.\-]+')) {
+                            $kvMatches = [System.Text.RegularExpressions.Regex]::Matches($strVal, '\[\"?([A-Za-z0-9_.\-]+)\"?\]\s*=\s*([^,\r\n\}\]]+)')
+                            if ($kvMatches.Count -gt 0) {
+                                foreach ($m in $kvMatches) {
+                                    if ($rows.Count -ge 300) { break }
+                                    $rawK = $m.Groups[1].Value.Trim()
+                                    $rawV = $m.Groups[2].Value.Trim()
+                                    
+                                    $itemType = "String (Embedded)"
+                                    $itemConf = "70% Embedded Metric"
+                                    $itemHex = "45 4D 42 44"
+                                    if ($rawV -eq "true" -or $rawV -eq "false") {
+                                        $itemType = "bool (State Flag)"
+                                        $itemConf = "82% Embedded Flag"
+                                        $itemHex = if ($rawV -eq "true") { "01 00 00 00" } else { "00 00 00 00" }
+                                    } elseif ($rawV -match '^-?\d+$') {
+                                        $itemType = "i32 (Embedded Number)"
+                                        $itemConf = "88% Numeric Stat"
+                                        $itemHex = "4E 55 4D 31"
+                                    } elseif ($rawV -match '^-?\d+\.\d+$') {
+                                        $itemType = "f64 (Embedded Float)"
+                                        $itemConf = "84% Float Stat"
+                                        $itemHex = "46 4C 54 31"
+                                    }
+                                    $rows.Add([PSCustomObject]@{
+                                        offset = "EMBED: " + $rawK
+                                        key = $rawK
+                                        type = $itemType
+                                        conf = $itemConf
+                                        hex = $itemHex
+                                        val = $rawV
+                                    })
                                 }
+                            } else {
                                 $rows.Add([PSCustomObject]@{
-                                    offset = "EMBED: " + $rawK
-                                    key = $rawK
-                                    type = $itemType
-                                    conf = $itemConf
-                                    hex = $itemHex
-                                    val = $rawV
+                                    offset = "JSON: $fullKey"
+                                    key = "$fullKey"
+                                    type = "String"
+                                    conf = if ($depth -eq 0) { "95% Root String" } else { "75% String Identifier" }
+                                    hex = "22 53 54 52"
+                                    val = if ($strVal.Length -gt 120) { $strVal.Substring(0, 117) + "..." } else { $strVal }
                                 })
                             }
                         } else {
@@ -258,38 +444,29 @@ if ($isJson) {
                                 offset = "JSON: $fullKey"
                                 key = "$fullKey"
                                 type = "String"
-                                conf = if ($depth -eq 0) { "95% Root String" } else { "75% String Identifier" }
+                                conf = if ($depth -eq 0) { "95% Root String" } else { "80% Property String" }
                                 hex = "22 53 54 52"
-                                val = if ($strVal.Length -gt 120) { $strVal.Substring(0, 117) + "..." } else { $strVal }
+                                val = "$v"
                             })
                         }
                     } else {
+                        $tStr = if ($v -is [int] -or $v -is [long]) { "i32 (Integer)" } elseif ($v -is [double] -or $v -is [float]) { "f64 (Float)" } elseif ($v -is [bool]) { "bool" } else { "Scalar" }
+                        $cStr = if ($depth -eq 0) { "96% Root Value" } elseif ($depth -eq 1) { "90% Nested Metric" } else { "78% Deep Value" }
+                        $hexVal = if ($v -is [bool]) { if ($v) { "01 00 00 00" } else { "00 00 00 00" } } else { "22 3A 22 20" }
                         $rows.Add([PSCustomObject]@{
                             offset = "JSON: $fullKey"
                             key = "$fullKey"
-                            type = "String"
-                            conf = if ($depth -eq 0) { "95% Root String" } else { "80% Property String" }
-                            hex = "22 53 54 52"
+                            type = $tStr
+                            conf = $cStr
+                            hex = $hexVal
                             val = "$v"
                         })
                     }
-                } else {
-                    $tStr = if ($v -is [int] -or $v -is [long]) { "i32 (Integer)" } elseif ($v -is [double] -or $v -is [float]) { "f64 (Float)" } elseif ($v -is [bool]) { "bool" } else { "Scalar" }
-                    $cStr = if ($depth -eq 0) { "96% Root Value" } elseif ($depth -eq 1) { "90% Nested Metric" } else { "78% Deep Value" }
-                    $hexVal = if ($v -is [bool]) { if ($v) { "01 00 00 00" } else { "00 00 00 00" } } else { "22 3A 22 20" }
-                    $rows.Add([PSCustomObject]@{
-                        offset = "JSON: $fullKey"
-                        key = "$fullKey"
-                        type = $tStr
-                        conf = $cStr
-                        hex = $hexVal
-                        val = "$v"
-                    })
                 }
             }
-        }
 
-        Walk-GenericJson $parsed "" 0
+            Walk-GenericJson $parsed "" 0
+        }
     } catch {
         Write-Warning "JSON parse error: $_"
     }

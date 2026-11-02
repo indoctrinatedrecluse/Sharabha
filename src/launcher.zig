@@ -114,7 +114,8 @@ pub fn main() !void {
         "--on run_lua_script \"zig-out/bin/SharabhaCli.exe --run-lua \\\"$1\\\"\" " ++
         "--on open_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1\" " ++
         "--on reparse_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1 -Reparse\" " ++
-        "--on save_file_atomic \"zig-out/bin/SharabhaCli.exe --commit-save assets/saves/ER0000.sl2\" " ++
+        "--on write_save_field \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/write_save.ps1 $1 $2\" " ++
+        "--on save_file_atomic \"zig-out/bin/SharabhaCli.exe --commit-save\" " ++
         "--on test_vault \"zig-out/bin/SharabhaCli.exe --test-vault\" " ++
         "--on save_vault \"zig-out/bin/SharabhaCli.exe --seal-vault\" " ++
         "--on register_agama_profile \"zig-out/bin/SharabhaCli.exe --export-surreal\"",

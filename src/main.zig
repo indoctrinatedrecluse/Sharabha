@@ -229,23 +229,129 @@ pub fn main() !void {
         return;
     }
 
+    if (std.mem.indexOf(u8, cmd_utf8, "--write-save-kv")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--write-save-kv".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const key_str = parts.next() orelse "";
+        const val_str = parts.next() orelse "";
+
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // STHITI SANKALPA ATOMIC SAVE MUTATION\n", .{});
+        std.debug.print("========================================================================\n", .{});
+
+        var path: []const u8 = "assets/saves/ER0000.sl2";
+        const act_path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, "assets\\saves\\active_save_path.txt") catch null;
+        if (act_path_w) |pw| {
+            defer allocator.free(pw);
+            const h = Sharabha.rewrite.win.CreateFileW(pw.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+            if (h != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                defer _ = Sharabha.rewrite.win.CloseHandle(h);
+                var buf: [512]u8 = undefined;
+                var bytes_read: u32 = 0;
+                _ = Sharabha.rewrite.win.ReadFile(h, &buf, @intCast(buf.len), &bytes_read, null);
+                if (bytes_read > 0) {
+                    path = std.mem.trim(u8, buf[0..bytes_read], " \r\n\t\"\xEF\xBB\xBF");
+                }
+            }
+        }
+
+        std.debug.print("  Target Vessel: '{s}'\n", .{path});
+        std.debug.print("  Mutating Key:  '{s}' => '{s}'\n", .{ key_str, val_str });
+
+        const target_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, path);
+        defer allocator.free(target_w);
+        const h = Sharabha.rewrite.win.CreateFileW(target_w.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+        if (h == Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+            std.debug.print("  ❌ [Error]: Save vessel not found.\n", .{});
+            return;
+        }
+        var high_sz: u32 = 0;
+        const low_sz = Sharabha.rewrite.win.GetFileSize(h, &high_sz);
+        const file_buf = try allocator.alloc(u8, low_sz);
+        defer allocator.free(file_buf);
+        var br: u32 = 0;
+        _ = Sharabha.rewrite.win.ReadFile(h, file_buf.ptr, @intCast(file_buf.len), &br, null);
+        _ = Sharabha.rewrite.win.CloseHandle(h);
+
+        var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, file_buf);
+        defer state.deinit();
+
+        try state.setSuzerainVariable(key_str, val_str);
+        try state.commitWithIntegrity();
+
+        std.debug.print("  [✓] Modified '{s}' = '{s}' safely in {s}\n", .{ key_str, val_str, path });
+        std.debug.print("  [✓] Sthiti Kavacha backup created: '{s}.sharabha.bak'\n", .{path});
+        return;
+    }
+
     if (std.mem.indexOf(u8, cmd_utf8, "--commit-save")) |idx| {
         const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--commit-save".len..], " \"'");
-        const path = if (path_raw.len > 0) path_raw else "assets/saves/ER0000.sl2";
+        var path: []const u8 = path_raw;
+        if (path.len == 0) {
+            // Read active save path from active_save_path.txt if present
+            const act_path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, "assets\\saves\\active_save_path.txt") catch null;
+            if (act_path_w) |pw| {
+                defer allocator.free(pw);
+                const h = Sharabha.rewrite.win.CreateFileW(pw.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+                if (h != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                    defer _ = Sharabha.rewrite.win.CloseHandle(h);
+                    var buf: [512]u8 = undefined;
+                    var bytes_read: u32 = 0;
+                    _ = Sharabha.rewrite.win.ReadFile(h, &buf, @intCast(buf.len), &bytes_read, null);
+                    if (bytes_read > 0) {
+                        path = std.mem.trim(u8, buf[0..bytes_read], " \r\n\t\"\xEF\xBB\xBF");
+                    }
+                }
+            }
+        }
+        if (path.len == 0) path = "assets/saves/ER0000.sl2";
+
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // STHITI SANKALPA ATOMIC SAVE COMMIT\n", .{});
         std.debug.print("========================================================================\n", .{});
+        std.debug.print("  Target Vessel: '{s}'\n", .{path});
 
-        var dummy: [128]u8 = @splat(0);
-        @memcpy(dummy[0..4], "BND4");
-        std.mem.writeInt(i32, dummy[12..16], 950000, .little);
-        std.mem.writeInt(i32, dummy[16..20], 175, .little);
-        std.mem.writeInt(i32, dummy[20..24], 60, .little);
+        // Read real save bytes if file exists
+        var loaded_buf: ?[]u8 = null;
+        const target_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path) catch null;
+        if (target_w) |tw| {
+            defer allocator.free(tw);
+            const h = Sharabha.rewrite.win.CreateFileW(tw.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+            if (h != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                defer _ = Sharabha.rewrite.win.CloseHandle(h);
+                var high_sz: u32 = 0;
+                const low_sz = Sharabha.rewrite.win.GetFileSize(h, &high_sz);
+                if (low_sz > 0 and low_sz < 32 * 1024 * 1024) {
+                    const file_buf = allocator.alloc(u8, low_sz) catch null;
+                    if (file_buf) |fb| {
+                        var br: u32 = 0;
+                        _ = Sharabha.rewrite.win.ReadFile(h, fb.ptr, @intCast(fb.len), &br, null);
+                        if (br == low_sz) {
+                            loaded_buf = fb;
+                        } else {
+                            allocator.free(fb);
+                        }
+                    }
+                }
+            }
+        }
 
-        var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, &dummy);
-        defer state.deinit();
+        if (loaded_buf) |lb| {
+            defer allocator.free(lb);
+            var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, lb);
+            defer state.deinit();
+            try state.commitWithIntegrity();
+        } else {
+            var dummy: [128]u8 = @splat(0);
+            @memcpy(dummy[0..4], "BND4");
+            std.mem.writeInt(i32, dummy[12..16], 950000, .little);
+            std.mem.writeInt(i32, dummy[16..20], 175, .little);
+            std.mem.writeInt(i32, dummy[20..24], 60, .little);
+            var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, &dummy);
+            defer state.deinit();
+            try state.commitWithIntegrity();
+        }
 
-        try state.commitWithIntegrity();
         std.debug.print("  [✓] Atomic Swap Complete: '{s}' safely rewritten.\n", .{path});
         std.debug.print("  [✓] Karma Kavacha Backup Created: '{s}.sharabha.bak'\n", .{path});
         std.debug.print("  [✓] Sthiti Raksha Integrity Seals re-hashed and validated.\n", .{});

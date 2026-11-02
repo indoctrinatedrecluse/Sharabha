@@ -1788,6 +1788,7 @@ export component MainWindow inherits Window {
     callback cycle_extractor();
     callback toggle_ai_guidance();
     callback save_file_atomic();
+    callback write_save_field(string, string);
     callback dismiss_splash();
     callback save_vault();
     callback test_vault();
@@ -3210,7 +3211,7 @@ export component MainWindow inherits Window {
                                                 padding-left: 6px;
                                                 padding-right: 6px;
                                                 Text {
-                                                    text: root.is_deterministic ? "Agama Deterministic [WIP] (प्रमाण आगम)" : "Pravaha Fuzzy Overseer (सूक्ष्म रेखा)";
+                                                    text: root.is_deterministic ? "✓ Agama Deterministic (प्रमाण आगम)" : "Pravaha Fuzzy Overseer (सूक्ष्म रेखा)";
                                                     font-size: 10px;
                                                     font-weight: 700;
                                                     color: root.is_deterministic ? #4ade80 : #facc15;
@@ -3563,7 +3564,8 @@ export component MainWindow inherits Window {
                                     val_str: row.val;
                                     is_even: Math.mod(idx, 2) == 0;
                                     write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + row.key + " = '" + val + "' • Buffer armed";
+                                        root.save_commit_feedback = "Modified " + row.key + " = '" + val + "' • Safe commit armed";
+                                        root.write_save_field(row.key, val);
                                     }
                                 }
                             }

@@ -41,6 +41,8 @@ pub const win = struct {
 
     pub extern "kernel32" fn CloseHandle(hObject: HANDLE) callconv(.winapi) i32;
 
+    pub extern "kernel32" fn GetFileSize(hFile: HANDLE, lpFileSizeHigh: ?*u32) callconv(.winapi) u32;
+
     pub extern "kernel32" fn MoveFileExW(
         lpExistingFileName: [*:0]const u16,
         lpNewFileName: [*:0]const u16,
