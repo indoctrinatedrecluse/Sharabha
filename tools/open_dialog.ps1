@@ -1,9 +1,9 @@
-﻿param(
+param(
     [string]$TargetFilePath = "",
     [switch]$Reparse
 )
 
-# Sharabha Native Windows File Open Dialog & Deep Save Inquest Engine
+# Sharabha Native Windows File Open Dialog & Deep Sūkshma Rekha (Fine Line) Save Engine
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -84,7 +84,9 @@ $len = $bytes.Length
 $md5 = [System.Security.Cryptography.MD5]::Create().ComputeHash($bytes)
 $md5Str = [System.BitConverter]::ToString($md5).Replace("-", "").Substring(0, 16)
 
-# Helper functions for binary reading
+# ==============================================================================
+# SŪKSHMA REKHA (सूक्ष्म रेखा / FINE LINE) HELPER FUNCTIONS
+# ==============================================================================
 function Get-Val32($offset, [byte[]]$buf = $bytes) {
     if ($offset + 4 -le $buf.Length) {
         return [System.BitConverter]::ToInt32($buf, $offset)
@@ -120,136 +122,118 @@ function Get-Ascii($offset, $count = 4, [byte[]]$buf = $bytes) {
     return ""
 }
 
-$rows = [System.Collections.Generic.List[PSCustomObject]]::new()
-$ext = $file.Extension.ToLower()
-$isJson = ($ext -eq ".json")
-$isPcsav = ($ext -eq ".pcsav") -or ($len -ge 4 -and $bytes[0] -eq 0xC1 -and $bytes[1] -eq 0x83 -and $bytes[2] -eq 0x2A -and $bytes[3] -eq 0x9E)
-$gameTitle = "$filename (आगम संरचित)"
-$verdict = "StructuredBinary (प्रपत्र)"
-$isDeterministicProfile = $false
+# Fine Line Garbage Filter: Rejects null padding, MSVC debug fills, uninitialized memory, single-byte repeats
+function Test-GarbageWord([uint32]$u) {
+    if ($u -eq 0) { return $true }
+    if ($u -eq 0xFFFFFFFF) { return $true }
+    if ($u -eq 0xCDCDCDCD -or $u -eq 0xCCCCCCCC -or $u -eq 0xDDDDDDDD -or $u -eq 0xABABABAB -or $u -eq 0xFDFDFDFD -or $u -eq 0xFEEEFEEE) { return $true }
+    $b = [byte]($u -band 0xFF)
+    if ($u -eq ($b * 0x01010101)) { return $true }
+    return $false
+}
 
-# ==============================================================================
-# 1. SPECIALIZED DETERMINISTIC PARSER: Mass Effect 1 Legendary Edition (.pcsav)
-# Recognized in Deterministic Knowledge Base
-# ==============================================================================
-if ($isPcsav) {
+# Fine Line Float Validator: Validates IEEE-754 single precision bounds for gameplay attributes/coordinates
+function Test-PlausibleFloatFromBits([uint32]$bits, [float]$f) {
+    if ([Single]::IsNaN($f) -or [Single]::IsInfinity($f)) { return $false }
+    $af = [Math]::Abs($f)
+    if ($af -lt 0.001 -or $af -gt 100000.0) { return $false }
+    $exp = ($bits -shr 23) -band 0xFF
+    if ($exp -lt 117 -or $exp -gt 144) { return $false }
+    return $true
+}
+
+# Container Auto-Decompressor: Extracts zlib/deflate streams
+function Try-DecompressZlib([byte[]]$src, [int]$startOffset) {
     try {
-        $isDeterministicProfile = $true
-        $magicHeader = [System.BitConverter]::ToString($bytes, 0, 4).Replace("-", " ")
-        $compSize = Get-UVal32 8
-        $rawDecompSize = Get-UVal32 12
-        
-        # Decompress zlib payload at offset 32 (skip 32 byte header + 2 byte zlib prefix 0x78 0x9C)
-        $decomp = $null
-        if ($len -gt 34) {
-            $ms = New-Object System.IO.MemoryStream($bytes, 34, ($len - 34))
+        if ($startOffset + 2 -lt $src.Length) {
+            $ms = New-Object System.IO.MemoryStream($src, $startOffset, ($src.Length - $startOffset))
             $ds = New-Object System.IO.Compression.DeflateStream($ms, [System.IO.Compression.CompressionMode]::Decompress)
             $outStream = New-Object System.IO.MemoryStream
             $ds.CopyTo($outStream)
-            $decomp = $outStream.ToArray()
+            $res = $outStream.ToArray()
             $ds.Close()
             $ms.Close()
-        }
-        
-        if ($decomp -and $decomp.Length -ge 32) {
-            $saveVer = [System.BitConverter]::ToInt32($decomp, 0)
-            $nameLen = [System.BitConverter]::ToInt32($decomp, 4)
-            $playerName = "Shepard"
-            if ($nameLen -gt 0 -and $nameLen -le 64 -and (8 + $nameLen -le $decomp.Length)) {
-                $playerName = [System.Text.Encoding]::ASCII.GetString($decomp, 8, $nameLen).TrimEnd("`0")
-            }
-            
-            $afterName = 8 + $nameLen
-            $timeTick = if ($afterName + 4 -le $decomp.Length) { [System.BitConverter]::ToInt32($decomp, $afterName) } else { 0 }
-            $saveDay = if ($afterName + 8 -le $decomp.Length) { [System.BitConverter]::ToInt32($decomp, $afterName + 4) } else { 0 }
-            $saveMonth = if ($afterName + 12 -le $decomp.Length) { [System.BitConverter]::ToInt32($decomp, $afterName + 8) } else { 0 }
-            $saveYear = if ($afterName + 16 -le $decomp.Length) { [System.BitConverter]::ToInt32($decomp, $afterName + 12) } else { 0 }
-            $saveType = if ($afterName + 20 -le $decomp.Length) { [System.BitConverter]::ToInt32($decomp, $afterName + 16) } else { 0 }
-            
-            $monthNames = @("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-            $monthStr = if ($saveMonth -ge 1 -and $saveMonth -le 12) { $monthNames[$saveMonth] } else { "$saveMonth" }
-            
-            $gameTitle = "MASS EFFECT LE: $playerName (बायोवेयर प्रपत्र)"
-            $verdict = "BioWare Deflate Vessel ($($decomp.Length) Bytes Payload)"
-            
-            # Deterministic Profile Records (100% - 90% Confidence)
-            $rows.Add([PSCustomObject]@{ offset = "0x0000"; key = "MAGIC_PACKAGE"; type = "Package Signature"; conf = "100% BioWare"; hex = $magicHeader; val = "0x9E2A83C1 (Unreal/BioWare)" })
-            $rows.Add([PSCustomObject]@{ offset = "0x0008"; key = "COMPRESSED_SIZE"; type = "u32 (Bytes)"; conf = "100% Header"; hex = (Get-Hex 8 4); val = "$len Bytes" })
-            $rows.Add([PSCustomObject]@{ offset = "0x000C"; key = "DECOMPRESSED_CAPACITY"; type = "u32 (Bytes)"; conf = "100% Header"; hex = (Get-Hex 12 4); val = "$($decomp.Length) Bytes (256 KB)" })
-            $rows.Add([PSCustomObject]@{ offset = "PAYLOAD[0x00]"; key = "SAVE_FORMAT_VERSION"; type = "i32 (Engine Ver)"; conf = "99% Decompressed"; hex = (Get-Hex 0 4 $decomp); val = "$saveVer" })
-            $rows.Add([PSCustomObject]@{ offset = "PAYLOAD[0x04]"; key = "CHARACTER_NAME_LEN"; type = "i32 (Str Length)"; conf = "99% Decompressed"; hex = (Get-Hex 4 4 $decomp); val = "$nameLen" })
-            $rows.Add([PSCustomObject]@{ offset = "PAYLOAD[0x08]"; key = "COMMANDER_NAME"; type = "ASCII String"; conf = "100% Player ID"; hex = (Get-Hex 8 ([Math]::Min(4, $nameLen)) $decomp); val = "$playerName" })
-            $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f $afterName); key = "GAME_CLOCK_TICK"; type = "i32 (Internal Clock)"; conf = "90% Telemetry"; hex = (Get-Hex $afterName 4 $decomp); val = "$timeTick" })
-            $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 4)); key = "SAVE_TIMESTAMP_DAY"; type = "i32 (Day of Month)"; conf = "95% Calendar"; hex = (Get-Hex ($afterName + 4) 4 $decomp); val = "$saveDay" })
-            $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 8)); key = "SAVE_TIMESTAMP_MONTH"; type = "i32 (Calendar Month)"; conf = "95% Calendar"; hex = (Get-Hex ($afterName + 8) 4 $decomp); val = "$saveMonth ($monthStr)" })
-            $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 12)); key = "SAVE_TIMESTAMP_YEAR"; type = "i32 (Calendar Year)"; conf = "95% Calendar"; hex = (Get-Hex ($afterName + 12) 4 $decomp); val = "$saveYear" })
-            $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 16)); key = "SAVE_ENTRY_TYPE"; type = "i32 (Manual/Auto/Quick)"; conf = "92% BioWare Enum"; hex = (Get-Hex ($afterName + 16) 4 $decomp); val = "$saveType" })
-
-            # Deep Fuzzy Overseer Scan across decompressed payload: extract non-zero fields, floats, telemetry, counters, and lower-confidence words
-            $curOff = $afterName + 20
-            while ($curOff + 4 -le $decomp.Length -and $rows.Count -lt 220) {
-                $v32 = Get-Val32 $curOff $decomp
-                $u32 = Get-UVal32 $curOff $decomp
-                $f32 = Get-Float32 $curOff $decomp
-                $hex = Get-Hex $curOff 4 $decomp
-                $offLabel = "PAYLOAD[0x{0:X4}]" -f $curOff
-
-                if ($v32 -ne 0) {
-                    $keyLabel = ""
-                    $typeLabel = ""
-                    $confLabel = ""
-                    $valLabel = ""
-
-                    if ($f32 -gt 0.05 -and $f32 -lt 50000.0 -and -not [Single]::IsNaN($f32) -and -not [Single]::IsInfinity($f32)) {
-                        $keyLabel = "FLOAT_PARAM [0x{0:X4}]" -f $curOff
-                        $typeLabel = "f32 (Float Coord/Stat)"
-                        $confLabel = "78% Heuristic Float"
-                        $valLabel = "$f32"
-                    } elseif ($v32 -gt 0 -and $v32 -le 50000000) {
-                        if ($v32 -ge 100 -and $v32 -le 10000000) {
-                            $keyLabel = "CREDITS_OR_RESOURCE [0x{0:X4}]" -f $curOff
-                            $typeLabel = "i32 (Probable Currency)"
-                            $confLabel = "85% Game Resource"
-                            $valLabel = "$v32"
-                        } elseif ($v32 -le 100) {
-                            $keyLabel = "LEVEL_OR_TALENT [0x{0:X4}]" -f $curOff
-                            $typeLabel = "i32 (Skill / Level)"
-                            $confLabel = "82% Player Attribute"
-                            $valLabel = "$v32"
-                        } else {
-                            $keyLabel = "TELEMETRY_ID [0x{0:X4}]" -f $curOff
-                            $typeLabel = "i32 (Entity ID / Token)"
-                            $confLabel = "72% BioWare Record"
-                            $valLabel = "$v32"
-                        }
-                    } else {
-                        # Lower confidence unclassified dword
-                        $keyLabel = "VAR_0x{0:X4}" -f $curOff
-                        $typeLabel = "u32 (Raw Word)"
-                        $confLabel = "45% Low-Confidence Value"
-                        $valLabel = "$v32 (0x{0:X8})" -f $u32
-                    }
-
-                    $rows.Add([PSCustomObject]@{
-                        offset = $offLabel
-                        key = $keyLabel
-                        type = $typeLabel
-                        conf = $confLabel
-                        hex = $hex
-                        val = $valLabel
-                    })
-                }
-                $curOff += 4
+            if ($res -and $res.Length -ge 16) {
+                return $res
             }
         }
-    } catch {
-        Write-Warning "Mass Effect .pcsav parse error: $_"
-    }
+    } catch { }
+    return $null
+}
+
+$rows = [System.Collections.Generic.List[PSCustomObject]]::new()
+$ext = $file.Extension.ToLower()
+$isJson = ($ext -eq ".json")
+$gameTitle = "$filename (Generic Fuzzy Overseer // प्रवाह दर्शन)"
+$verdict = "GenericBinary (स्वयंसिद्ध प्रवाह)"
+$isDeterministicProfile = $false
+
+# Check Unreal / BioWare Package magic: 0x9E2A83C1 (C1 83 2A 9E)
+$hasUnrealPackageMagic = ($len -ge 4 -and $bytes[0] -eq 0xC1 -and $bytes[1] -eq 0x83 -and $bytes[2] -eq 0x2A -and $bytes[3] -eq 0x9E)
+$decompressedPayload = $null
+
+if ($hasUnrealPackageMagic) {
+    $decompressedPayload = Try-DecompressZlib $bytes 34
+} elseif ($len -gt 10 -and $bytes[0] -eq 0x78 -and ($bytes[1] -eq 0x9C -or $bytes[1] -eq 0x01 -or $bytes[1] -eq 0xDA)) {
+    $decompressedPayload = Try-DecompressZlib $bytes 2
 }
 
 # ==============================================================================
-# 2. SPECIALIZED & GENERIC PARSER: JSON Saves (Suzerain & Standard JSON)
+# 1. DETERMINISTIC PROFILES: Strict Identification (No Over-Generalizing)
+# Deterministic parsing is ONLY activated if strict game identity is verified!
 # ==============================================================================
+
+# A. Mass Effect 1 LE (Strict Check: Unreal Magic + ME1 Path/Format Version 50)
+$isME1 = $false
+if ($hasUnrealPackageMagic -and $decompressedPayload) {
+    $saveVer = [System.BitConverter]::ToInt32($decompressedPayload, 0)
+    if ($selectedPath -match "ME1|Nyx|Mass\s*Effect\s*1" -or $saveVer -eq 50) {
+        $isME1 = $true
+    }
+}
+
+if ($isME1) {
+    try {
+        $isDeterministicProfile = $true
+        $magicHeader = [System.BitConverter]::ToString($bytes, 0, 4).Replace("-", " ")
+        $saveVer = [System.BitConverter]::ToInt32($decompressedPayload, 0)
+        $nameLen = [System.BitConverter]::ToInt32($decompressedPayload, 4)
+        $playerName = "Shepard"
+        if ($nameLen -gt 0 -and $nameLen -le 64 -and (8 + $nameLen -le $decompressedPayload.Length)) {
+            $playerName = [System.Text.Encoding]::ASCII.GetString($decompressedPayload, 8, $nameLen).TrimEnd("`0")
+        }
+        
+        $afterName = 8 + $nameLen
+        $timeTick = if ($afterName + 4 -le $decompressedPayload.Length) { [System.BitConverter]::ToInt32($decompressedPayload, $afterName) } else { 0 }
+        $saveDay = if ($afterName + 8 -le $decompressedPayload.Length) { [System.BitConverter]::ToInt32($decompressedPayload, $afterName + 4) } else { 0 }
+        $saveMonth = if ($afterName + 12 -le $decompressedPayload.Length) { [System.BitConverter]::ToInt32($decompressedPayload, $afterName + 8) } else { 0 }
+        $saveYear = if ($afterName + 16 -le $decompressedPayload.Length) { [System.BitConverter]::ToInt32($decompressedPayload, $afterName + 12) } else { 0 }
+        $saveType = if ($afterName + 20 -le $decompressedPayload.Length) { [System.BitConverter]::ToInt32($decompressedPayload, $afterName + 16) } else { 0 }
+        
+        $monthNames = @("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        $monthStr = if ($saveMonth -ge 1 -and $saveMonth -le 12) { $monthNames[$saveMonth] } else { "$saveMonth" }
+        
+        $gameTitle = "MASS EFFECT 1 LE: $playerName (बायोवेयर प्रपत्र)"
+        $verdict = "BioWare Deflate Vessel ($($decompressedPayload.Length) Bytes Payload)"
+        
+        # Deterministic Profile Records (100% - 92% Confidence)
+        $rows.Add([PSCustomObject]@{ offset = "0x0000"; key = "MAGIC_PACKAGE"; type = "Package Signature"; conf = "100% BioWare"; hex = $magicHeader; val = "0x9E2A83C1 (Unreal/BioWare)" })
+        $rows.Add([PSCustomObject]@{ offset = "0x0008"; key = "COMPRESSED_SIZE"; type = "u32 (Bytes)"; conf = "100% Header"; hex = (Get-Hex 8 4); val = "$len Bytes" })
+        $rows.Add([PSCustomObject]@{ offset = "0x000C"; key = "DECOMPRESSED_CAPACITY"; type = "u32 (Bytes)"; conf = "100% Header"; hex = (Get-Hex 12 4); val = "$($decompressedPayload.Length) Bytes" })
+        $rows.Add([PSCustomObject]@{ offset = "PAYLOAD[0x00]"; key = "SAVE_FORMAT_VERSION"; type = "i32 (Engine Ver)"; conf = "99% Decompressed"; hex = (Get-Hex 0 4 $decompressedPayload); val = "$saveVer" })
+        $rows.Add([PSCustomObject]@{ offset = "PAYLOAD[0x04]"; key = "CHARACTER_NAME_LEN"; type = "i32 (Str Length)"; conf = "99% Decompressed"; hex = (Get-Hex 4 4 $decompressedPayload); val = "$nameLen" })
+        $rows.Add([PSCustomObject]@{ offset = "PAYLOAD[0x08]"; key = "COMMANDER_NAME"; type = "ASCII String"; conf = "100% Player ID"; hex = (Get-Hex 8 ([Math]::Min(4, $nameLen)) $decompressedPayload); val = "$playerName" })
+        $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f $afterName); key = "GAME_CLOCK_TICK"; type = "i32 (Internal Clock)"; conf = "90% Telemetry"; hex = (Get-Hex $afterName 4 $decompressedPayload); val = "$timeTick" })
+        $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 4)); key = "SAVE_TIMESTAMP_DAY"; type = "i32 (Day of Month)"; conf = "95% Calendar"; hex = (Get-Hex ($afterName + 4) 4 $decompressedPayload); val = "$saveDay" })
+        $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 8)); key = "SAVE_TIMESTAMP_MONTH"; type = "i32 (Calendar Month)"; conf = "95% Calendar"; hex = (Get-Hex ($afterName + 8) 4 $decompressedPayload); val = "$saveMonth ($monthStr)" })
+        $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 12)); key = "SAVE_TIMESTAMP_YEAR"; type = "i32 (Calendar Year)"; conf = "95% Calendar"; hex = (Get-Hex ($afterName + 12) 4 $decompressedPayload); val = "$saveYear" })
+        $rows.Add([PSCustomObject]@{ offset = ("PAYLOAD[0x{0:X4}]" -f ($afterName + 16)); key = "SAVE_ENTRY_TYPE"; type = "i32 (Manual/Auto/Quick)"; conf = "92% BioWare Enum"; hex = (Get-Hex ($afterName + 16) 4 $decompressedPayload); val = "$saveType" })
+    } catch {
+        Write-Warning "Mass Effect LE parse error: $_"
+    }
+}
+
+# B. JSON Format: Check Suzerain vs Generic JSON
 if ($isJson -and $rows.Count -eq 0) {
     try {
         $jsonContent = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
@@ -262,8 +246,8 @@ if ($isJson -and $rows.Count -eq 0) {
             $pNames = $parsed.Keys
         }
 
-        # Detect Torpor Games Suzerain Save (Recognized Deterministic Profile)
-        $isSuzerain = ($pNames -contains "variables") -and ($pNames -contains "campaignName" -or $pNames -contains "currentStoryPack" -or $pNames -contains "turnNo")
+        # Strict check for Suzerain (Torpor Games engine with campaignName AND storyPack AND Lua state)
+        $isSuzerain = ($pNames -contains "variables") -and ($pNames -contains "campaignName" -or $pNames -contains "currentStoryPack") -and ($parsed.variables -match "RiziaDLC|BaseGame")
         
         if ($isSuzerain) {
             $isDeterministicProfile = $true
@@ -272,7 +256,6 @@ if ($isJson -and $rows.Count -eq 0) {
             $gameTitle = "SUZERAIN: $campaign // $storyPack (तोरपोर आगम)"
             $verdict = "Torpor Engine Lua-in-JSON Vessel"
             
-            # Primary Campaign Meta Rows (100% Deterministic)
             $rows.Add([PSCustomObject]@{ offset = "JSON.campaign"; key = "CAMPAIGN_NAME"; type = "String (Identifier)"; conf = "100% Metadata"; hex = "53 55 5A 45"; val = "$campaign" })
             $rows.Add([PSCustomObject]@{ offset = "JSON.turnNo"; key = "TURN_NUMBER"; type = "i32 (Turn Index)"; conf = "100% Gameplay"; hex = "54 55 52 4E"; val = "$($parsed.turnNo)" })
             $rows.Add([PSCustomObject]@{ offset = "JSON.storyPack"; key = "STORY_PACK"; type = "String (DLC Module)"; conf = "100% Module"; hex = "52 49 5A 49"; val = "$storyPack" })
@@ -290,68 +273,31 @@ if ($isJson -and $rows.Count -eq 0) {
                 $luaRegex = New-Object System.Text.RegularExpressions.Regex('\[\"([^\"]+)\"\]\s*=\s*([^,\}\]]+)')
                 $allLuaMatches = $luaRegex.Matches($varsStr)
                 
-                # High Priority Gameplay Resources & Modifiers
+                # Priority Gameplay Resources (95% - 90%)
                 $priorityKeys = @(
-                    "RiziaDLC.Resources_Authority",
-                    "RiziaDLC.Resources_Budget",
-                    "RiziaDLC.Resources_Energy",
-                    "BaseGame.GovernmentBudget",
-                    "BaseGame.PersonalWealth",
-                    "RiziaDLC.Resources_AuthorityModifiersTotal",
-                    "RiziaDLC.Resources_EnergyModifiersTotal",
-                    "RiziaDLC.Resources_BudgetModifiersTotal",
-                    "BaseGame.Economy",
-                    "BaseGame.PublicOpinion",
-                    "BaseGame.ED",
-                    "BaseGame.AMorgnaWesCore"
+                    "RiziaDLC.Resources_Authority", "RiziaDLC.Resources_Budget", "RiziaDLC.Resources_Energy",
+                    "BaseGame.GovernmentBudget", "BaseGame.PersonalWealth"
                 )
-                
-                $foundMap = [System.Collections.Generic.Dictionary[string, string]]::new()
-                foreach ($m in $allLuaMatches) {
-                    $k = $m.Groups[1].Value
-                    $v = $m.Groups[2].Value.Trim()
-                    $foundMap[$k] = $v
-                }
-                
-                # 1. Add prioritized gameplay resources (100% Confidence)
                 foreach ($pk in $priorityKeys) {
-                    if ($foundMap.ContainsKey($pk)) {
-                        $val = $foundMap[$pk]
-                        $cleanKey = $pk -replace '^(RiziaDLC\.|BaseGame\.)', ''
-                        $rows.Add([PSCustomObject]@{
-                            offset = "LUA: " + $cleanKey
-                            key = $cleanKey
-                            type = "i32 (Gameplay Metric)"
-                            conf = "100% Torpor Agama"
-                            hex = "4C 55 41 21"
-                            val = "$val"
-                        })
-                    }
-                }
-                
-                # 2. Add numeric counters, resources, and scores (95% Confidence)
-                foreach ($m in $allLuaMatches) {
-                    if ($rows.Count -ge 90) { break }
-                    $k = $m.Groups[1].Value
-                    $v = $m.Groups[2].Value.Trim()
-                    if ($v -match '^-?\d+$' -and -not ($foundMap.ContainsKey($k) -and $priorityKeys -contains $k)) {
-                        if ($k -match 'Budget|Authority|Energy|Wealth|Point|Score|Count|Stock|Turn|Army|Navy|Airforce|Stability|Reform|Morale|Debt') {
-                            $cleanKey = $k -replace '^(RiziaDLC\.|BaseGame\.|BaseGameIsolated\.|RiziaDLCIsolated\.)', ''
+                    foreach ($m in $allLuaMatches) {
+                        if ($m.Groups[1].Value -eq $pk) {
+                            $cleanKey = $pk -replace '^(RiziaDLC\.|BaseGame\.)', ''
                             $rows.Add([PSCustomObject]@{
                                 offset = "LUA: " + $cleanKey
                                 key = $cleanKey
-                                type = "i32 (Torpor Numeric)"
-                                conf = "95% High Confidence"
-                                hex = "4C 55 41 23"
-                                val = "$v"
+                                type = "i32 (Economy / Stat)"
+                                conf = "95% Core Economy"
+                                hex = "45 43 4F 4E"
+                                val = $m.Groups[2].Value.Trim()
                             })
+                            break
                         }
                     }
                 }
 
-                # 3. Add government bills, decrees, tokens, policies (90% Confidence)
+                # Decrees, policies, tokens (90%)
                 foreach ($m in $allLuaMatches) {
-                    if ($rows.Count -ge 150) { break }
+                    if ($rows.Count -ge 120) { break }
                     $k = $m.Groups[1].Value
                     $v = $m.Groups[2].Value.Trim()
                     if ($k -match 'Decree|Bill|Policy|Token|Law|Treaty|Pact|Agreement|Constitutional') {
@@ -367,9 +313,9 @@ if ($isJson -and $rows.Count -eq 0) {
                     }
                 }
 
-                # 4. Add condition flags and story variables (80% Confidence)
+                # Condition flags (80%)
                 foreach ($m in $allLuaMatches) {
-                    if ($rows.Count -ge 200) { break }
+                    if ($rows.Count -ge 180) { break }
                     $k = $m.Groups[1].Value
                     $v = $m.Groups[2].Value.Trim()
                     if ($v -eq "true" -or $v -eq "false") {
@@ -387,7 +333,7 @@ if ($isJson -and $rows.Count -eq 0) {
                     }
                 }
 
-                # 5. Lower-Confidence / Unclassified Variables (allow variables user can inspect)
+                # Unclassified metrics (60%)
                 foreach ($m in $allLuaMatches) {
                     if ($rows.Count -ge 250) { break }
                     $k = $m.Groups[1].Value
@@ -412,12 +358,13 @@ if ($isJson -and $rows.Count -eq 0) {
                 }
             }
         } else {
-            # Standard General JSON Save: Extract top-level and nested properties
-            $gameTitle = "$filename (JSON Key-Value Struct)"
+            # Generic JSON Save: Not Suzerain! Walk structure cleanly without over-generalizing
+            $isDeterministicProfile = $false
+            $gameTitle = "$filename (Generic JSON Key-Values // प्रवाह दर्शन)"
             $verdict = "StructuredJSON (परिसीमित तत्त्व)"
             
             function Walk-JsonObject($obj, $prefix, $depth) {
-                if ($depth -gt 3 -or $rows.Count -ge 200) { return }
+                if ($depth -gt 4 -or $rows.Count -ge 250) { return }
                 $props = @()
                 if ($obj -is [PSCustomObject]) {
                     $props = $obj.PSObject.Properties
@@ -425,7 +372,7 @@ if ($isJson -and $rows.Count -eq 0) {
                     $props = $obj.GetEnumerator()
                 }
                 foreach ($p in $props) {
-                    if ($rows.Count -ge 200) { break }
+                    if ($rows.Count -ge 250) { break }
                     $k = if ($p.Name) { $p.Name } else { $p.Key }
                     $v = if ($p.Name) { $p.Value } else { $p.Value }
                     $fullKey = if ($prefix) { "$prefix.$k" } else { "$k" }
@@ -443,7 +390,7 @@ if ($isJson -and $rows.Count -eq 0) {
                         })
                     } else {
                         $tStr = if ($v -is [int] -or $v -is [long]) { "i32 (Integer)" } elseif ($v -is [double] -or $v -is [float]) { "f64 (Float)" } elseif ($v -is [bool]) { "bool" } else { "String" }
-                        $cStr = if ($depth -eq 0) { "100% Root Value" } elseif ($depth -eq 1) { "85% Nested Property" } else { "65% Deep Value" }
+                        $cStr = if ($depth -eq 0) { "98% Root Value" } elseif ($depth -eq 1) { "88% Nested Property" } else { "70% Deep Value" }
                         $rows.Add([PSCustomObject]@{
                             offset = "JSON: $fullKey"
                             key = "$fullKey"
@@ -462,170 +409,238 @@ if ($isJson -and $rows.Count -eq 0) {
     }
 }
 
-# ==============================================================================
-# 3. BINARY FORMAT PARSERS (Elden Ring, Cyberpunk, and Generic Fuzzy Overseer)
-# ==============================================================================
-if ($rows.Count -eq 0) {
-    $magic4 = Get-Ascii 0 4
-    if ($ext -eq ".sl2" -or $magic4 -eq "BND4") {
-        # Recognized Deterministic Game: FromSoftware Elden Ring
-        $isDeterministicProfile = $true
-        $gameTitle = "ELDEN RING (हिरण्यगर्भ आगम)"
-        $verdict = "FromSoftware BND4 Save Vessel"
-        $rows.Add([PSCustomObject]@{ offset = "0x0000"; key = "MAGIC_HEADER"; type = "ASCII String [4]"; conf = "100% Header"; hex = (Get-Hex 0 4); val = "BND4" })
-        $rows.Add([PSCustomObject]@{ offset = "0x000C"; key = "PLAYER_RUNES"; type = "i32 (Little Endian)"; conf = "99% Agama"; hex = (Get-Hex 12 4); val = "$(Get-Val32 12)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0010"; key = "RUNE_LEVEL"; type = "i32 (Little Endian)"; conf = "99% Agama"; hex = (Get-Hex 16 4); val = "$(Get-Val32 16)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0014"; key = "VIGOR_HP"; type = "i32 (Little Endian)"; conf = "98% Agama"; hex = (Get-Hex 20 4); val = "$(Get-Val32 20)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0018"; key = "MIND_FP"; type = "i32 (Little Endian)"; conf = "98% Agama"; hex = (Get-Hex 24 4); val = "$(Get-Val32 24)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x001C"; key = "ENDURANCE_STAMINA"; type = "i32 (Little Endian)"; conf = "98% Agama"; hex = (Get-Hex 28 4); val = "$(Get-Val32 28)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0020"; key = "STRENGTH"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 32 4); val = "$(Get-Val32 32)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0024"; key = "DEXTERITY"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 36 4); val = "$(Get-Val32 36)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0028"; key = "INTELLIGENCE"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 40 4); val = "$(Get-Val32 40)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x002C"; key = "FAITH"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 44 4); val = "$(Get-Val32 44)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0030"; key = "ARCANE"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 48 4); val = "$(Get-Val32 48)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0034"; key = "PLAYTIME_SECONDS"; type = "u32 (Little Endian)"; conf = "96% Agama"; hex = (Get-Hex 52 4); val = "$(Get-UVal32 52)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0038"; key = "DEATH_COUNTER"; type = "i32 (Little Endian)"; conf = "92% Agama"; hex = (Get-Hex 56 4); val = "$(Get-Val32 56)" })
-        
-        # Scan remaining container blocks for lower-confidence words
-        for ($i = 15; $i -lt 140; $i++) {
-            $off = $i * 4
-            if ($off + 4 -gt $len) { break }
-            $v = Get-Val32 $off
-            $h = Get-Hex $off 4
-            $offHex = "0x{0:X4}" -f $off
-            $c = if ($v -gt 0 -and $v -lt 1000000) { "80% Item/Stat Slot" } else { "45% Low-Confidence Value" }
-            $rows.Add([PSCustomObject]@{
-                offset = $offHex
-                key = "VAR_${offHex}"
-                type = "i32 (Container Dword)"
-                conf = $c
-                hex = $h
-                val = "$v"
-            })
-        }
-    } elseif ($ext -eq ".dat" -and ($magic4 -eq "CP77" -or $filename -match "sav|cyberpunk")) {
-        # Recognized Deterministic Game: Cyberpunk 2077
-        $isDeterministicProfile = $true
-        $gameTitle = "CYBERPUNK 2077 (माया चक्र)"
-        $verdict = "REDengine 4 Node Binary Container"
-        $rows.Add([PSCustomObject]@{ offset = "0x0000"; key = "MAGIC_HEADER"; type = "ASCII String [4]"; conf = "100% Header"; hex = (Get-Hex 0 4); val = "CP77" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0004"; key = "HEADER_CHECKSUM"; type = "u32 (Little Endian)"; conf = "99% Heuristic"; hex = (Get-Hex 4 4); val = "$(Get-UVal32 4)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0008"; key = "EDDIES_CURRENCY"; type = "i32 (Little Endian)"; conf = "96% Heuristic"; hex = (Get-Hex 8 4); val = "$(Get-Val32 8)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x000C"; key = "STREET_CRED_LEVEL"; type = "i32 (Little Endian)"; conf = "95% Heuristic"; hex = (Get-Hex 12 4); val = "$(Get-Val32 12)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0010"; key = "ATTRIBUTE_BODY"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 16 4); val = "$(Get-Val32 16)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0014"; key = "ATTRIBUTE_REFLEXES"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 20 4); val = "$(Get-Val32 20)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0018"; key = "ATTRIBUTE_TECH"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 24 4); val = "$(Get-Val32 24)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x001C"; key = "ATTRIBUTE_COOL"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 28 4); val = "$(Get-Val32 28)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0020"; key = "ATTRIBUTE_INTELLIGENCE"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 32 4); val = "$(Get-Val32 32)" })
-        $rows.Add([PSCustomObject]@{ offset = "0x0024"; key = "CYBERWARE_CAPACITY"; type = "i32 (Little Endian)"; conf = "93% Heuristic"; hex = (Get-Hex 36 4); val = "$(Get-Val32 36)" })
-        
-        for ($i = 10; $i -lt 140; $i++) {
-            $off = $i * 4
-            if ($off + 4 -gt $len) { break }
-            $v = Get-Val32 $off
-            $h = Get-Hex $off 4
-            $offHex = "0x{0:X4}" -f $off
-            $rows.Add([PSCustomObject]@{
-                offset = $offHex
-                key = "VAR_${offHex}"
-                type = "i32 (Node Property)"
-                conf = "65% Probable Stat"
-                hex = $h
-                val = "$v"
-            })
-        }
-    } else {
-        # ======================================================================
-        # UNRECOGNIZED GAME: GENERIC FUZZY OVERSEER ENGINE (प्रवाह दर्शन)
-        # Deterministic parsing is NOT an option here.
-        # Scans for strings, timestamps, floats, counters, and lower-confidence variables.
-        # ======================================================================
-        $isDeterministicProfile = $false
-        $gameTitle = "$filename (Generic Fuzzy Overseer // प्रवाह दर्शन)"
-        $verdict = "GenericBinary (स्वयंसिद्ध प्रवाह)"
-        
-        $limit = [Math]::Min(250, [Math]::Floor($len / 4))
-        for ($i = 0; $i -lt $limit; $i++) {
-            $off = $i * 4
-            $offHex = "0x{0:X4}" -f $off
-            $v32 = Get-Val32 $off
-            $u32 = Get-UVal32 $off
-            $f32 = Get-Float32 $off
-            $hexStr = Get-Hex $off 4
-            $asciiStr = Get-Ascii $off 4
+# C. Elden Ring: Strict Check (Magic BND4 AND ER0000 filename)
+$magic4 = Get-Ascii 0 4
+if ($rows.Count -eq 0 -and $magic4 -eq "BND4" -and ($filename -match "ER0000" -or $ext -eq ".sl2")) {
+    $isDeterministicProfile = $true
+    $gameTitle = "ELDEN RING (हिरण्यगर्भ आगम)"
+    $verdict = "FromSoftware BND4 Save Vessel"
+    $rows.Add([PSCustomObject]@{ offset = "0x0000"; key = "MAGIC_HEADER"; type = "ASCII String [4]"; conf = "100% Header"; hex = (Get-Hex 0 4); val = "BND4" })
+    $rows.Add([PSCustomObject]@{ offset = "0x000C"; key = "PLAYER_RUNES"; type = "i32 (Little Endian)"; conf = "99% Agama"; hex = (Get-Hex 12 4); val = "$(Get-Val32 12)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0010"; key = "RUNE_LEVEL"; type = "i32 (Little Endian)"; conf = "99% Agama"; hex = (Get-Hex 16 4); val = "$(Get-Val32 16)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0014"; key = "VIGOR_HP"; type = "i32 (Little Endian)"; conf = "98% Agama"; hex = (Get-Hex 20 4); val = "$(Get-Val32 20)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0018"; key = "MIND_FP"; type = "i32 (Little Endian)"; conf = "98% Agama"; hex = (Get-Hex 24 4); val = "$(Get-Val32 24)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x001C"; key = "ENDURANCE_STAMINA"; type = "i32 (Little Endian)"; conf = "98% Agama"; hex = (Get-Hex 28 4); val = "$(Get-Val32 28)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0020"; key = "STRENGTH"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 32 4); val = "$(Get-Val32 32)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0024"; key = "DEXTERITY"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 36 4); val = "$(Get-Val32 36)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0028"; key = "INTELLIGENCE"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 40 4); val = "$(Get-Val32 40)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x002C"; key = "FAITH"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 44 4); val = "$(Get-Val32 44)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0030"; key = "ARCANE"; type = "i32 (Little Endian)"; conf = "95% Agama"; hex = (Get-Hex 48 4); val = "$(Get-Val32 48)" })
+}
 
-            if ($off -gt 16 -and $u32 -eq 0) {
+# D. Cyberpunk 2077: Strict Check (Magic CP77)
+if ($rows.Count -eq 0 -and $magic4 -eq "CP77") {
+    $isDeterministicProfile = $true
+    $gameTitle = "CYBERPUNK 2077 (माया चक्र)"
+    $verdict = "REDengine 4 Node Binary Container"
+    $rows.Add([PSCustomObject]@{ offset = "0x0000"; key = "MAGIC_HEADER"; type = "ASCII String [4]"; conf = "100% Header"; hex = (Get-Hex 0 4); val = "CP77" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0004"; key = "HEADER_CHECKSUM"; type = "u32 (Little Endian)"; conf = "99% Heuristic"; hex = (Get-Hex 4 4); val = "$(Get-UVal32 4)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0008"; key = "EDDIES_CURRENCY"; type = "i32 (Little Endian)"; conf = "96% Heuristic"; hex = (Get-Hex 8 4); val = "$(Get-Val32 8)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x000C"; key = "STREET_CRED_LEVEL"; type = "i32 (Little Endian)"; conf = "95% Heuristic"; hex = (Get-Hex 12 4); val = "$(Get-Val32 12)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0010"; key = "ATTRIBUTE_BODY"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 16 4); val = "$(Get-Val32 16)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0014"; key = "ATTRIBUTE_REFLEXES"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 20 4); val = "$(Get-Val32 20)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0018"; key = "ATTRIBUTE_TECH"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 24 4); val = "$(Get-Val32 24)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x001C"; key = "ATTRIBUTE_COOL"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 28 4); val = "$(Get-Val32 28)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0020"; key = "ATTRIBUTE_INTELLIGENCE"; type = "i32 (Little Endian)"; conf = "94% Heuristic"; hex = (Get-Hex 32 4); val = "$(Get-Val32 32)" })
+    $rows.Add([PSCustomObject]@{ offset = "0x0024"; key = "CYBERWARE_CAPACITY"; type = "i32 (Little Endian)"; conf = "93% Heuristic"; hex = (Get-Hex 36 4); val = "$(Get-Val32 36)" })
+}
+
+# ==============================================================================
+# 2. SŪKSHMA REKHA (FINE LINE) FUZZY OVERSEER SCANNER
+# Applied to remaining regions of deterministic saves OR full buffer for unknown games.
+# Automatically unwraps decompressed streams where real game variables reside!
+# Extracts up to 250 high-utility variables without dumping garbage padding or noise.
+# ==============================================================================
+
+# Determine scan target: use decompressed payload if present (e.g. ME1/ME2/ME3, zlib saves), else raw bytes
+$scanBuf = if ($decompressedPayload) { $decompressedPayload } else { $bytes }
+$scanPrefix = if ($decompressedPayload) { "PAYLOAD" } else { "0x" }
+
+if (-not $isJson -and $rows.Count -lt 250) {
+    $cursor = 0
+    # If deterministic ME1 already claimed header, start after header
+    if ($isME1) {
+        $cursor = $afterName + 20
+    }
+
+    $lastIdent = ""
+
+    while ($cursor + 4 -le $scanBuf.Length -and $rows.Count -lt 250) {
+        # Check for null padding runs: skip contiguous blocks of zeros (direct .NET read)
+        $u32AtCursor = [System.BitConverter]::ToUInt32($scanBuf, $cursor)
+        if ($u32AtCursor -eq 0) {
+            $cursor += 4
+            while ($cursor + 4 -le $scanBuf.Length -and ([System.BitConverter]::ToUInt32($scanBuf, $cursor)) -eq 0) {
+                $cursor += 4
+            }
+            $lastIdent = ""
+            continue
+        }
+
+        # Check Pascal Length-Prefixed String: [u32 len: 3..48] [ASCII chars]
+        if ($cursor + 8 -le $scanBuf.Length -and $u32AtCursor -ge 3 -and $u32AtCursor -le 48 -and ($cursor + 4 + $u32AtCursor -le $scanBuf.Length)) {
+            $candidateStr = [System.Text.Encoding]::ASCII.GetString($scanBuf, $cursor + 4, $u32AtCursor)
+            if ($candidateStr -match '^[A-Za-z0-9_.\- ]{3,48}$') {
+                $offLabel = if ($scanPrefix -eq "PAYLOAD") { "PAYLOAD[0x{0:X4}]" -f $cursor } else { "0x{0:X4}" -f $cursor }
+                $cleanIdent = $candidateStr.Trim()
+                $rows.Add([PSCustomObject]@{
+                    offset = $offLabel
+                    key = $cleanIdent
+                    type = "String (Pascal Identifier)"
+                    conf = "94% Named Anchor"
+                    hex = (Get-Hex ($cursor + 4) ([Math]::Min(4, $u32AtCursor)) $scanBuf)
+                    val = "'$cleanIdent'"
+                })
+                $lastIdent = $cleanIdent
+                $cursor += (4 + $u32AtCursor)
                 continue
             }
-
-            $tStr = "i32 (Little Endian)"
-            $cStr = "55% Contextual Int"
-            $valStr = "$v32"
-            $kStr = "VAR_${offHex}"
-
-            if ($u32 -gt 1000000000 -and $u32 -lt 2000000000) {
-                $tStr = "Epoch Timestamp (u32)"
-                $cStr = "92% Probable Timestamp"
-                $kStr = "TIMESTAMP_${offHex}"
-                $valStr = "$u32"
-            } elseif ($asciiStr -match '^[A-Za-z0-9_]{3,4}$') {
-                $tStr = "ASCII Magic / Tag"
-                $cStr = "88% String Tag"
-                $kStr = "TAG_${offHex}"
-                $valStr = "'$asciiStr'"
-            } elseif ($f32 -gt 0.05 -and $f32 -lt 50000.0) {
-                $tStr = "f32 (Float IEEE 754)"
-                $cStr = "74% Probable Float"
-                $kStr = "FLOAT_${offHex}"
-                $valStr = "$f32"
-            } elseif ($v32 -ge 100 -and $v32 -le 50000000) {
-                $tStr = "i32 (Resource Metric)"
-                $cStr = "82% Probable Resource"
-                $kStr = "RESOURCE_${offHex}"
-                $valStr = "$v32"
-            } elseif ($v32 -ge 1 -and $v32 -lt 100) {
-                $tStr = "i32 (Level / Attribute)"
-                $cStr = "78% Counter / Level"
-                $kStr = "LEVEL_${offHex}"
-                $valStr = "$v32"
-            } else {
-                # Unclassified non-zero dword (lower confidence)
-                # Variable naming VAR_0x... makes sense to the user.
-                $tStr = "u32 (Raw Word)"
-                $cStr = "45% Low-Confidence Value"
-                $kStr = "VAR_${offHex}"
-                $valStr = "$v32 (0x{0:X8})" -f $u32
-            }
-
-            $rows.Add([PSCustomObject]@{
-                offset = $offHex
-                key = $kStr
-                type = $tStr
-                conf = $cStr
-                hex = $hexStr
-                val = $valStr
-            })
         }
+
+        # Check Null-Terminated ASCII String (fast pre-check for letter/underscore byte)
+        $b0 = $scanBuf[$cursor]
+        if (($b0 -ge 65 -and $b0 -le 90) -or ($b0 -ge 97 -and $b0 -le 122) -or $b0 -eq 95) {
+            $asciiTag = Get-Ascii $cursor 16 $scanBuf
+            if ($asciiTag.Length -ge 3 -and $asciiTag -match '^[A-Za-z0-9_]{3,16}$') {
+                $offLabel = if ($scanPrefix -eq "PAYLOAD") { "PAYLOAD[0x{0:X4}]" -f $cursor } else { "0x{0:X4}" -f $cursor }
+                $rows.Add([PSCustomObject]@{
+                    offset = $offLabel
+                    key = $asciiTag
+                    type = "ASCII Tag / Keyword"
+                    conf = "90% Identifier"
+                    hex = (Get-Hex $cursor 4 $scanBuf)
+                    val = "'$asciiTag'"
+                })
+                $lastIdent = $asciiTag
+                $cursor += [Math]::Max(4, $asciiTag.Length + 1)
+                continue
+            }
+        }
+
+        # Fine Line Scalar Evaluation (direct inline reading)
+        $u32 = $u32AtCursor
+
+        # Fast rejection of garbage words (nulls, uninitialized MSVC fills, byte repeats, etc.)
+        if (Test-GarbageWord $u32) {
+            $cursor += 4
+            $lastIdent = ""
+            continue
+        }
+
+        $v32 = [System.BitConverter]::ToInt32($scanBuf, $cursor)
+        $rawSingle = [System.BitConverter]::ToSingle($scanBuf, $cursor)
+        $f32 = if ([Single]::IsNaN($rawSingle) -or [Single]::IsInfinity($rawSingle)) { 0.0 } else { [Math]::Round($rawSingle, 2) }
+        $hex = Get-Hex $cursor 4 $scanBuf
+        $offLabel = if ($scanPrefix -eq "PAYLOAD") { "PAYLOAD[0x{0:X4}]" -f $cursor } else { "0x{0:X4}" -f $cursor }
+
+        # 1. Identifier-Associated Value
+        if ($lastIdent) {
+            if (Test-PlausibleFloatFromBits $u32 $f32) {
+                $rows.Add([PSCustomObject]@{
+                    offset = $offLabel
+                    key = "$lastIdent [Float]"
+                    type = "f32 (Associated Float)"
+                    conf = "94% Named Metric"
+                    hex = $hex
+                    val = "$f32"
+                })
+                $cursor += 4
+                $lastIdent = ""
+                continue
+            } elseif ($v32 -ge 0 -and $v32 -le 50000000) {
+                $suffix = if ($v32 -eq 0 -or $v32 -eq 1) { "[Flag]" } else { "[Val]" }
+                $rows.Add([PSCustomObject]@{
+                    offset = $offLabel
+                    key = "$lastIdent $suffix"
+                    type = "i32 (Associated Value)"
+                    conf = "94% Named Metric"
+                    hex = $hex
+                    val = "$v32"
+                })
+                $cursor += 4
+                $lastIdent = ""
+                continue
+            }
+        }
+
+        # 2. Plausible Float (f32)
+        if (Test-PlausibleFloatFromBits $u32 $f32) {
+            $rows.Add([PSCustomObject]@{
+                offset = $offLabel
+                key = "FLOAT [0x{0:X4}]" -f $cursor
+                type = "f32 (Coord/Timer/Stat)"
+                conf = "75% Heuristic Float"
+                hex = $hex
+                val = "$f32"
+            })
+            $cursor += 4
+            $lastIdent = ""
+            continue
+        }
+
+        # 3. Epoch Timestamps
+        if ($u32 -ge 1000000000 -and $u32 -le 2100000000) {
+            $rows.Add([PSCustomObject]@{
+                offset = $offLabel
+                key = "TIMESTAMP [0x{0:X4}]" -f $cursor
+                type = "u32 (Epoch Seconds)"
+                conf = "90% Probable Timestamp"
+                hex = $hex
+                val = "$u32"
+            })
+            $cursor += 4
+            $lastIdent = ""
+            continue
+        }
+
+        # 4. Plausible Gameplay Resources (Currency, XP, Score)
+        if ($v32 -ge 100 -and $v32 -le 50000000) {
+            $rows.Add([PSCustomObject]@{
+                offset = $offLabel
+                key = "RESOURCE [0x{0:X4}]" -f $cursor
+                type = "i32 (Probable Currency/XP)"
+                conf = "85% Game Resource"
+                hex = $hex
+                val = "$v32"
+            })
+            $cursor += 4
+            $lastIdent = ""
+            continue
+        }
+
+        # 5. Plausible Level or Stat Counter (1 to 255)
+        if ($v32 -ge 1 -and $v32 -le 255) {
+            $rows.Add([PSCustomObject]@{
+                offset = $offLabel
+                key = "STAT_OR_LEVEL [0x{0:X4}]" -f $cursor
+                type = "i32 (Attribute / Level)"
+                conf = "80% Player Attribute"
+                hex = $hex
+                val = "$v32"
+            })
+            $cursor += 4
+            $lastIdent = ""
+            continue
+        }
+
+        # 6. Clean Unclassified Dword (Fine Line Lower-Confidence Candidate)
+        # Passed garbage filter, non-padding. Meaningful offset and word value.
+        $rows.Add([PSCustomObject]@{
+            offset = $offLabel
+            key = "VAR_0x{0:X4}" -f $cursor
+            type = "u32 (Raw Word)"
+            conf = "50% Candidate Variable"
+            hex = $hex
+            val = "$v32 (0x{0:X8})" -f $u32
+        })
+
+        $cursor += 4
+        $lastIdent = ""
     }
 }
 
-# Ensure at least 10 rows exist
-while ($rows.Count -lt 10) {
-    $idx = $rows.Count
-    $off = $idx * 4
-    $offHex = "0x{0:X4}" -f $off
-    $rows.Add([PSCustomObject]@{
-        offset = $offHex
-        key = "RESERVED_${idx} [${offHex}]"
-        type = "u32 (Little Endian)"
-        conf = "30% Null Pad"
-        hex = "00 00 00 00"
-        val = "0"
-    })
-}
-
 # ==============================================================================
-# 4. RANK ALL EXTRACTED ROWS BY CONFIDENCE RATING IN DESCENDING ORDER
+# 3. RANK ALL EXTRACTED ROWS BY CONFIDENCE RATING IN DESCENDING ORDER
 # Ensures highest confidence & deterministic fields are at the top of scrollable list,
 # followed by high/medium heuristics, down to lower confidence unclassified variables.
 # ==============================================================================
@@ -643,7 +658,7 @@ foreach ($item in $sortedRows) {
 }
 
 $totalExtracted = $rows.Count
-Write-Host "[OK] Extracted $totalExtracted key-values from $filename (Ranked by confidence descending)"
+Write-Host "[OK] Extracted $totalExtracted key-values from $filename via Fine Line Engine (Ranked by confidence descending)"
 
 # Helper for Slint string escaping
 function Escape-Slint($str) {
@@ -672,7 +687,7 @@ $lines.Add("    in property <string> game_title: ${q}$(Escape-Slint $gameTitle)$
 $lines.Add("    in property <string> checksum_info: ${q}Sthiti Raksha: MD5 Seal Active [${md5Str}]${q};")
 $lines.Add("    in property <string> metric_verdict: ${q}$(Escape-Slint $verdict)${q};")
 $lines.Add("    in property <string> metric_score: ${q}${len} Bytes Analyzed${q};")
-$lines.Add("    in property <string> status_feedback: ${q}Loaded: $(Escape-Slint $filename) (${len} Bytes • ${totalExtracted} Key-Values • Ranked by Confidence ↓)${q};")
+$lines.Add("    in property <string> status_feedback: ${q}Loaded: $(Escape-Slint $filename) (${len} Bytes, ${totalExtracted} Key-Values, Ranked by Confidence Descending)${q};")
 $lines.Add("    in property <int> total_extracted_count: ${totalExtracted};")
 $lines.Add("")
 $lines.Add("    in property <[SaveKeyValueRowData]> rows: [")
@@ -693,13 +708,12 @@ $lines.Add("")
 
 # Legacy backwards-compatible scalar row properties (rows 0 to 9)
 for ($i = 0; $i -lt 10; $i++) {
-    $r = $rows[$i]
-    $o = Escape-Slint $r.offset
-    $k = Escape-Slint $r.key
-    $t = Escape-Slint $r.type
-    $c = Escape-Slint $r.conf
-    $h = Escape-Slint $r.hex
-    $v = Escape-Slint $r.val
+    $o = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].offset } else { "" }
+    $k = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].key } else { "" }
+    $t = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].type } else { "" }
+    $c = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].conf } else { "" }
+    $h = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].hex } else { "" }
+    $v = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].val } else { "" }
     $lines.Add("    in property <string> row_${i}_offset: ${q}${o}${q};")
     $lines.Add("    in property <string> row_${i}_key: ${q}${k}${q};")
     $lines.Add("    in property <string> row_${i}_type: ${q}${t}${q};")
@@ -708,13 +722,16 @@ for ($i = 0; $i -lt 10; $i++) {
     $lines.Add("    in property <string> row_${i}_val: ${q}${v}${q};")
 }
 
-# Legacy field aliases
+# Legacy field aliases (fields 0 to 3)
 for ($i = 0; $i -lt 4; $i++) {
-    $r = $rows[$i]
-    $lines.Add("    in property <string> field_${i}_tag: ${q}$(Escape-Slint $r.key)${q};")
-    $lines.Add("    in property <string> field_${i}_type: ${q}$(Escape-Slint $r.type)${q};")
-    $lines.Add("    in property <string> field_${i}_hex: ${q}$(Escape-Slint $r.hex)${q};")
-    $lines.Add("    in property <string> field_${i}_val: ${q}$(Escape-Slint $r.val)${q};")
+    $k = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].key } else { "" }
+    $t = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].type } else { "" }
+    $h = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].hex } else { "" }
+    $v = if ($i -lt $rows.Count) { Escape-Slint $rows[$i].val } else { "" }
+    $lines.Add("    in property <string> field_${i}_tag: ${q}${k}${q};")
+    $lines.Add("    in property <string> field_${i}_type: ${q}${t}${q};")
+    $lines.Add("    in property <string> field_${i}_hex: ${q}${h}${q};")
+    $lines.Add("    in property <string> field_${i}_val: ${q}${v}${q};")
 }
 
 $lines.Add("}")

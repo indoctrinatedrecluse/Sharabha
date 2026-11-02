@@ -52,6 +52,48 @@ pub fn sortDescByConfidence(_: void, a: InferredField, b: InferredField) bool {
     return a.offset < b.offset;
 }
 
+/// Sūkshma Rekha (सूक्ष्म रेखा / Fine Line) Heuristic Checker
+/// Rejects uninitialized memory fills, debug patterns, repetitive single-byte noise, and null runs
+pub fn isGarbagePattern(val: u32) bool {
+    // 1. Direct sentinel patterns
+    switch (val) {
+        0x00000000 => return true, // All zeros null pad
+        0xFFFFFFFF => return true, // Uninitialized / -1 sentinel fill
+        0xCDCDCDCD => return true, // MSVC heap free
+        0xCCCCCCCC => return true, // MSVC stack uninitialized
+        0xDDDDDDDD => return true, // MSVC dead land
+        0xABABABAB => return true, // MSVC memory block fill
+        0xFDFDFDFD => return true, // MSVC no-mans-land
+        0xFEEEFEEE => return true, // Heap free
+        else => {},
+    }
+
+    // 2. Repetitive single byte pattern (e.g. 0x01010101, 0x20202020)
+    const low_byte = @as(u8, @truncate(val));
+    const repeated = @as(u32, low_byte) * 0x01010101;
+    if (val == repeated) {
+        return true;
+    }
+
+    return false;
+}
+
+/// Checks if single-precision float represents a plausible game parameter
+/// Coordinates, velocity, health/mana, timers, percentages
+pub fn isPlausibleFloat(f: f32) bool {
+    if (std.math.isNan(f) or std.math.isInf(f)) return false;
+    const abs_f = @abs(f);
+    if (abs_f < 0.001 or abs_f > 100_000.0) return false;
+
+    // Check IEEE-754 exponent bits: 2^-10 (approx 0.001) to 2^+17 (approx 131,072)
+    // Exponent bias is 127. Valid exponents fall in [117 .. 144].
+    const bits: u32 = @bitCast(f);
+    const exp = (bits >> 23) & 0xFF;
+    if (exp < 117 or exp > 144) return false;
+
+    return true;
+}
+
 pub const FuzzyParser = struct {
     allocator: std.mem.Allocator,
     fields: std.ArrayList(InferredField),
@@ -67,69 +109,105 @@ pub const FuzzyParser = struct {
         self.fields.deinit(self.allocator);
     }
 
-    /// Parses the raw binary buffer using the generic fuzzy overseer engine.
-    /// Extracts both high-confidence patterns and lower-confidence/unclassified variables,
+    /// Parses arbitrary save vessel buffers using the Sūkshma Rekha (Fine Line) Overseer Engine.
+    /// Extracts a large amount of useful game variables without garbage-dumping padding or debug noise,
     /// and ranks all extracted fields by confidence rating in descending order.
     pub fn parse(self: *FuzzyParser, data: []const u8) ![]const InferredField {
         self.fields.clearRetainingCapacity();
 
         var offset: usize = 0;
-        var last_string_label: ?[64]u8 = null;
-        var last_string_len: usize = 0;
+        var last_identifier: ?[64]u8 = null;
+        var last_identifier_len: usize = 0;
 
         while (offset < data.len) {
-            // 1. Try detect ASCII String (printable chars >= 3 ending in 0 or non-printable)
+            // 0. Skip runs of null padding (4+ consecutive zeros)
+            if (offset + 4 <= data.len and std.mem.readInt(u32, data[offset..][0..4], .little) == 0) {
+                offset += 4;
+                while (offset + 4 <= data.len and std.mem.readInt(u32, data[offset..][0..4], .little) == 0) {
+                    offset += 4;
+                }
+                last_identifier = null;
+                continue;
+            }
+
+            // 1. Try detect Pascal Length-Prefixed String (u32 length + ASCII text)
+            if (self.tryDetectPascalString(data, offset)) |field| {
+                try self.fields.append(self.allocator, field);
+                last_identifier = field.suggested_label;
+                last_identifier_len = field.suggested_label_len;
+                offset += field.length;
+                continue;
+            }
+
+            // 2. Try detect Null-Terminated ASCII String
             if (self.tryDetectAscii(data, offset)) |field| {
                 try self.fields.append(self.allocator, field);
-                last_string_label = field.suggested_label;
-                last_string_len = field.suggested_label_len;
+                last_identifier = field.suggested_label;
+                last_identifier_len = field.suggested_label_len;
                 offset += field.length;
                 continue;
             }
 
-            // 2. Try detect UTF-16LE String
+            // 3. Try detect UTF-16LE String
             if (self.tryDetectUtf16(data, offset)) |field| {
                 try self.fields.append(self.allocator, field);
-                last_string_label = field.suggested_label;
-                last_string_len = field.suggested_label_len;
+                last_identifier = field.suggested_label;
+                last_identifier_len = field.suggested_label_len;
                 offset += field.length;
                 continue;
             }
 
-            // 3. Try detect Float (f32) with sane range
+            // If we have 4 bytes available, evaluate scalars with Fine Line heuristics
             if (offset + 4 <= data.len) {
-                if (self.tryDetectFloat32(data[offset .. offset + 4], offset, last_string_label, last_string_len)) |field| {
-                    try self.fields.append(self.allocator, field);
+                const slice4: *const [4]u8 = data[offset..][0..4];
+                const u32_val = std.mem.readInt(u32, slice4, .little);
+
+                // Reject uninitialized memory, debug patterns, repetitive single-byte fills
+                if (isGarbagePattern(u32_val)) {
                     offset += 4;
-                    last_string_label = null;
+                    last_identifier = null;
                     continue;
                 }
-            }
 
-            // 4. Try detect i32/u32 with contextual metrics (timestamps, resources, counters)
-            if (offset + 4 <= data.len) {
-                if (self.tryDetectInt32(data[offset .. offset + 4], offset, last_string_label, last_string_len)) |field| {
+                // 4. Try detect Identifier-Associated Value (High Confidence 94%)
+                if (last_identifier) |ident| {
+                    if (self.tryDetectAssociatedValue(slice4, offset, ident[0..last_identifier_len])) |field| {
+                        try self.fields.append(self.allocator, field);
+                        offset += 4;
+                        last_identifier = null;
+                        continue;
+                    }
+                }
+
+                // 5. Try detect Plausible Float (f32) with bounded game range
+                if (self.tryDetectFloat32(slice4, offset)) |field| {
                     try self.fields.append(self.allocator, field);
                     offset += 4;
-                    last_string_label = null;
+                    last_identifier = null;
                     continue;
                 }
-            }
 
-            // 5. Unclassified Non-Zero Dwords (Lower Confidence Heuristic)
-            // Even if we cannot classify or definitively label them, include them
-            // because variable offsets and names like VAR_0x... make sense to the user.
-            if (offset + 4 <= data.len) {
-                if (self.tryDetectUnclassified(data[offset .. offset + 4], offset)) |field| {
+                // 6. Try detect Contextual Integers (timestamps, gameplay resources, levels/stats)
+                if (self.tryDetectContextualInt(slice4, offset)) |field| {
                     try self.fields.append(self.allocator, field);
                     offset += 4;
-                    last_string_label = null;
+                    last_identifier = null;
+                    continue;
+                }
+
+                // 7. Clean Unclassified Dword (Fine Line Lower-Confidence Candidate)
+                // Only non-garbage, non-padding dwords make it here.
+                if (self.tryDetectCleanUnclassified(slice4, offset)) |field| {
+                    try self.fields.append(self.allocator, field);
+                    offset += 4;
+                    last_identifier = null;
                     continue;
                 }
             }
 
             // Fallback: advance 4 bytes or to end
             offset += @min(4, data.len - offset);
+            last_identifier = null;
         }
 
         // Rank all extracted fields by confidence rating in descending order!
@@ -138,13 +216,46 @@ pub const FuzzyParser = struct {
         return self.fields.items;
     }
 
+    /// Detects Pascal length-prefixed string: [u32 len] [ASCII chars]
+    fn tryDetectPascalString(self: *FuzzyParser, data: []const u8, offset: usize) ?InferredField {
+        _ = self;
+        if (offset + 8 > data.len) return null;
+        const str_len = std.mem.readInt(u32, data[offset..][0..4], .little);
+        if (str_len < 3 or str_len > 48 or offset + 4 + str_len > data.len) return null;
+
+        const candidate = data[offset + 4 .. offset + 4 + str_len];
+        for (candidate) |c| {
+            if (c < 0x20 or c > 0x7E) return null; // non-printable ASCII
+        }
+
+        var field: InferredField = .{
+            .offset = offset,
+            .length = 4 + str_len,
+            .inferred_type = .StringAscii,
+            .confidence = 94,
+            .display_value = undefined,
+            .display_value_len = @min(candidate.len, 128),
+            .suggested_label = undefined,
+            .suggested_label_len = 0,
+        };
+
+        @memcpy(field.display_value[0..field.display_value_len], candidate[0..field.display_value_len]);
+
+        const copy_k = @min(candidate.len, 64);
+        @memcpy(field.suggested_label[0..copy_k], candidate[0..copy_k]);
+        field.suggested_label_len = copy_k;
+
+        return field;
+    }
+
+    /// Detects null-terminated ASCII string (3 to 48 printable chars ending in 0)
     fn tryDetectAscii(self: *FuzzyParser, data: []const u8, offset: usize) ?InferredField {
         _ = self;
         var len: usize = 0;
-        while (offset + len < data.len and len < 64) {
+        while (offset + len < data.len and len < 48) {
             const b = data[offset + len];
             if (b == 0) break; // null terminator
-            if (b < 0x20 or b > 0x7E) return null; // non-printable ASCII
+            if (b < 0x20 or b > 0x7E) return null; // non-printable
             len += 1;
         }
 
@@ -153,7 +264,7 @@ pub const FuzzyParser = struct {
                 .offset = offset,
                 .length = if (offset + len < data.len and data[offset + len] == 0) len + 1 else len,
                 .inferred_type = .StringAscii,
-                .confidence = if (len >= 4) 92 else 75,
+                .confidence = if (len >= 4) 92 else 76,
                 .display_value = undefined,
                 .display_value_len = len,
                 .suggested_label = undefined,
@@ -162,15 +273,16 @@ pub const FuzzyParser = struct {
 
             @memcpy(field.display_value[0..len], data[offset .. offset + len]);
 
-            // If it looks like an identifier/key, suggest it as a label
-            const label_str = std.fmt.bufPrint(&field.suggested_label, "STR_0x{X:0>4}", .{offset}) catch "str";
-            field.suggested_label_len = label_str.len;
+            const copy_k = @min(len, 64);
+            @memcpy(field.suggested_label[0..copy_k], data[offset .. offset + copy_k]);
+            field.suggested_label_len = copy_k;
 
             return field;
         }
         return null;
     }
 
+    /// Detects UTF-16LE string (3 to 32 chars)
     fn tryDetectUtf16(self: *FuzzyParser, data: []const u8, offset: usize) ?InferredField {
         _ = self;
         if (offset + 6 > data.len) return null;
@@ -200,27 +312,94 @@ pub const FuzzyParser = struct {
                 field.display_value[i] = data[offset + i * 2];
             }
 
-            const label_str = std.fmt.bufPrint(&field.suggested_label, "U16_0x{X:0>4}", .{offset}) catch "u16";
+            const copy_k = @min(char_count, 64);
+            @memcpy(field.suggested_label[0..copy_k], field.display_value[0..copy_k]);
+            field.suggested_label_len = copy_k;
+            return field;
+        }
+        return null;
+    }
+
+    /// Binds an immediately preceding string anchor to a scalar value
+    fn tryDetectAssociatedValue(
+        self: *FuzzyParser,
+        bytes: *const [4]u8,
+        offset: usize,
+        ident: []const u8,
+    ) ?InferredField {
+        _ = self;
+        const u32_val = std.mem.readInt(u32, bytes, .little);
+        const i32_val = std.mem.readInt(i32, bytes, .little);
+        const f = @as(f32, @bitCast(u32_val));
+
+        var field: InferredField = .{
+            .offset = offset,
+            .length = 4,
+            .inferred_type = .Int32LE,
+            .confidence = 94, // High confidence: anchored to preceding identifier!
+            .display_value = undefined,
+            .display_value_len = 0,
+            .suggested_label = undefined,
+            .suggested_label_len = 0,
+        };
+
+        if (isPlausibleFloat(f)) {
+            field.inferred_type = .Float32LE;
+            const str = std.fmt.bufPrint(&field.display_value, "{d:.2}", .{f}) catch "0.0";
+            field.display_value_len = str.len;
+            const lbl = std.fmt.bufPrint(&field.suggested_label, "{s} [Float]", .{ident}) catch "VAL";
+            field.suggested_label_len = lbl.len;
+            return field;
+        }
+
+        if (i32_val >= 0 and i32_val <= 50_000_000) {
+            const str = std.fmt.bufPrint(&field.display_value, "{d}", .{i32_val}) catch "0";
+            field.display_value_len = str.len;
+            const suffix = if (i32_val == 0 or i32_val == 1) " [Flag]" else " [Val]";
+            const lbl = std.fmt.bufPrint(&field.suggested_label, "{s}{s}", .{ ident, suffix }) catch "VAL";
+            field.suggested_label_len = lbl.len;
+            return field;
+        }
+
+        return null;
+    }
+
+    /// Detects single-precision float within valid game physics/attribute ranges
+    fn tryDetectFloat32(self: *FuzzyParser, bytes: *const [4]u8, offset: usize) ?InferredField {
+        _ = self;
+        const raw = std.mem.readInt(u32, bytes, .little);
+        const f = @as(f32, @bitCast(raw));
+
+        if (isPlausibleFloat(f)) {
+            var field: InferredField = .{
+                .offset = offset,
+                .length = 4,
+                .inferred_type = .Float32LE,
+                .confidence = 74,
+                .display_value = undefined,
+                .display_value_len = 0,
+                .suggested_label = undefined,
+                .suggested_label_len = 0,
+            };
+
+            const str = std.fmt.bufPrint(&field.display_value, "{d:.2}", .{f}) catch "0.0";
+            field.display_value_len = str.len;
+
+            const label_str = std.fmt.bufPrint(&field.suggested_label, "FLOAT_0x{X:0>4}", .{offset}) catch "flt";
             field.suggested_label_len = label_str.len;
             return field;
         }
         return null;
     }
 
-    fn tryDetectInt32(
-        self: *FuzzyParser,
-        bytes: []const u8,
-        offset: usize,
-        prev_label: ?[64]u8,
-        prev_label_len: usize,
-    ) ?InferredField {
+    /// Detects contextual integers: timestamps, resources, levels, stats
+    fn tryDetectContextualInt(self: *FuzzyParser, bytes: *const [4]u8, offset: usize) ?InferredField {
         _ = self;
-        if (bytes.len < 4) return null;
-        const val_i32 = std.mem.readInt(i32, bytes[0..4], .little);
-        const val_u32 = std.mem.readInt(u32, bytes[0..4], .little);
+        const val_i32 = std.mem.readInt(i32, bytes, .little);
+        const val_u32 = std.mem.readInt(u32, bytes, .little);
 
         // Epoch Timestamp (high probability for timestamps in save headers)
-        if (val_u32 >= 1_000_000_000 and val_u32 <= 2_000_000_000) {
+        if (val_u32 >= 1_000_000_000 and val_u32 <= 2_100_000_000) {
             var field: InferredField = .{
                 .offset = offset,
                 .length = 4,
@@ -238,105 +417,61 @@ pub const FuzzyParser = struct {
             return field;
         }
 
-        // Contextual or plausible gameplay resource range (currency, XP, health)
-        if (val_i32 >= 1 and val_i32 <= 50_000_000) {
-            var conf: u8 = 65;
-            var prefix: []const u8 = "INT";
-            if (val_i32 >= 100 and val_i32 <= 10_000_000) {
-                conf = 82; // Currency or XP range
-                prefix = "RESOURCE";
-            } else if (val_i32 <= 100) {
-                conf = 78; // Level or attribute range
-                prefix = "LEVEL";
-            }
-
+        // Gameplay resource range (currency, XP, health)
+        if (val_i32 >= 100 and val_i32 <= 50_000_000) {
             var field: InferredField = .{
                 .offset = offset,
                 .length = 4,
                 .inferred_type = .Int32LE,
-                .confidence = conf,
+                .confidence = 82,
                 .display_value = undefined,
                 .display_value_len = 0,
                 .suggested_label = undefined,
                 .suggested_label_len = 0,
             };
-
             const str = std.fmt.bufPrint(&field.display_value, "{d}", .{val_i32}) catch "0";
             field.display_value_len = str.len;
-
-            if (prev_label) |lbl| {
-                const label_str = std.fmt.bufPrint(&field.suggested_label, "{s}_{s}", .{ prefix, lbl[0..prev_label_len] }) catch "val";
-                field.suggested_label_len = label_str.len;
-                field.confidence = @min(95, field.confidence + 15);
-            } else {
-                const label_str = std.fmt.bufPrint(&field.suggested_label, "{s}_0x{X:0>4}", .{ prefix, offset }) catch "int";
-                field.suggested_label_len = label_str.len;
-            }
-
+            const label_str = std.fmt.bufPrint(&field.suggested_label, "RESOURCE_0x{X:0>4}", .{offset}) catch "res";
+            field.suggested_label_len = label_str.len;
             return field;
         }
 
-        return null;
-    }
-
-    fn tryDetectFloat32(
-        self: *FuzzyParser,
-        bytes: []const u8,
-        offset: usize,
-        prev_label: ?[64]u8,
-        prev_label_len: usize,
-    ) ?InferredField {
-        _ = self;
-        if (bytes.len < 4) return null;
-        const raw = std.mem.readInt(u32, bytes[0..4], .little);
-        const f = @as(f32, @bitCast(raw));
-
-        // Plausible game coordinates, timers, or health floats
-        if (!std.math.isNan(f) and !std.math.isInf(f) and @abs(f) >= 0.01 and @abs(f) <= 50_000.0) {
+        // Level or attribute range (1 to 255)
+        if (val_i32 >= 1 and val_i32 <= 255) {
             var field: InferredField = .{
                 .offset = offset,
                 .length = 4,
-                .inferred_type = .Float32LE,
-                .confidence = 72,
+                .inferred_type = .Int32LE,
+                .confidence = 78,
                 .display_value = undefined,
                 .display_value_len = 0,
                 .suggested_label = undefined,
                 .suggested_label_len = 0,
             };
-
-            const str = std.fmt.bufPrint(&field.display_value, "{d:.2}", .{f}) catch "0.0";
+            const str = std.fmt.bufPrint(&field.display_value, "{d}", .{val_i32}) catch "0";
             field.display_value_len = str.len;
-
-            if (prev_label) |lbl| {
-                const label_str = std.fmt.bufPrint(&field.suggested_label, "FLT_{s}", .{lbl[0..prev_label_len]}) catch "flt";
-                field.suggested_label_len = label_str.len;
-                field.confidence = @min(90, field.confidence + 15);
-            } else {
-                const label_str = std.fmt.bufPrint(&field.suggested_label, "FLT_0x{X:0>4}", .{offset}) catch "flt";
-                field.suggested_label_len = label_str.len;
-            }
-
+            const label_str = std.fmt.bufPrint(&field.suggested_label, "LEVEL_OR_STAT_0x{X:0>4}", .{offset}) catch "lvl";
+            field.suggested_label_len = label_str.len;
             return field;
         }
+
         return null;
     }
 
-    /// Lower-confidence extractor for non-zero binary dwords that cannot be classified definitively.
-    /// Surfaced as candidate variables (VAR_0x0040) so the user can inspect and edit them.
-    fn tryDetectUnclassified(self: *FuzzyParser, bytes: []const u8, offset: usize) ?InferredField {
+    /// Fine Line Extractor for clean, non-garbage unclassified dwords.
+    /// Excludes null padding, MSVC debug fills, sentinel patterns, and byte repeats.
+    fn tryDetectCleanUnclassified(self: *FuzzyParser, bytes: *const [4]u8, offset: usize) ?InferredField {
         _ = self;
-        if (bytes.len < 4) return null;
-        const val_u32 = std.mem.readInt(u32, bytes[0..4], .little);
-        const val_i32 = std.mem.readInt(i32, bytes[0..4], .little);
+        const val_u32 = std.mem.readInt(u32, bytes, .little);
+        const val_i32 = std.mem.readInt(i32, bytes, .little);
 
-        // Skip all-zero null padding so the list isn't flooded with empty zeros
-        if (val_u32 == 0) return null;
+        if (isGarbagePattern(val_u32)) return null;
 
         var field: InferredField = .{
             .offset = offset,
             .length = 4,
             .inferred_type = .UInt32LE,
-            .confidence = 45, // Lower confidence for unclassified / raw candidates
+            .confidence = 50, // Fine line lower confidence for clean unclassified candidate
             .display_value = undefined,
             .display_value_len = 0,
             .suggested_label = undefined,
@@ -353,19 +488,36 @@ pub const FuzzyParser = struct {
     }
 };
 
-test "fuzzy parse mock save header and confidence descending order" {
+test "fine line fuzzy parser filters garbage and ranks confidence descending" {
     const allocator = std.testing.allocator;
     var parser = FuzzyParser.init(allocator);
     defer parser.deinit();
 
-    // Construct a synthetic save file: "HERO_NAME\0" + i32(99999) + unclassified non-zero dword
-    var buffer: [128]u8 = @splat(0);
-    const label = "HERO_NAME";
-    @memcpy(buffer[0..label.len], label);
-    buffer[label.len] = 0;
+    // Construct a synthetic save file:
+    // 1. Pascal string: len 4 + "GOLD" + immediate i32 value 75000 (Anchor-value pair)
+    // 2. Padding run of 16 zero bytes (must be skipped cleanly!)
+    // 3. Debug fill 0xCDCDCDCD (must be rejected!)
+    // 4. Plausible float (health = 100.0f)
+    // 5. Clean unclassified non-zero dword 0x0A0B0C0D
+    var buffer: [64]u8 = @splat(0);
 
-    std.mem.writeInt(i32, buffer[12..16], 99999, .little);
-    std.mem.writeInt(u32, buffer[20..24], 0xCAFEBABE, .little); // unclassified candidate
+    // 1. Pascal string at offset 0
+    std.mem.writeInt(u32, buffer[0..4], 4, .little);
+    @memcpy(buffer[4..8], "GOLD");
+    // Associated value at offset 8
+    std.mem.writeInt(i32, buffer[8..12], 75000, .little);
+
+    // Offsets 12..28 are null zeros (must be skipped, no garbage dumping!)
+
+    // Offset 28: Debug fill 0xCDCDCDCD (must be skipped)
+    std.mem.writeInt(u32, buffer[28..32], 0xCDCDCDCD, .little);
+
+    // Offset 32: Plausible float 100.0f
+    const f_raw: u32 = @bitCast(@as(f32, 100.0));
+    std.mem.writeInt(u32, buffer[32..36], f_raw, .little);
+
+    // Offset 36: Clean unclassified dword
+    std.mem.writeInt(u32, buffer[36..40], 0x0A0B0C0D, .little);
 
     const fields = try parser.parse(&buffer);
     try std.testing.expect(fields.len >= 3);
@@ -375,11 +527,17 @@ test "fuzzy parse mock save header and confidence descending order" {
         try std.testing.expect(fields[i].confidence >= fields[i + 1].confidence);
     }
 
-    // Top field should be highest confidence (ASCII string or contextual int)
+    // Top field should be high-confidence Pascal string or anchor-value pair
     try std.testing.expect(fields[0].confidence >= 90);
 
-    // Low confidence unclassified field should be at the bottom
+    // Verify garbage was NOT dumped: no 0xCDCDCDCD, no null pads
+    for (fields) |f| {
+        try std.testing.expect(!std.mem.eql(u8, f.getDisplayValue(), "-842150451"));
+        try std.testing.expect(!std.mem.eql(u8, f.getLabel(), "VAR_0x001C"));
+    }
+
+    // Clean unclassified field VAR_0x0024 should be present with ~50% confidence
     const last = fields[fields.len - 1];
-    try std.testing.expect(last.confidence <= 50);
+    try std.testing.expectEqual(@as(u8, 50), last.confidence);
     try std.testing.expect(std.mem.startsWith(u8, last.getLabel(), "VAR_"));
 }

@@ -11,342 +11,95 @@ export struct SaveKeyValueRowData {
 export global LiveSave {
     in property <int> active_tab_hint: 1;
     in property <bool> skip_splash_hint: true;
-    in property <bool> is_deterministic_profile: true;
-    in property <string> filename: "Active_03-09-2026_00-20-18.json";
-    in property <string> game_title: "SUZERAIN: NG1 // StoryPack_Rizia (तोरपोर आगम)";
-    in property <string> checksum_info: "Sthiti Raksha: MD5 Seal Active [F47E3A13DB8DE84F]";
-    in property <string> metric_verdict: "Torpor Engine Lua-in-JSON Vessel";
-    in property <string> metric_score: "1525271 Bytes Analyzed";
-    in property <string> status_feedback: "Loaded: Active_03-09-2026_00-20-18.json (1525271 Bytes • 250 Key-Values • Ranked by Confidence ↓)";
-    in property <int> total_extracted_count: 250;
+    in property <bool> is_deterministic_profile: false;
+    in property <string> filename: "SaveGame.sav";
+    in property <string> game_title: "SaveGame.sav (Generic Fuzzy Overseer // à¤ªà¥à¤°à¤µà¤¾à¤¹ à¤¦à¤°à¥à¤¶à¤¨)";
+    in property <string> checksum_info: "Sthiti Raksha: MD5 Seal Active [DA284B6165E22AAD]";
+    in property <string> metric_verdict: "GenericBinary (à¤¸à¥à¤µà¤¯à¤‚à¤¸à¤¿à¤¦à¥à¤§ à¤ªà¥à¤°à¤µà¤¾à¤¹)";
+    in property <string> metric_score: "256 Bytes Analyzed";
+    in property <string> status_feedback: "Loaded: SaveGame.sav (256 Bytes, 3 Key-Values, Ranked by Confidence Descending)";
+    in property <int> total_extracted_count: 3;
 
     in property <[SaveKeyValueRowData]> rows: [
-        { offset: "LUA: Resources_EnergyModifiersTotal", key: "Resources_EnergyModifiersTotal", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "23" },
-        { offset: "LUA: Resources_Energy", key: "Resources_Energy", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "25" },
-        { offset: "LUA: Resources_BudgetModifiersTotal", key: "Resources_BudgetModifiersTotal", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "14" },
-        { offset: "LUA: Resources_Budget", key: "Resources_Budget", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "14" },
-        { offset: "LUA: Resources_AuthorityModifiersTotal", key: "Resources_AuthorityModifiersTotal", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "54" },
-        { offset: "LUA: Resources_Authority", key: "Resources_Authority", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "25" },
-        { offset: "LUA: PersonalWealth", key: "PersonalWealth", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "2" },
-        { offset: "LUA: GovernmentBudget", key: "GovernmentBudget", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "8" },
-        { offset: "LUA: Economy", key: "Economy", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "19" },
-        { offset: "LUA: AMorgnaWesCore", key: "AMorgnaWesCore", type_name: "i32 (Gameplay Metric)", conf: "100% Torpor Agama", hex: "4C 55 41 21", val: "5" },
-        { offset: "JSON.version", key: "ENGINE_VERSION", type_name: "String (SemVer)", conf: "100% Engine", hex: "33 2E 31 2E", val: "3.1.0.1.153" },
-        { offset: "JSON.turnNo", key: "TURN_NUMBER", type_name: "i32 (Turn Index)", conf: "100% Gameplay", hex: "54 55 52 4E", val: "11" },
-        { offset: "JSON.storyPack", key: "STORY_PACK", type_name: "String (DLC Module)", conf: "100% Module", hex: "52 49 5A 49", val: "StoryPack_Rizia" },
-        { offset: "JSON.campaign", key: "CAMPAIGN_NAME", type_name: "String (Identifier)", conf: "100% Metadata", hex: "53 55 5A 45", val: "NG1" },
-        { offset: "LUA: VetoedBillCount", key: "VetoedBillCount", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Turn10_Gathering_AzaroBoost", key: "Turn10_Gathering_AzaroBoost", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Turn10_EndingSpeech_Monarchist", key: "Turn10_EndingSpeech_Monarchist", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn10_Debate_SmallPartiesSilenced", key: "Turn10_Debate_SmallPartiesSilenced", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn10_A_NumberOfResignations", key: "Turn10_A_NumberOfResignations", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Turn09_Rumburg_BreachOfTeaEtiquette", key: "Turn09_Rumburg_BreachOfTeaEtiquette", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn09_Rumburg_BreachOfTeaEtiquette", key: "Turn09_Rumburg_BreachOfTeaEtiquette", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn09_IntermerkopumPoints", key: "Turn09_IntermerkopumPoints", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn09_A_TelevisionInterview_InternationalFavor", key: "Turn09_A_TelevisionInterview_InternationalFavor", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "10" },
-        { offset: "LUA: Turn09_A_AschrafAnniversary_CrowdReaction", key: "Turn09_A_AschrafAnniversary_CrowdReaction", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "4" },
-        { offset: "LUA: Turn08_ZilleNeg_RequestPoints", key: "Turn08_ZilleNeg_RequestPoints", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn08_RoyalWedding_GuestGreetings", key: "Turn08_RoyalWedding_GuestGreetings", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "4" },
-        { offset: "LUA: Turn08_Council_EconomyValue", key: "Turn08_Council_EconomyValue", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn07_Rumburg_FavorsDone", key: "Turn07_Rumburg_FavorsDone", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn07_Derdia_FavorsDone", key: "Turn07_Derdia_FavorsDone", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Turn07_A_Isabel_Opinion", key: "Turn07_A_Isabel_Opinion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "-10" },
-        { offset: "LUA: Turn06_VotingCalc_RPP", key: "Turn06_VotingCalc_RPP", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Turn06_VotingCalc_RNC", key: "Turn06_VotingCalc_RNC", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "9" },
-        { offset: "LUA: Turn05_Wehlen_TreatyNegotiationPoints", key: "Turn05_Wehlen_TreatyNegotiationPoints", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "-5" },
-        { offset: "LUA: Turn05_Wehlen_PromiseNothing", key: "Turn05_Wehlen_PromiseNothing", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Turn05_SpeechOpinion", key: "Turn05_SpeechOpinion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "1" },
-        { offset: "LUA: Turn05_MorellaNegotiations_DemandsNeeded", key: "Turn05_MorellaNegotiations_DemandsNeeded", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn05_MorellaNegotiations_ConcessionsNeeded", key: "Turn05_MorellaNegotiations_ConcessionsNeeded", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Turn04_WineLaunch_Drunk", key: "Turn04_WineLaunch_Drunk", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Turn04_Personal_ChessScore", key: "Turn04_Personal_ChessScore", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Turn03_EnT_Gasom_AlphonsoDealPoint", key: "Turn03_EnT_Gasom_AlphonsoDealPoint", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "7" },
-        { offset: "LUA: Turn03_AddressProtestors_Tension", key: "Turn03_AddressProtestors_Tension", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "1" },
-        { offset: "LUA: SordlandArmySize", key: "SordlandArmySize", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "1" },
-        { offset: "LUA: Sordland_HUDStat_PersonalWealth_Min", key: "Sordland_HUDStat_PersonalWealth_Min", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Sordland_HUDStat_PersonalWealth_Max", key: "Sordland_HUDStat_PersonalWealth_Max", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "15" },
-        { offset: "LUA: Sordland_HUDStat_GovernmentBudget_Min", key: "Sordland_HUDStat_GovernmentBudget_Min", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "-20" },
-        { offset: "LUA: Sordland_HUDStat_GovernmentBudget_Max", key: "Sordland_HUDStat_GovernmentBudget_Max", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "30" },
-        { offset: "LUA: SignedBillCount", key: "SignedBillCount", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "10" },
-        { offset: "LUA: RiziaDLCSupport.NarrativeSupport_EnergyCrisisCounter", key: "RiziaDLCSupport.NarrativeSupport_EnergyCrisisCounter", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: RiziaDLCSetup.CurrentTurn", key: "RiziaDLCSetup.CurrentTurn", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "11" },
-        { offset: "LUA: Revolution_HelicopterEnemyCount", key: "Revolution_HelicopterEnemyCount", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Revolution_Guards_Count", key: "Revolution_Guards_Count", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Revolution_EscapeCountdown", key: "Revolution_EscapeCountdown", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_VoteCount_USP_Undecided", key: "Reform_VoteCount_USP_Undecided", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "4" },
-        { offset: "LUA: Reform_VoteCount_USP_GloriasWing", key: "Reform_VoteCount_USP_GloriasWing", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "5" },
-        { offset: "LUA: Reform_VoteCount_USP_AlbinsWing", key: "Reform_VoteCount_USP_AlbinsWing", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "4" },
-        { offset: "LUA: Reform_VoteCount_PFJP_Undecided", key: "Reform_VoteCount_PFJP_Undecided", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "1" },
-        { offset: "LUA: Reform_VoteCount_PFJP_RictersWing", key: "Reform_VoteCount_PFJP_RictersWing", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_VoteCount_NFP", key: "Reform_VoteCount_NFP", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_Toras_Support", key: "Reform_Toras_Support", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_Sazon_Support", key: "Reform_Sazon_Support", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_RNC_Support", key: "Reform_RNC_Support", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_NumberofVotes", key: "Reform_NumberofVotes", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_NumberofInvitees", key: "Reform_NumberofInvitees", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Reform_Court_Vote", key: "Reform_Court_Vote", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "24" },
-        { offset: "LUA: Reform_Azaro_Support", key: "Reform_Azaro_Support", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Reform_Assembly_Vote", key: "Reform_Assembly_Vote", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "255" },
-        { offset: "LUA: Policy_RD_Economy_SoldMediumAmountEnergy", key: "Policy_RD_Economy_SoldMediumAmountEnergy", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Policy_RD_Economy_SoldLowAmountEnergy", key: "Policy_RD_Economy_SoldLowAmountEnergy", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Policy_RD_Economy_SoldLargeAmountEnergy", key: "Policy_RD_Economy_SoldLargeAmountEnergy", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "0" },
-        { offset: "LUA: Petition_ChosenCount", key: "Petition_ChosenCount", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Intermerkopum_Counter", key: "Intermerkopum_Counter", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Energy_Modifier_ZpanaHydroelectricDam", key: "Energy_Modifier_ZpanaHydroelectricDam", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "3" },
-        { offset: "LUA: Energy_Modifier_HavasCoalMine", key: "Energy_Modifier_HavasCoalMine", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "1" },
-        { offset: "LUA: Energy_Modifier_EsqirisGasFieldExpansion", key: "Energy_Modifier_EsqirisGasFieldExpansion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Country_WruhecistOpinion", key: "Country_WruhecistOpinion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "22" },
-        { offset: "LUA: Country_Unrest", key: "Country_Unrest", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "1" },
-        { offset: "LUA: Country_PublicOpinion", key: "Country_PublicOpinion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "265" },
-        { offset: "LUA: Country_ProductionCapacity", key: "Country_ProductionCapacity", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "125" },
-        { offset: "LUA: Country_Military_PowerProjection", key: "Country_Military_PowerProjection", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "50" },
-        { offset: "LUA: Country_LivingStandards", key: "Country_LivingStandards", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "45" },
-        { offset: "LUA: Country_HouseToras", key: "Country_HouseToras", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "6" },
-        { offset: "LUA: Country_HouseSazon", key: "Country_HouseSazon", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "25" },
-        { offset: "LUA: Country_HouseAzaro", key: "Country_HouseAzaro", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "24" },
-        { offset: "LUA: Country_GolcondistOpinion", key: "Country_GolcondistOpinion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "13" },
-        { offset: "LUA: Country_DastnuristOpinion", key: "Country_DastnuristOpinion", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "8" },
-        { offset: "LUA: Budget_Modifier_WarProfitsTax", key: "Budget_Modifier_WarProfitsTax", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Budget_Modifier_QalusGoldMine", key: "Budget_Modifier_QalusGoldMine", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Budget_Modifier_NonWruhecistReligiousTax", key: "Budget_Modifier_NonWruhecistReligiousTax", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: Budget_Modifier_InheritanceTax", key: "Budget_Modifier_InheritanceTax", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "2" },
-        { offset: "LUA: BaseGameSetup.CurrentTurn", key: "BaseGameSetup.CurrentTurn", type_name: "i32 (Torpor Numeric)", conf: "95% High Confidence", hex: "4C 55 41 23", val: "11" },
-        { offset: "LUA: Turn11_CoupTrial_PleadNotGuilty_UnlawfulTrial", key: "Turn11_CoupTrial_PleadNotGuilty_UnlawfulTrial", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn06_A_Kesaro_Bill", key: "Turn06_A_Kesaro_Bill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn05_SnO_LE_Policy_SecretStateService", key: "Turn05_SnO_LE_Policy_SecretStateService", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Turn05_SnO_LE_Policy_CommunityPolice", key: "Turn05_SnO_LE_Policy_CommunityPolice", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn05_SnO_LE_Policy_AntiCorruptionPolice", key: "Turn05_SnO_LE_Policy_AntiCorruptionPolice", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn05_A_Speech_StrongerDecrees", key: "Turn05_A_Speech_StrongerDecrees", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Turn05_A_Speech_RemoveDecrees", key: "Turn05_A_Speech_RemoveDecrees", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn03_EnT_Listened_LawEnforcement", key: "Turn03_EnT_Listened_LawEnforcement", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Turn03_EnT_LawEnforcement_Budget_Maintain", key: "Turn03_EnT_LawEnforcement_Budget_Maintain", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn03_EnT_LawEnforcement_Budget_Increase", key: "Turn03_EnT_LawEnforcement_Budget_Increase", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Turn03_EnT_LawEnforcement_Budget_Decrease", key: "Turn03_EnT_LawEnforcement_Budget_Decrease", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn03_A_Listened_Types_Constitutional", key: "Turn03_A_Listened_Types_Constitutional", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Turn02_FPnT_Listened_TradePolicy", key: "Turn02_FPnT_Listened_TradePolicy", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn09_Bill_WomensRights", key: "GameCondition.Turn09_Bill_WomensRights", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn09_Bill_LuxuryTax", key: "GameCondition.Turn09_Bill_LuxuryTax", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn09_Bill_LighterSecurity", key: "GameCondition.Turn09_Bill_LighterSecurity", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn09_Bill_FreeTransportation", key: "GameCondition.Turn09_Bill_FreeTransportation", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn09_Bill_ChildBenefit", key: "GameCondition.Turn09_Bill_ChildBenefit", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn09_Bill_BludishCommission", key: "GameCondition.Turn09_Bill_BludishCommission", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn09_Bill_BanProstitution", key: "GameCondition.Turn09_Bill_BanProstitution", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn09_Bill_AlcoholTax", key: "GameCondition.Turn09_Bill_AlcoholTax", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn08_Bill_TobaccoTax", key: "GameCondition.Turn08_Bill_TobaccoTax", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn08_Bill_HarsherSecurity", key: "GameCondition.Turn08_Bill_HarsherSecurity", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn08_Bill_DisabilityBenefit", key: "GameCondition.Turn08_Bill_DisabilityBenefit", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn08_A_PostDecrees", key: "GameCondition.Turn08_A_PostDecrees", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn07_Bill_LanguageBill", key: "GameCondition.Turn07_Bill_LanguageBill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn06_SnO_ConscriptionMilitaryPolicy", key: "GameCondition.Turn06_SnO_ConscriptionMilitaryPolicy", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn05_FPnT_ImmigrationPolicy", key: "GameCondition.Turn05_FPnT_ImmigrationPolicy", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn05_Bill_ReligiousHarmony", key: "GameCondition.Turn05_Bill_ReligiousHarmony", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn04_SnO_LawEnforcementBudget", key: "GameCondition.Turn04_SnO_LawEnforcementBudget", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: GameCondition.Turn04_Bill_WorkersRights", key: "GameCondition.Turn04_Bill_WorkersRights", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: GameCondition.Turn01_Bill_CampaignFinance", key: "GameCondition.Turn01_Bill_CampaignFinance", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: EPA_Hub_GASOMImpact_Option2", key: "EPA_Hub_GASOMImpact_Option2", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Enable_WomensRightsBill_Weak", key: "Enable_WomensRightsBill_Weak", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Enable_WomensRightsBill_Strong", key: "Enable_WomensRightsBill_Strong", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Enable_TobaccoTaxBill", key: "Enable_TobaccoTaxBill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Enable_LighterSecurityBill", key: "Enable_LighterSecurityBill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Enable_HarsherSecurityBill", key: "Enable_HarsherSecurityBill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Enable_FreeTransportationBill", key: "Enable_FreeTransportationBill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Enable_BludishCommissionBill", key: "Enable_BludishCommissionBill", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn09_BludishCommission_Vetoed", key: "Bill_Turn09_BludishCommission_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn09_BludishCommission_Signed", key: "Bill_Turn09_BludishCommission_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn09_BanProstitution_Vetoed", key: "Bill_Turn09_BanProstitution_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn09_BanProstitution_Signed", key: "Bill_Turn09_BanProstitution_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn09_AlcoholTax_Vetoed", key: "Bill_Turn09_AlcoholTax_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn09_AlcoholTax_Signed", key: "Bill_Turn09_AlcoholTax_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn08_TobaccoTax_Vetoed", key: "Bill_Turn08_TobaccoTax_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn08_TobaccoTax_Signed", key: "Bill_Turn08_TobaccoTax_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn08_HarsherSecurity_Vetoed", key: "Bill_Turn08_HarsherSecurity_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn08_HarsherSecurity_Signed", key: "Bill_Turn08_HarsherSecurity_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn08_DisabilityBenefit_Vetoed", key: "Bill_Turn08_DisabilityBenefit_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn08_DisabilityBenefit_Signed", key: "Bill_Turn08_DisabilityBenefit_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn07_LanguageBill_Vetoed", key: "Bill_Turn07_LanguageBill_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn07_LanguageBill_Signed", key: "Bill_Turn07_LanguageBill_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn05_ReligiousHarmony_Vetoed", key: "Bill_Turn05_ReligiousHarmony_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn05_ReligiousHarmony_Signed", key: "Bill_Turn05_ReligiousHarmony_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn04_WorkersRights_Vetoed", key: "Bill_Turn04_WorkersRights_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn04_WorkersRights_Signed", key: "Bill_Turn04_WorkersRights_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Bill_Turn01_CampaignFinance_Vetoed", key: "Bill_Turn01_CampaignFinance_Vetoed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "false" },
-        { offset: "LUA: Bill_Turn01_CampaignFinance_Signed", key: "Bill_Turn01_CampaignFinance_Signed", type_name: "Policy / Token", conf: "90% Probable Policy", hex: "54 4F 4B 4E", val: "true" },
-        { offset: "LUA: Turn09_Personal_PetrGoesMissing", key: "Turn09_Personal_PetrGoesMissing", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn08_SnO_GendarmerieDispute", key: "Turn08_SnO_GendarmerieDispute", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn08_SnO_EstordRaid", key: "Turn08_SnO_EstordRaid", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn08_FPnT_LespiaVisit", key: "Turn08_FPnT_LespiaVisit", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn08_A_PressReleases", key: "Turn08_A_PressReleases", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn08_A_AffairMeeting", key: "Turn08_A_AffairMeeting", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn07_Personal_FrancUniversityChoice", key: "Turn07_Personal_FrancUniversityChoice", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn07_InT_ProjectManager", key: "Turn07_InT_ProjectManager", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "00 00 00 00", val: "false" },
-        { offset: "LUA: Turn07_FPnT_DiplomacyOverview2AndTradeDeal", key: "Turn07_FPnT_DiplomacyOverview2AndTradeDeal", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn07_A_DayOfDescension", key: "Turn07_A_DayOfDescension", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn06_SnO_ConscriptionMilitaryPolicy", key: "Turn06_SnO_ConscriptionMilitaryPolicy", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn06_PSnW_HospitalVisit", key: "Turn06_PSnW_HospitalVisit", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "00 00 00 00", val: "false" },
-        { offset: "LUA: Turn06_PSnW_HealthBudget", key: "Turn06_PSnW_HealthBudget", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn06_PSnW_Curriculum", key: "Turn06_PSnW_Curriculum", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn06_InT_Opening", key: "Turn06_InT_Opening", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn06_InT_Investment2CompanyChoice", key: "Turn06_InT_Investment2CompanyChoice", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "00 00 00 00", val: "false" },
-        { offset: "LUA: Turn06_EnT_OverviewAndInvestment", key: "Turn06_EnT_OverviewAndInvestment", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn06_A_Reform", key: "Turn06_A_Reform", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn05_Personal_PetrParty", key: "Turn05_Personal_PetrParty", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn05_Personal_MonicaTalk", key: "Turn05_Personal_MonicaTalk", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn05_Personal_BenfiFestival", key: "Turn05_Personal_BenfiFestival", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn05_FPnT_WehlenTradeVisit", key: "Turn05_FPnT_WehlenTradeVisit", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn05_FPnT_ImmigrationPolicy", key: "Turn05_FPnT_ImmigrationPolicy", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn05_A_DamageControl", key: "Turn05_A_DamageControl", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn04_SnO_LawEnforcementBudget", key: "Turn04_SnO_LawEnforcementBudget", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn04_PSnW_SchoolVisit", key: "Turn04_PSnW_SchoolVisit", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn04_PSnW_EducationReform", key: "Turn04_PSnW_EducationReform", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn04_Personal_Jogging", key: "Turn04_Personal_Jogging", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn04_InT_Issue", key: "Turn04_InT_Issue", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn04_EnT_TaxReform", key: "Turn04_EnT_TaxReform", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_PSnW_Overview", key: "Turn03_PSnW_Overview", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_Personal_FrancTalk", key: "Turn03_Personal_FrancTalk", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_Personal_DriverTalk", key: "Turn03_Personal_DriverTalk", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_EnT_BusinessCouncil", key: "Turn03_EnT_BusinessCouncil", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_EnT_BudgetTwo", key: "Turn03_EnT_BudgetTwo", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_EnT_BudgetOne", key: "Turn03_EnT_BudgetOne", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn03_A_LateBriefing", key: "Turn03_A_LateBriefing", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_SnO_SecurityOverview", key: "Turn02_SnO_SecurityOverview", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_Personal_FamilyDinner", key: "Turn02_Personal_FamilyDinner", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_InT_Contract", key: "Turn02_InT_Contract", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_FPnT_DiplomacyOverview", key: "Turn02_FPnT_DiplomacyOverview", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_A_ReformBriefing", key: "Turn02_A_ReformBriefing", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_A_MediaDeal", key: "Turn02_A_MediaDeal", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn02_A_AutocratBriefing", key: "Turn02_A_AutocratBriefing", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn01_Start_Inauguration", key: "Turn01_Start_Inauguration", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn01_Personal_Ball", key: "Turn01_Personal_Ball", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn01_InT_Infrastructure", key: "Turn01_InT_Infrastructure", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn01_EnT_EconomicOverview", key: "Turn01_EnT_EconomicOverview", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn01_A_PoliticalOverview", key: "Turn01_A_PoliticalOverview", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn01_A_Media", key: "Turn01_A_Media", type_name: "bool (Story Flag)", conf: "80% Condition Flag", hex: "01 00 00 00", val: "true" },
-        { offset: "LUA: Turn09_Personal_PetrGoesMissing", key: "Turn09_Personal_PetrGoesMissing", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn09_A_KorontiLead", key: "Turn09_A_KorontiLead", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn08_SnO_GendarmerieDispute", key: "Turn08_SnO_GendarmerieDispute", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn08_SnO_EstordRaid", key: "Turn08_SnO_EstordRaid", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn08_FPnT_LespiaVisit", key: "Turn08_FPnT_LespiaVisit", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn08_A_PressReleases", key: "Turn08_A_PressReleases", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn08_A_AffairMeeting", key: "Turn08_A_AffairMeeting", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn07_Personal_FrancUniversityChoice", key: "Turn07_Personal_FrancUniversityChoice", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn07_InT_ProjectManager", key: "Turn07_InT_ProjectManager", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "false" },
-        { offset: "LUA: Turn07_FPnT_DiplomacyOverview2AndTradeDeal", key: "Turn07_FPnT_DiplomacyOverview2AndTradeDeal", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn07_A_DayOfDescension", key: "Turn07_A_DayOfDescension", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn06_PSnW_HospitalVisit", key: "Turn06_PSnW_HospitalVisit", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "false" },
-        { offset: "LUA: Turn06_PSnW_HealthBudget", key: "Turn06_PSnW_HealthBudget", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn06_PSnW_EducationSpending", key: "Turn06_PSnW_EducationSpending", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn06_PSnW_Curriculum", key: "Turn06_PSnW_Curriculum", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn06_InT_Opening", key: "Turn06_InT_Opening", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn06_InT_Investment2CompanyChoice", key: "Turn06_InT_Investment2CompanyChoice", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "false" },
-        { offset: "LUA: Turn06_EnT_OverviewAndInvestment", key: "Turn06_EnT_OverviewAndInvestment", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn06_A_Reform", key: "Turn06_A_Reform", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn05_SnO_MilitaryBudget", key: "Turn05_SnO_MilitaryBudget", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn05_Personal_PetrParty", key: "Turn05_Personal_PetrParty", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn05_Personal_MonicaTalk", key: "Turn05_Personal_MonicaTalk", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn05_Personal_BenfiFestival", key: "Turn05_Personal_BenfiFestival", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn05_FPnT_WehlenTradeVisit", key: "Turn05_FPnT_WehlenTradeVisit", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn05_A_DamageControl", key: "Turn05_A_DamageControl", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn04_PSnW_SchoolVisit", key: "Turn04_PSnW_SchoolVisit", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn04_PSnW_EducationReform", key: "Turn04_PSnW_EducationReform", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn04_Personal_Jogging", key: "Turn04_Personal_Jogging", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn04_InT_Issue", key: "Turn04_InT_Issue", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn04_EnT_TaxReform", key: "Turn04_EnT_TaxReform", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_PSnW_Overview", key: "Turn03_PSnW_Overview", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_Personal_FrancTalk", key: "Turn03_Personal_FrancTalk", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_Personal_DriverTalk", key: "Turn03_Personal_DriverTalk", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_EnT_BusinessCouncil", key: "Turn03_EnT_BusinessCouncil", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_EnT_BudgetTwo", key: "Turn03_EnT_BudgetTwo", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_EnT_BudgetOne", key: "Turn03_EnT_BudgetOne", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn03_A_LateBriefing", key: "Turn03_A_LateBriefing", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_SnO_SecurityOverview", key: "Turn02_SnO_SecurityOverview", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_Personal_FamilyDinner", key: "Turn02_Personal_FamilyDinner", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_InT_Contract", key: "Turn02_InT_Contract", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_FPnT_DiplomacyOverview", key: "Turn02_FPnT_DiplomacyOverview", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_A_ReformBriefing", key: "Turn02_A_ReformBriefing", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_A_MediaDeal", key: "Turn02_A_MediaDeal", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn02_A_AutocratBriefing", key: "Turn02_A_AutocratBriefing", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn01_Start_Inauguration", key: "Turn01_Start_Inauguration", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn01_Personal_Ball", key: "Turn01_Personal_Ball", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn01_InT_Infrastructure", key: "Turn01_InT_Infrastructure", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn01_EnT_EconomicOverview", key: "Turn01_EnT_EconomicOverview", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn01_A_PoliticalOverview", key: "Turn01_A_PoliticalOverview", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" },
-        { offset: "LUA: Turn01_A_Media", key: "Turn01_A_Media", type_name: "Raw Lua Variable", conf: "60% Unclassified Metric", hex: "4C 55 41 3F", val: "true" }
+        { offset: "0x0004", key: "TIMESTAMP [0x0004]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "CD 02 B1 4C", val: "1286669005" },
+        { offset: "0x0000", key: "TIMESTAMP [0x0000]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "47 56 41 53", val: "1396790855" },
+        { offset: "0x0008", key: "RESOURCE [0x0008]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "90 D0 03 00", val: "250000" }
     ];
 
-    in property <string> row_0_offset: "LUA: Resources_EnergyModifiersTotal";
-    in property <string> row_0_key: "Resources_EnergyModifiersTotal";
-    in property <string> row_0_type: "i32 (Gameplay Metric)";
-    in property <string> row_0_conf: "100% Torpor Agama";
-    in property <string> row_0_hex: "4C 55 41 21";
-    in property <string> row_0_val: "23";
-    in property <string> row_1_offset: "LUA: Resources_Energy";
-    in property <string> row_1_key: "Resources_Energy";
-    in property <string> row_1_type: "i32 (Gameplay Metric)";
-    in property <string> row_1_conf: "100% Torpor Agama";
-    in property <string> row_1_hex: "4C 55 41 21";
-    in property <string> row_1_val: "25";
-    in property <string> row_2_offset: "LUA: Resources_BudgetModifiersTotal";
-    in property <string> row_2_key: "Resources_BudgetModifiersTotal";
-    in property <string> row_2_type: "i32 (Gameplay Metric)";
-    in property <string> row_2_conf: "100% Torpor Agama";
-    in property <string> row_2_hex: "4C 55 41 21";
-    in property <string> row_2_val: "14";
-    in property <string> row_3_offset: "LUA: Resources_Budget";
-    in property <string> row_3_key: "Resources_Budget";
-    in property <string> row_3_type: "i32 (Gameplay Metric)";
-    in property <string> row_3_conf: "100% Torpor Agama";
-    in property <string> row_3_hex: "4C 55 41 21";
-    in property <string> row_3_val: "14";
-    in property <string> row_4_offset: "LUA: Resources_AuthorityModifiersTotal";
-    in property <string> row_4_key: "Resources_AuthorityModifiersTotal";
-    in property <string> row_4_type: "i32 (Gameplay Metric)";
-    in property <string> row_4_conf: "100% Torpor Agama";
-    in property <string> row_4_hex: "4C 55 41 21";
-    in property <string> row_4_val: "54";
-    in property <string> row_5_offset: "LUA: Resources_Authority";
-    in property <string> row_5_key: "Resources_Authority";
-    in property <string> row_5_type: "i32 (Gameplay Metric)";
-    in property <string> row_5_conf: "100% Torpor Agama";
-    in property <string> row_5_hex: "4C 55 41 21";
-    in property <string> row_5_val: "25";
-    in property <string> row_6_offset: "LUA: PersonalWealth";
-    in property <string> row_6_key: "PersonalWealth";
-    in property <string> row_6_type: "i32 (Gameplay Metric)";
-    in property <string> row_6_conf: "100% Torpor Agama";
-    in property <string> row_6_hex: "4C 55 41 21";
-    in property <string> row_6_val: "2";
-    in property <string> row_7_offset: "LUA: GovernmentBudget";
-    in property <string> row_7_key: "GovernmentBudget";
-    in property <string> row_7_type: "i32 (Gameplay Metric)";
-    in property <string> row_7_conf: "100% Torpor Agama";
-    in property <string> row_7_hex: "4C 55 41 21";
-    in property <string> row_7_val: "8";
-    in property <string> row_8_offset: "LUA: Economy";
-    in property <string> row_8_key: "Economy";
-    in property <string> row_8_type: "i32 (Gameplay Metric)";
-    in property <string> row_8_conf: "100% Torpor Agama";
-    in property <string> row_8_hex: "4C 55 41 21";
-    in property <string> row_8_val: "19";
-    in property <string> row_9_offset: "LUA: AMorgnaWesCore";
-    in property <string> row_9_key: "AMorgnaWesCore";
-    in property <string> row_9_type: "i32 (Gameplay Metric)";
-    in property <string> row_9_conf: "100% Torpor Agama";
-    in property <string> row_9_hex: "4C 55 41 21";
-    in property <string> row_9_val: "5";
-    in property <string> field_0_tag: "Resources_EnergyModifiersTotal";
-    in property <string> field_0_type: "i32 (Gameplay Metric)";
-    in property <string> field_0_hex: "4C 55 41 21";
-    in property <string> field_0_val: "23";
-    in property <string> field_1_tag: "Resources_Energy";
-    in property <string> field_1_type: "i32 (Gameplay Metric)";
-    in property <string> field_1_hex: "4C 55 41 21";
-    in property <string> field_1_val: "25";
-    in property <string> field_2_tag: "Resources_BudgetModifiersTotal";
-    in property <string> field_2_type: "i32 (Gameplay Metric)";
-    in property <string> field_2_hex: "4C 55 41 21";
-    in property <string> field_2_val: "14";
-    in property <string> field_3_tag: "Resources_Budget";
-    in property <string> field_3_type: "i32 (Gameplay Metric)";
-    in property <string> field_3_hex: "4C 55 41 21";
-    in property <string> field_3_val: "14";
+    in property <string> row_0_offset: "0x0004";
+    in property <string> row_0_key: "TIMESTAMP [0x0004]";
+    in property <string> row_0_type: "u32 (Epoch Seconds)";
+    in property <string> row_0_conf: "90% Probable Timestamp";
+    in property <string> row_0_hex: "CD 02 B1 4C";
+    in property <string> row_0_val: "1286669005";
+    in property <string> row_1_offset: "0x0000";
+    in property <string> row_1_key: "TIMESTAMP [0x0000]";
+    in property <string> row_1_type: "u32 (Epoch Seconds)";
+    in property <string> row_1_conf: "90% Probable Timestamp";
+    in property <string> row_1_hex: "47 56 41 53";
+    in property <string> row_1_val: "1396790855";
+    in property <string> row_2_offset: "0x0008";
+    in property <string> row_2_key: "RESOURCE [0x0008]";
+    in property <string> row_2_type: "i32 (Probable Currency/XP)";
+    in property <string> row_2_conf: "85% Game Resource";
+    in property <string> row_2_hex: "90 D0 03 00";
+    in property <string> row_2_val: "250000";
+    in property <string> row_3_offset: "";
+    in property <string> row_3_key: "";
+    in property <string> row_3_type: "";
+    in property <string> row_3_conf: "";
+    in property <string> row_3_hex: "";
+    in property <string> row_3_val: "";
+    in property <string> row_4_offset: "";
+    in property <string> row_4_key: "";
+    in property <string> row_4_type: "";
+    in property <string> row_4_conf: "";
+    in property <string> row_4_hex: "";
+    in property <string> row_4_val: "";
+    in property <string> row_5_offset: "";
+    in property <string> row_5_key: "";
+    in property <string> row_5_type: "";
+    in property <string> row_5_conf: "";
+    in property <string> row_5_hex: "";
+    in property <string> row_5_val: "";
+    in property <string> row_6_offset: "";
+    in property <string> row_6_key: "";
+    in property <string> row_6_type: "";
+    in property <string> row_6_conf: "";
+    in property <string> row_6_hex: "";
+    in property <string> row_6_val: "";
+    in property <string> row_7_offset: "";
+    in property <string> row_7_key: "";
+    in property <string> row_7_type: "";
+    in property <string> row_7_conf: "";
+    in property <string> row_7_hex: "";
+    in property <string> row_7_val: "";
+    in property <string> row_8_offset: "";
+    in property <string> row_8_key: "";
+    in property <string> row_8_type: "";
+    in property <string> row_8_conf: "";
+    in property <string> row_8_hex: "";
+    in property <string> row_8_val: "";
+    in property <string> row_9_offset: "";
+    in property <string> row_9_key: "";
+    in property <string> row_9_type: "";
+    in property <string> row_9_conf: "";
+    in property <string> row_9_hex: "";
+    in property <string> row_9_val: "";
+    in property <string> field_0_tag: "TIMESTAMP [0x0004]";
+    in property <string> field_0_type: "u32 (Epoch Seconds)";
+    in property <string> field_0_hex: "CD 02 B1 4C";
+    in property <string> field_0_val: "1286669005";
+    in property <string> field_1_tag: "TIMESTAMP [0x0000]";
+    in property <string> field_1_type: "u32 (Epoch Seconds)";
+    in property <string> field_1_hex: "47 56 41 53";
+    in property <string> field_1_val: "1396790855";
+    in property <string> field_2_tag: "RESOURCE [0x0008]";
+    in property <string> field_2_type: "i32 (Probable Currency/XP)";
+    in property <string> field_2_hex: "90 D0 03 00";
+    in property <string> field_2_val: "250000";
+    in property <string> field_3_tag: "";
+    in property <string> field_3_type: "";
+    in property <string> field_3_hex: "";
+    in property <string> field_3_val: "";
 }

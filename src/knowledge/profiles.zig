@@ -20,17 +20,22 @@ pub const GameProfile = struct {
     rules: []const KnownFieldRule,
 
     pub fn matchesFile(self: *const GameProfile, filename: []const u8, header: []const u8) bool {
-        // Match by filename substring (case-insensitive check for game identity)
-        if (self.filename_pattern.len > 0 and std.mem.indexOf(u8, filename, self.filename_pattern) != null) {
-            return true;
-        }
-        // Match by magic signature
+        // File extension matching alone is forbidden to avoid over-generalization:
+        // .pcsav is shared by Mass Effect 1-3, Andromeda, Dragon Age, Death Stranding.
+        // .dat and .json are generic containers used by thousands of games.
+        // A deterministic profile requires BOTH signature verification (if specified)
+        // AND specific game identity pattern verification.
         if (self.magic_signature) |sig| {
-            if (header.len >= sig.len and std.mem.eql(u8, header[0..sig.len], sig)) {
-                return true;
+            if (header.len < sig.len or !std.mem.eql(u8, header[0..sig.len], sig)) {
+                return false;
             }
         }
-        return false;
+        if (self.filename_pattern.len > 0) {
+            if (std.mem.indexOf(u8, filename, self.filename_pattern) == null) {
+                return false;
+            }
+        }
+        return (self.magic_signature != null or self.filename_pattern.len > 0);
     }
 };
 
@@ -161,7 +166,7 @@ pub const BUILTIN_PROFILES = [_]GameProfile{
         .id = "elden_ring",
         .title = "Elden Ring (एल्डन रिंग)",
         .sanskrit_title = "एल्डन रिंग // LANDS BETWEEN",
-        .filename_pattern = ".sl2",
+        .filename_pattern = "ER0000",
         .magic_signature = "BND4",
         .rules = &ELDEN_RING_RULES,
     },
@@ -177,7 +182,7 @@ pub const BUILTIN_PROFILES = [_]GameProfile{
         .id = "mass_effect_le",
         .title = "Mass Effect 1 LE (बायोवेयर प्रपत्र)",
         .sanskrit_title = "बायोवेयर प्रपत्र // MASS EFFECT",
-        .filename_pattern = ".pcsav",
+        .filename_pattern = "ME1",
         .magic_signature = "\xC1\x83\x2A\x9E",
         .rules = &MASS_EFFECT_RULES,
     },
@@ -199,9 +204,21 @@ test "GameProfile matching - recognized vs unrecognized" {
     try std.testing.expect(elden != null);
     try std.testing.expectEqualStrings("elden_ring", elden.?.id);
 
-    const me = findMatchingProfile("Nyx00_AutoSave.pcsav", "\xC1\x83\x2A\x9E\x00");
-    try std.testing.expect(me != null);
-    try std.testing.expectEqualStrings("mass_effect_le", me.?.id);
+    // Specific Mass Effect 1 save path matches
+    const me1 = findMatchingProfile("Save\\ME1\\Nyx00\\AutoSave.pcsav", "\xC1\x83\x2A\x9E\x00");
+    try std.testing.expect(me1 != null);
+    try std.testing.expectEqualStrings("mass_effect_le", me1.?.id);
+
+    // Other games sharing .pcsav (e.g. Death Stranding, Dragon Age, or ME2/ME3) must NOT match ME1
+    const death_stranding = findMatchingProfile("DeathStranding.pcsav", "\x00\x01\x02\x03\x04");
+    try std.testing.expect(death_stranding == null);
+
+    const dragon_age = findMatchingProfile("DragonAge_Save.pcsav", "\xC1\x83\x2A\x9E\x00");
+    try std.testing.expect(dragon_age == null);
+
+    // Other games sharing .dat must NOT match Cyberpunk
+    const minecraft_dat = findMatchingProfile("level.dat", "\x1F\x8B\x08\x00");
+    try std.testing.expect(minecraft_dat == null);
 
     // Unrecognized file must return null
     const unknown = findMatchingProfile("random_game.sav", "\x00\x01\x02\x03");
