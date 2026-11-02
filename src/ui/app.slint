@@ -593,6 +593,12 @@ export component ProcessPickerRow inherits Rectangle {
 }
 
 export component SaveKeyValueRow inherits Rectangle {
+    in property <length> col_offset_w: 100px;
+    in property <length> col_key_w: 170px;
+    in property <length> col_type_w: 95px;
+    in property <length> col_conf_w: 95px;
+    in property <length> col_hex_w: 85px;
+
     in property <string> offset_str: "0x0000";
     in property <string> key_name: "UNKNOWN_KEY";
     in property <string> type_str: "i32";
@@ -611,127 +617,206 @@ export component SaveKeyValueRow inherits Rectangle {
     touch := TouchArea { }
 
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 8px;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 0px;
         alignment: center;
 
-        // 1. Offset / Sthana
-        Text {
-            text: root.offset_str;
-            width: 90px;
-            font-size: 10px;
-            font-weight: 700;
-            color: #38bdf8;
-            font-family: "Consolas, monospace";
-            overflow: elide;
-            vertical-alignment: center;
-        }
-
-        // 2. Key Identifier / Property Name (Lakshana)
-        HorizontalLayout {
-            width: 165px;
-            spacing: 5px;
-            alignment: start;
-            Text {
-                text: "🔑";
-                font-size: 10px;
-                vertical-alignment: center;
-            }
-            Text {
-                text: root.key_name;
-                font-size: 11px;
-                font-weight: 800;
-                color: #f1f5f9;
-                overflow: elide;
-                vertical-alignment: center;
-            }
-        }
-
-        // 3. Type (Rupa)
+        // 1. Offset / Sthana (Left-aligned, monospace, clean padding)
         Rectangle {
-            width: 110px;
-            height: 22px;
-            background: #ca8a0422;
-            border-radius: 4px;
-            border-width: 1px;
-            border-color: #ca8a0455;
+            width: root.col_offset_w;
+            clip: true;
             HorizontalLayout {
-                padding-left: 6px;
-                padding-right: 6px;
+                padding-left: 4px;
+                padding-right: 8px;
+                alignment: start;
                 Text {
-                    text: root.type_str;
-                    font-size: 9px;
+                    text: root.offset_str;
+                    font-size: 10px;
                     font-weight: 700;
-                    color: #facc15;
+                    color: #38bdf8;
+                    font-family: "Consolas, monospace";
                     overflow: elide;
                     vertical-alignment: center;
                 }
             }
         }
 
-        // 4. Confidence (Vishwas)
+        // Divider Spacer 1
+        Rectangle { width: 8px; }
+
+        // 2. Key Identifier / Property Name (Lakshana) - Left-aligned, bold, key icon
         Rectangle {
-            width: 85px;
-            height: 22px;
-            background: #22c55e22;
-            border-radius: 4px;
-            border-width: 1px;
-            border-color: #22c55e55;
+            width: root.col_key_w;
+            clip: true;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 6px;
+                alignment: start;
+                Text {
+                    text: "🔑";
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.key_name;
+                    font-size: 11px;
+                    font-weight: 800;
+                    color: #f1f5f9;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Divider Spacer 2
+        Rectangle { width: 8px; }
+
+        // 3. Type (Rupa) - Cleanly centered amber badge
+        Rectangle {
+            width: root.col_type_w;
+            clip: true;
             HorizontalLayout {
                 padding-left: 4px;
                 padding-right: 4px;
-                Text {
-                    text: root.conf_str;
-                    font-size: 9px;
-                    font-weight: 700;
-                    color: #4ade80;
-                    overflow: elide;
-                    vertical-alignment: center;
+                alignment: center;
+                Rectangle {
+                    height: 24px;
+                    background: #ca8a0422;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: #ca8a0455;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.type_str;
+                            font-size: 9px;
+                            font-weight: 700;
+                            color: #facc15;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
                 }
             }
         }
 
-        // 5. Hex Dump
-        Text {
-            text: root.hex_str;
-            width: 80px;
-            font-size: 10px;
-            color: #94a3b8;
-            font-family: "Consolas, monospace";
-            vertical-alignment: center;
-        }
+        // Divider Spacer 3
+        Rectangle { width: 8px; }
 
-        // 6. Pre-loaded Editable Value
-        LineEdit {
-            text <=> root.val_str;
-            horizontal-stretch: 1;
-            min-width: 80px;
-            height: 32px;
-            font-size: 12px;
-        }
-
-        // 7. Action Button
+        // 4. Confidence (Vishwas) - Cleanly centered emerald pill badge
         Rectangle {
-            width: 64px;
-            height: 30px;
-            background: btn_touch.has_hover ? #0284c7 : #1e3a5f;
-            border-radius: 4px;
-            border-width: 1px;
-            border-color: #38bdf8;
-            btn_touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => {
-                    root.write_clicked(root.val_str);
+            width: root.col_conf_w;
+            clip: true;
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                alignment: center;
+                Rectangle {
+                    height: 24px;
+                    background: #22c55e22;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: #22c55e55;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.conf_str;
+                            font-size: 9px;
+                            font-weight: 700;
+                            color: #4ade80;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
                 }
             }
-            Text {
-                text: "WRITE ✎";
-                font-size: 10px;
-                font-weight: 800;
-                color: #ffffff;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+        }
+
+        // Divider Spacer 4
+        Rectangle { width: 8px; }
+
+        // 5. Hex Dump - Cleanly centered monospace
+        Rectangle {
+            width: root.col_hex_w;
+            clip: true;
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                alignment: center;
+                Rectangle {
+                    height: 22px;
+                    background: #1e293b44;
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: #33415555;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.hex_str;
+                            font-size: 10px;
+                            font-family: "Consolas, monospace";
+                            color: #94a3b8;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Divider Spacer 5
+        Rectangle { width: 8px; }
+
+        // 6. Pre-loaded Editable Value - Stretching with clean padding
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 90px;
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 8px;
+                LineEdit {
+                    text <=> root.val_str;
+                    height: 32px;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        // 7. Action Button - Cleanly centered
+        Rectangle {
+            width: 76px;
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 70px;
+                    height: 30px;
+                    background: btn_touch.has_hover ? #0284c7 : #1e3a5f;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: #38bdf8;
+                    btn_touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.write_clicked(root.val_str);
+                        }
+                    }
+                    Text {
+                        text: "WRITE ✎";
+                        font-size: 10px;
+                        font-weight: 800;
+                        color: #ffffff;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
             }
         }
     }
@@ -857,6 +942,8 @@ export component ScanResultRow inherits Rectangle {
 
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
+    preferred-width: 1360px;
+    preferred-height: 820px;
     min-width: 1180px;
     min-height: 760px;
     default-font-family: "Segoe UI, sans-serif";
@@ -1490,6 +1577,13 @@ export component MainWindow inherits Window {
     in-out property <[SaveKeyValueRowData]> save_rows: LiveSave.rows;
     in-out property <int> save_extracted_count: LiveSave.total_extracted_count;
     in-out property <bool> is_deterministic: LiveSave.is_deterministic_profile;
+
+    // Resizable Column Widths for Save Editor Table
+    in-out property <length> col_width_offset: 100px;
+    in-out property <length> col_width_key: 170px;
+    in-out property <length> col_width_type: 95px;
+    in-out property <length> col_width_conf: 95px;
+    in-out property <length> col_width_hex: 85px;
 
     // 10 Unified Extracted Key-Value Rows (सर्वेक्षण सारणी)
     in-out property <string> save_row_0_offset: LiveSave.row_0_offset;
@@ -3154,27 +3248,242 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Table Column Headers
+                        // Table Column Headers (with Interactive Column Resizers & Justified Headers)
                         Rectangle {
-                            height: 32px;
-                            background: #0d1626cc;
-                            border-radius: 4px;
+                            height: 36px;
+                            background: #0d1626ee;
+                            border-radius: 5px;
                             border-width: 1px;
                             border-color: #1e293b;
 
                             HorizontalLayout {
-                                padding-left: 8px;
-                                padding-right: 8px;
-                                spacing: 8px;
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                spacing: 0px;
                                 alignment: center;
 
-                                Text { text: "OFFSET"; width: 90px; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
-                                Text { text: "KEY IDENTIFIER (लक्षण)"; width: 165px; font-size: 10px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
-                                Text { text: "TYPE (रूप)"; width: 110px; font-size: 10px; font-weight: 800; color: #eab308; vertical-alignment: center; }
-                                Text { text: "CONFIDENCE"; width: 85px; font-size: 10px; font-weight: 800; color: #4ade80; vertical-alignment: center; }
-                                Text { text: "HEX DUMP"; width: 80px; font-size: 10px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
-                                Text { text: "PRE-LOADED VALUE (तत्त्व // EDITABLE)"; horizontal-stretch: 1; min-width: 90px; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
-                                Text { text: "ACTION"; width: 64px; font-size: 10px; font-weight: 800; color: #cbd5e1; horizontal-alignment: center; vertical-alignment: center; }
+                                // 1. Column: OFFSET
+                                Rectangle {
+                                    width: root.col_width_offset;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        padding-left: 4px;
+                                        padding-right: 8px;
+                                        alignment: start;
+                                        Text {
+                                            text: "OFFSET";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #38bdf8;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Resizer 1 (Offset -> Key)
+                                Rectangle {
+                                    width: 8px;
+                                    background: transparent;
+                                    Rectangle {
+                                        width: 2px;
+                                        height: 18px;
+                                        background: resizer_1.has_hover ? #38bdf8 : #33415588;
+                                        border-radius: 1px;
+                                    }
+                                    resizer_1 := TouchArea {
+                                        mouse-cursor: col-resize;
+                                        moved => {
+                                            root.col_width_offset = max(70px, min(320px, root.col_width_offset + (self.mouse-x - self.pressed-x)));
+                                        }
+                                    }
+                                }
+
+                                // 2. Column: KEY IDENTIFIER
+                                Rectangle {
+                                    width: root.col_width_key;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        alignment: start;
+                                        Text {
+                                            text: "KEY IDENTIFIER (लक्षण)";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #f8fafc;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Resizer 2 (Key -> Type)
+                                Rectangle {
+                                    width: 8px;
+                                    background: transparent;
+                                    Rectangle {
+                                        width: 2px;
+                                        height: 18px;
+                                        background: resizer_2.has_hover ? #38bdf8 : #33415588;
+                                        border-radius: 1px;
+                                    }
+                                    resizer_2 := TouchArea {
+                                        mouse-cursor: col-resize;
+                                        moved => {
+                                            root.col_width_key = max(100px, min(480px, root.col_width_key + (self.mouse-x - self.pressed-x)));
+                                        }
+                                    }
+                                }
+
+                                // 3. Column: TYPE
+                                Rectangle {
+                                    width: root.col_width_type;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        padding-left: 4px;
+                                        padding-right: 4px;
+                                        alignment: center;
+                                        Text {
+                                            text: "TYPE (रूप)";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #eab308;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Resizer 3 (Type -> Conf)
+                                Rectangle {
+                                    width: 8px;
+                                    background: transparent;
+                                    Rectangle {
+                                        width: 2px;
+                                        height: 18px;
+                                        background: resizer_3.has_hover ? #38bdf8 : #33415588;
+                                        border-radius: 1px;
+                                    }
+                                    resizer_3 := TouchArea {
+                                        mouse-cursor: col-resize;
+                                        moved => {
+                                            root.col_width_type = max(70px, min(260px, root.col_width_type + (self.mouse-x - self.pressed-x)));
+                                        }
+                                    }
+                                }
+
+                                // 4. Column: CONFIDENCE
+                                Rectangle {
+                                    width: root.col_width_conf;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        padding-left: 4px;
+                                        padding-right: 4px;
+                                        alignment: center;
+                                        Text {
+                                            text: "CONFIDENCE";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #4ade80;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Resizer 4 (Conf -> Hex)
+                                Rectangle {
+                                    width: 8px;
+                                    background: transparent;
+                                    Rectangle {
+                                        width: 2px;
+                                        height: 18px;
+                                        background: resizer_4.has_hover ? #38bdf8 : #33415588;
+                                        border-radius: 1px;
+                                    }
+                                    resizer_4 := TouchArea {
+                                        mouse-cursor: col-resize;
+                                        moved => {
+                                            root.col_width_conf = max(70px, min(240px, root.col_width_conf + (self.mouse-x - self.pressed-x)));
+                                        }
+                                    }
+                                }
+
+                                // 5. Column: HEX DUMP
+                                Rectangle {
+                                    width: root.col_width_hex;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        padding-left: 4px;
+                                        padding-right: 4px;
+                                        alignment: center;
+                                        Text {
+                                            text: "HEX DUMP";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #94a3b8;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Resizer 5 (Hex -> Value)
+                                Rectangle {
+                                    width: 8px;
+                                    background: transparent;
+                                    Rectangle {
+                                        width: 2px;
+                                        height: 18px;
+                                        background: resizer_5.has_hover ? #38bdf8 : #33415588;
+                                        border-radius: 1px;
+                                    }
+                                    resizer_5 := TouchArea {
+                                        mouse-cursor: col-resize;
+                                        moved => {
+                                            root.col_width_hex = max(65px, min(220px, root.col_width_hex + (self.mouse-x - self.pressed-x)));
+                                        }
+                                    }
+                                }
+
+                                // 6. Column: PRE-LOADED VALUE (Stretching)
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    min-width: 90px;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        alignment: start;
+                                        Text {
+                                            text: "VALUE (तत्त्व)";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #38bdf8;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // 7. Column: ACTION
+                                Rectangle {
+                                    width: 76px;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Text {
+                                            text: "ACTION";
+                                            font-size: 10px;
+                                            font-weight: 800;
+                                            letter-spacing: 0.5px;
+                                            color: #cbd5e1;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -3187,6 +3496,11 @@ export component MainWindow inherits Window {
                                 spacing: 4px;
 
                                 for row[idx] in root.save_rows: SaveKeyValueRow {
+                                    col_offset_w: root.col_width_offset;
+                                    col_key_w: root.col_width_key;
+                                    col_type_w: root.col_width_type;
+                                    col_conf_w: root.col_width_conf;
+                                    col_hex_w: root.col_width_hex;
                                     offset_str: row.offset;
                                     key_name: row.key;
                                     type_str: row.type_name;
