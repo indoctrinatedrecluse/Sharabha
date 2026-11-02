@@ -1626,7 +1626,7 @@ export component MainWindow inherits Window {
     in-out property <string> vault_status_msg: "DPAPI Encrypted Vault Ready (मुद्रित)";
 
     // Dual-Mode Save Editor Properties (Agama vs. Pravaha)
-    in-out property <int> save_view_mode: 0; // 0=Agama Deterministic, 1=Pravaha Fuzzy Raw Table
+    in-out property <int> save_view_mode: 1; // 1=Pravaha Fuzzy Raw Table (Default), 0=Agama Deterministic [WIP]
     in-out property <string> save_game_title: LiveSave.game_title;
     in-out property <string> save_filename: LiveSave.filename;
     in-out property <string> save_checksum_info: LiveSave.checksum_info;
@@ -3062,7 +3062,7 @@ export component MainWindow inherits Window {
                                                 padding-left: 6px;
                                                 padding-right: 6px;
                                                 Text {
-                                                    text: root.is_deterministic ? "Deterministic Agama (प्रमाण)" : "Generic Fuzzy Overseer (प्रवाह)";
+                                                    text: root.is_deterministic ? "Agama Deterministic [WIP] (प्रमाण आगम)" : "Pravaha Fuzzy Overseer (सूक्ष्म रेखा)";
                                                     font-size: 10px;
                                                     font-weight: 700;
                                                     color: root.is_deterministic ? #4ade80 : #facc15;
@@ -4027,8 +4027,8 @@ export component MainWindow inherits Window {
 
                         PaletteItemRow {
                             icon_text: "🏛️";
-                            title: "Toggle Agama / Pravaha View";
-                            devanagari: "दर्शन रूप (Agama / Fuzzy)";
+                            title: "Toggle Agama [WIP] / Pravaha Fuzzy View";
+                            devanagari: "दर्शन रूप (Agama [WIP] / Fuzzy)";
                             category: "SAVE";
                             tag_color: #eab308;
                             shortcut_hint: "Toggle";

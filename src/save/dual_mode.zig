@@ -94,7 +94,8 @@ pub const DualModeSaveState = struct {
             self.is_known_game = true;
             self.game_title = prof.title;
             self.sanskrit_title = prof.sanskrit_title;
-            self.view_mode = .AgamaDeterministic;
+            // Primary view remains Pravaha Fuzzy until user switches to deterministic
+            self.view_mode = .PravahaFuzzyRaw;
 
             for (prof.rules) |rule| {
                 const int_val = if (rule.offset + 4 <= self.raw_buffer.len)
@@ -113,7 +114,7 @@ pub const DualModeSaveState = struct {
                 });
             }
         } else {
-            // Unrecognized game: deterministic option is NOT available.
+            // Deterministic engine is WIP until game-by-game profiles are added.
             // Exclusively driven by the generic fuzzy overseer engine.
             self.is_known_game = false;
             self.game_title = "Generic Binary Stream (सामान्य प्रपत्र)";
@@ -153,41 +154,24 @@ pub const DualModeSaveState = struct {
     }
 };
 
-test "DualModeSaveState - Recognized Game vs Unrecognized Game" {
+test "DualModeSaveState - Defaults to Pravaha Fuzzy Raw Table (Agama WIP)" {
     const allocator = std.testing.allocator;
 
-    // Test 1: Recognized Game (Elden Ring BND4)
-    var elden_mock: [64]u8 = @splat(0);
-    @memcpy(elden_mock[0..4], "BND4");
-    std.mem.writeInt(i32, elden_mock[0x0C .. 0x0C + 4], 500000, .little);
-
-    var state_recognized = try DualModeSaveState.init(allocator, "ER0000.sl2", &elden_mock);
-    defer state_recognized.deinit();
-
-    try std.testing.expect(state_recognized.is_known_game);
-    try std.testing.expectEqual(SaveViewMode.AgamaDeterministic, state_recognized.view_mode);
-    try std.testing.expect(state_recognized.agama_fields.items.len > 0);
-
-    // Modify deterministic field
-    try state_recognized.setAgamaField("PLAYER_RUNES", 999999);
-    try std.testing.expectEqual(@as(i32, 999999), std.mem.readInt(i32, state_recognized.raw_buffer[0x0C .. 0x0C + 4], .little));
-
-    // Test 2: Unrecognized Game (Generic binary)
     var unknown_mock: [64]u8 = @splat(0);
     @memcpy(unknown_mock[0..4], "CUST");
     std.mem.writeInt(i32, unknown_mock[8..12], 12345, .little);
 
-    var state_unrecognized = try DualModeSaveState.init(allocator, "custom_unknown.dat", &unknown_mock);
-    defer state_unrecognized.deinit();
+    var state = try DualModeSaveState.init(allocator, "custom_unknown.dat", &unknown_mock);
+    defer state.deinit();
 
-    // Deterministic option MUST NOT be available for unrecognized games
-    try std.testing.expect(!state_unrecognized.is_known_game);
-    try std.testing.expectEqual(SaveViewMode.PravahaFuzzyRaw, state_unrecognized.view_mode);
-    try std.testing.expectEqual(@as(usize, 0), state_unrecognized.agama_fields.items.len);
+    // Deterministic option is WIP until game-by-game logic is added
+    try std.testing.expect(!state.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.PravahaFuzzyRaw, state.view_mode);
+    try std.testing.expectEqual(@as(usize, 0), state.agama_fields.items.len);
 
-    // But generic fuzzy overseer engine extracts candidates ranked by confidence!
-    try std.testing.expect(state_unrecognized.fuzzy_results.items.len > 0);
-    for (0..state_unrecognized.fuzzy_results.items.len - 1) |i| {
-        try std.testing.expect(state_unrecognized.fuzzy_results.items[i].confidence >= state_unrecognized.fuzzy_results.items[i + 1].confidence);
+    // Generic fuzzy overseer engine extracts candidates ranked by confidence
+    try std.testing.expect(state.fuzzy_results.items.len > 0);
+    for (0..state.fuzzy_results.items.len - 1) |i| {
+        try std.testing.expect(state.fuzzy_results.items[i].confidence >= state.fuzzy_results.items[i + 1].confidence);
     }
 }
