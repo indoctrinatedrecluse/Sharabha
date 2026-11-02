@@ -185,6 +185,10 @@ pub fn main() !void {
         }
     }
 
+    // Run pre-installer state detection
+    const check_cmd = try std.fmt.allocPrint(allocator, "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \"{s}\\tools\\installer_check.ps1\" -WorkingDir \"{s}\"", .{ staging_dir, staging_dir });
+    _ = executeCommandSync(allocator, check_cmd, staging_dir);
+
     // Discover slint-viewer executable
     var slint_exe: []const u8 = "slint-viewer.exe";
     const local_slint = try std.fmt.allocPrint(allocator, "{s}\\bin\\slint-viewer.exe", .{staging_dir});
@@ -208,13 +212,13 @@ pub fn main() !void {
         }
     }
 
-    // Assemble Installer Slint Invocation directly launching slint-viewer
+    // Assemble Installer Slint Invocation directly launching slint-viewer with hidden background execution
     const cmd = try std.fmt.allocPrint(allocator,
-        "\"{s}\" \"{s}\\src\\ui\\installer.slint\" " ++
-        "--on browse_dir \"{s}\\tools\\installer_browse.cmd\" " ++
-        "--on start_install \"\\\"{s}\\tools\\installer_start.cmd\\\" $1 $2 $3 $4\" " ++
-        "--on finish_install \"\\\"{s}\\tools\\installer_finish.cmd\\\" $1\" " ++
-        "--on cancel \"{s}\\tools\\installer_cancel.cmd\"",
+        "\"{s}\" \"{s}\\src\\ui\\installer.slint\" --auto-reload " ++
+        "--on browse_dir \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_browse.ps1\\\"\" " ++
+        "--on start_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_logic.ps1\\\" -SourcePath \\\"{s}\\\" -TargetPath \\\"$1\\\" -DesktopFlag \\\"$2\\\" -StartMenuFlag \\\"$3\\\" -LaunchFlag \\\"$4\\\"\" " ++
+        "--on finish_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_finish.ps1\\\" -LaunchFlag \\\"$1\\\"\" " ++
+        "--on cancel \"taskkill.exe /f /im slint-viewer.exe\"",
         .{ slint_exe, staging_dir, staging_dir, staging_dir, staging_dir, staging_dir }
     );
 
@@ -222,12 +226,13 @@ pub fn main() !void {
     const staging_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, staging_dir);
 
     var si: win.STARTUPINFOW = .{
-        .dwFlags = 0,
+        .dwFlags = 0x00000001,
+        .wShowWindow = 0,
     };
     var pi: win.PROCESS_INFORMATION = undefined;
 
-    // Launch slint-viewer directly and wait for it to close
-    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, 0, null, staging_w.ptr, &si, &pi) != 0) {
+    // Launch slint-viewer directly with CREATE_NO_WINDOW and wait for it to close
+    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, staging_w.ptr, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);

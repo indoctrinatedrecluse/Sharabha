@@ -120,12 +120,14 @@ pub fn main() !void {
 
     const cmd_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, cmd);
 
-    var si: win.STARTUPINFOW = .{};
-    si.dwFlags = 0; // Standard Slint GUI window
+    var si: win.STARTUPINFOW = .{
+        .dwFlags = 0x00000001, // STARTF_USESHOWWINDOW
+        .wShowWindow = 0, // SW_HIDE
+    };
     var pi: win.PROCESS_INFORMATION = undefined;
 
     // Launch without allocating any console window
-    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, 0, null, null, &si, &pi) != 0) {
+    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, null, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);

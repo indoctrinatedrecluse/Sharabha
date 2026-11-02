@@ -1,5 +1,6 @@
 import { Button, LineEdit } from "std-widgets.slint";
 import { SplashAssets } from "splash_frames.slint";
+import { InstallerState } from "installer_state.slint";
 
 /* ==========================================================================
    SHARABHA FLASHY INSTALLER — Shaivite Mysticism & Systems Duality
@@ -17,12 +18,14 @@ export component InstallerWindow inherits Window {
 
     // Installer State
     in-out property <int> page: 0; // 0: Config, 1: Installing, 2: Complete
-    in-out property <string> install_path: "C:\\Users\\RECLUSE\\AppData\\Local\\Programs\\Sharabha";
+    in-out property <string> install_path: InstallerState.detected_install_path;
+    in-out property <bool> is_already_installed: InstallerState.is_already_installed;
+    in-out property <string> installed_version: InstallerState.installed_version;
     in-out property <bool> create_desktop_shortcut: true;
     in-out property <bool> create_start_menu: true;
     in-out property <bool> launch_after_install: true;
     in-out property <float> install_progress: 0.0; // 0.0 to 1.0
-    in-out property <string> install_step_text: "Sanctifying Binaries & Engine Files...";
+    in-out property <string> install_step_text: InstallerState.is_already_installed ? "Updating Binaries & Engine Files..." : "Sanctifying Binaries & Engine Files...";
 
     // Animated Splash Cinema Timer
     in-out property <int> current_frame: 0;
@@ -144,11 +147,13 @@ export component InstallerWindow inherits Window {
                     }
 
                     Text {
-                        text: "THE DUAL ASPECT ENGINE // SACRED SETUP & INSTALLATION (प्रतिष्ठापन)";
+                        text: root.is_already_installed ?
+                            "THE DUAL ASPECT ENGINE // SANCTIFIED VESSEL UPDATE (अद्यतन)" :
+                            "THE DUAL ASPECT ENGINE // SACRED SETUP & INSTALLATION (प्रतिष्ठापन)";
                         font-size: 10px;
                         font-weight: 800;
                         letter-spacing: 1.5px;
-                        color: #eab308;
+                        color: root.is_already_installed ? #38bdf8 : #eab308;
                     }
                 }
             }
@@ -158,23 +163,23 @@ export component InstallerWindow inherits Window {
                 alignment: center;
                 Rectangle {
                     height: 28px;
-                    background: #162032b8;
+                    background: root.is_already_installed ? #0284c725 : #162032b8;
                     border-radius: 6px;
                     border-width: 1px;
-                    border-color: #38bdf855;
+                    border-color: root.is_already_installed ? #38bdf8aa : #38bdf855;
                     HorizontalLayout {
                         padding-left: 12px;
                         padding-right: 12px;
                         spacing: 6px;
                         alignment: center;
                         Text {
-                            text: "☸";
+                            text: root.is_already_installed ? "🔄" : "☸";
                             font-size: 12px;
                             color: #38bdf8;
                             vertical-alignment: center;
                         }
                         Text {
-                            text: "Windows x64 Native Vessel";
+                            text: root.is_already_installed ? ("Installed: v" + root.installed_version + " • Update Ready") : "Windows x64 Native Vessel";
                             font-size: 11px;
                             font-weight: 700;
                             color: #38bdf8;
@@ -202,19 +207,21 @@ export component InstallerWindow inherits Window {
                 background: #0d1626a8;
                 border-radius: 8px;
                 border-width: 1px;
-                border-color: #1e293b;
+                border-color: root.is_already_installed ? #0284c755 : #1e293b;
 
                 VerticalLayout {
                     padding: 16px;
                     spacing: 6px;
                     Text {
-                        text: "Welcome to the Sharabha Consecration Setup";
+                        text: root.is_already_installed ? "Existing Sharabha Vessel Detected on this System" : "Welcome to the Sharabha Consecration Setup";
                         font-size: 14px;
                         font-weight: 800;
                         color: #f1f5f9;
                     }
                     Text {
-                        text: "This wizard will install the complete Sharabha Dual Aspect Engine suite on your PC, including Rudra Tandava memory scanning, Kalyana Sthiti multi-format save forging, Chitrapata hardware video pipelines, and the DPAPI-encrypted Gupta Kosha.";
+                        text: root.is_already_installed ?
+                            "An active installation of Sharabha was detected. Proceeding will update all core binaries, memory inquest engines, video media, and Slint UI declarations to v0.1.0 without disturbing your saved states or DPAPI vault." :
+                            "This wizard will install the complete Sharabha Dual Aspect Engine suite on your PC, including Rudra Tandava memory scanning, Kalyana Sthiti multi-format save forging, Chitrapata hardware video pipelines, and the DPAPI-encrypted Gupta Kosha.";
                         font-size: 12px;
                         color: #94a3b8;
                         wrap: word-wrap;
@@ -227,7 +234,7 @@ export component InstallerWindow inherits Window {
                 spacing: 8px;
 
                 Text {
-                    text: "DESTINATION VESSEL (प्रतिष्ठापन स्थान):";
+                    text: root.is_already_installed ? "ACTIVE INSTALLATION VESSEL (अद्यतन स्थान):" : "DESTINATION VESSEL (प्रतिष्ठापन स्थान):";
                     font-size: 11px;
                     font-weight: 800;
                     letter-spacing: 1px;
@@ -432,7 +439,7 @@ export component InstallerWindow inherits Window {
                 alignment: center;
 
                 Text {
-                    text: "CONSECRATING SHARABHA (संस्थापन क्रियमाण)...";
+                    text: root.is_already_installed ? "UPDATING SHARABHA (संस्थापन नवीनीकरण)..." : "CONSECRATING SHARABHA (संस्थापन क्रियमाण)...";
                     font-size: 16px;
                     font-weight: 900;
                     letter-spacing: 2px;
@@ -516,7 +523,7 @@ export component InstallerWindow inherits Window {
                 }
 
                 Text {
-                    text: "CONSECRATION COMPLETE (प्रतिष्ठा सम्पन्न)";
+                    text: root.is_already_installed ? "UPDATE COMPLETE (अद्यतन सम्पन्न)" : "CONSECRATION COMPLETE (प्रतिष्ठा सम्पन्न)";
                     font-size: 18px;
                     font-weight: 900;
                     letter-spacing: 2px;
@@ -525,7 +532,9 @@ export component InstallerWindow inherits Window {
                 }
 
                 Text {
-                    text: "Sharabha v0.1.0 has been sanctified and registered on this system.";
+                    text: root.is_already_installed ?
+                        "Sharabha v0.1.0 has been sanctified and successfully updated on this PC." :
+                        "Sharabha v0.1.0 has been sanctified and registered on this system.";
                     font-size: 13px;
                     color: #cbd5e1;
                     horizontal-alignment: center;
@@ -630,9 +639,9 @@ export component InstallerWindow inherits Window {
                 spacing: 12px;
 
                 if root.page == 0: Rectangle {
-                    width: 240px;
+                    width: 250px;
                     height: 44px;
-                    background: #ff4d2e;
+                    background: root.is_already_installed ? #0284c7 : #ff4d2e;
                     border-radius: 6px;
                     TouchArea {
                         clicked => {
@@ -644,12 +653,12 @@ export component InstallerWindow inherits Window {
                         spacing: 8px;
                         alignment: center;
                         Text {
-                            text: "🔱";
+                            text: root.is_already_installed ? "🔄" : "🔱";
                             font-size: 14px;
                             vertical-alignment: center;
                         }
                         Text {
-                            text: "INSTALL // संस्थापन प्रारंभ";
+                            text: root.is_already_installed ? "UPDATE // अद्यतन प्रारंभ" : "INSTALL // संस्थापन प्रारंभ";
                             font-size: 12px;
                             font-weight: 900;
                             letter-spacing: 1px;
