@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Position=0)]
-    [ValidateSet("Attach", "Scan", "Rescan", "Write", "Freeze", "Reset", "List")]
+    [ValidateSet("Attach", "Scan", "Rescan", "Write", "Freeze", "Reset", "List", "PointerScan", "PointerResolve", "Disasm", "WatchWrites", "FreezeStatus")]
     [string]$Action = "Scan",
 
     [Parameter(Position=1)]
@@ -20,7 +20,14 @@ param(
     [string]$TargetAddress = "",
     [int]$TargetPid = 0,
     [bool]$FreezeState = $true,
-    [string]$RescanType = "EXACT"
+    [string]$RescanType = "EXACT",
+    [int]$MaxDepth = 4,
+    [string]$MaxOffset = "4096",
+    [string]$BaseModule = "game.exe",
+    [string]$BaseOffset = "0x0",
+    [string[]]$Offsets = @(),
+    [int]$InstructionCount = 16,
+    [int]$TimeoutMs = 3000
 )
 
 $cliExe = Join-Path $PSScriptRoot "..\zig-out\bin\SharabhaCli.exe"
@@ -64,5 +71,33 @@ switch ($Action) {
     }
     "List" {
         & $cliExe --list-processes
+    }
+    "FreezeStatus" {
+        & $cliExe --freeze-status
+    }
+    "PointerScan" {
+        if (-not $TargetAddress) {
+            Write-Error "TargetAddress required for PointerScan action."
+            exit 1
+        }
+        & $cliExe --pointer-scan $TargetAddress $MaxDepth $MaxOffset
+    }
+    "PointerResolve" {
+        $offsetArgs = $Offsets -join " "
+        & $cliExe --pointer-resolve $BaseModule $BaseOffset $offsetArgs
+    }
+    "Disasm" {
+        if (-not $TargetAddress) {
+            Write-Error "TargetAddress required for Disasm action."
+            exit 1
+        }
+        & $cliExe --disasm $TargetAddress $InstructionCount
+    }
+    "WatchWrites" {
+        if (-not $TargetAddress) {
+            Write-Error "TargetAddress required for WatchWrites action."
+            exit 1
+        }
+        & $cliExe --watch-writes $TargetAddress $TimeoutMs
     }
 }

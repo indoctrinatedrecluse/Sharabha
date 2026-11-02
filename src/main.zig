@@ -134,6 +134,81 @@ pub fn main() !void {
         return;
     }
 
+    if (std.mem.indexOf(u8, cmd_utf8, "--freeze-daemon") != null) {
+        Sharabha.engine_service.handleFreezeDaemon(allocator) catch |err| {
+            std.debug.print("  ❌ [Freeze Daemon Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--freeze-status") != null) {
+        Sharabha.engine_service.handleFreezeStatus(allocator) catch |err| {
+            std.debug.print("  ❌ [Freeze Status Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--pointer-scan")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--pointer-scan".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const addr_str = parts.next() orelse "";
+        const depth_str = parts.next();
+        const offset_str = parts.next();
+
+        Sharabha.engine_service.handlePointerScan(allocator, addr_str, depth_str, offset_str) catch |err| {
+            std.debug.print("  ❌ [Pointer Scan Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--pointer-resolve")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--pointer-resolve".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const mod_name = parts.next() orelse "game.exe";
+        const base_off_str = parts.next() orelse "0x0";
+
+        var offsets: std.ArrayList([]const u8) = .empty;
+        defer offsets.deinit(allocator);
+        while (parts.next()) |off| {
+            try offsets.append(allocator, off);
+        }
+
+        _ = Sharabha.engine_service.handlePointerResolve(allocator, mod_name, base_off_str, offsets.items) catch |err| {
+            std.debug.print("  ❌ [Pointer Resolve Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--disasm")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--disasm".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const addr_str = parts.next() orelse "";
+        const count_str = parts.next();
+
+        Sharabha.engine_service.handleDisasm(allocator, addr_str, count_str) catch |err| {
+            std.debug.print("  ❌ [Disassembly Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--watch-writes")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--watch-writes".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const addr_str = parts.next() orelse "";
+        const timeout_str = parts.next();
+
+        Sharabha.engine_service.handleWatchWrites(allocator, addr_str, timeout_str) catch |err| {
+            std.debug.print("  ❌ [Watch Writes Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
     if (std.mem.indexOf(u8, cmd_utf8, "--run-lua")) |idx| {
         const script_raw = std.mem.trim(u8, cmd_utf8[idx + "--run-lua".len..], " \"'");
         const script = if (script_raw.len > 0) script_raw else "print('🔱 Sharabha LuaJIT: Ashtamurti Sentinel Online')\nsharabha.write_u32(0x140001000, 999999)";

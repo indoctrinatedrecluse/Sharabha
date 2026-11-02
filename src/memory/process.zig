@@ -12,8 +12,13 @@ pub const ProcessEntry = struct {
 
 pub const win = struct {
     pub const HANDLE = *anyopaque;
+    pub const HMODULE = *anyopaque;
     pub const INVALID_HANDLE_VALUE: HANDLE = @ptrFromInt(std.math.maxInt(usize));
     pub const TH32CS_SNAPPROCESS: u32 = 0x00000002;
+    pub const TH32CS_SNAPMODULE: u32 = 0x00000008;
+    pub const TH32CS_SNAPMODULE32: u32 = 0x00000010;
+    pub const TH32CS_SNAPTHREAD: u32 = 0x00000004;
+
     pub const PROCESS_ALL_ACCESS: u32 = 0x001F0FFF;
     pub const PROCESS_VM_READ: u32 = 0x0010;
     pub const PROCESS_VM_WRITE: u32 = 0x0020;
@@ -33,9 +38,24 @@ pub const win = struct {
         szExeFile: [260]u16,
     };
 
+    pub const MODULEENTRY32W = extern struct {
+        dwSize: u32,
+        th32ModuleID: u32,
+        th32ProcessID: u32,
+        GlblcntUsage: u32,
+        ProccntUsage: u32,
+        modBaseAddr: ?*u8,
+        modBaseSize: u32,
+        hModule: ?HANDLE,
+        szModule: [256]u16,
+        szExePath: [260]u16,
+    };
+
     pub extern "kernel32" fn CreateToolhelp32Snapshot(dwFlags: u32, th32ProcessID: u32) callconv(.winapi) HANDLE;
     pub extern "kernel32" fn Process32FirstW(hSnapshot: HANDLE, lppe: *PROCESSENTRY32W) callconv(.winapi) i32;
     pub extern "kernel32" fn Process32NextW(hSnapshot: HANDLE, lppe: *PROCESSENTRY32W) callconv(.winapi) i32;
+    pub extern "kernel32" fn Module32FirstW(hSnapshot: HANDLE, lpme: *MODULEENTRY32W) callconv(.winapi) i32;
+    pub extern "kernel32" fn Module32NextW(hSnapshot: HANDLE, lpme: *MODULEENTRY32W) callconv(.winapi) i32;
     pub extern "kernel32" fn CloseHandle(hObject: HANDLE) callconv(.winapi) i32;
     pub extern "kernel32" fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) callconv(.winapi) ?HANDLE;
     pub extern "kernel32" fn ReadProcessMemory(hProcess: HANDLE, lpBaseAddress: ?*const anyopaque, lpBuffer: *anyopaque, nSize: usize, lpNumberOfBytesRead: ?*usize) callconv(.winapi) i32;
@@ -91,6 +111,70 @@ pub const ProcessIterator = struct {
         var i: usize = 0;
         while (i < 260 and self.entry.szExeFile[i] != 0) : (i += 1) {}
         const wide_slice = self.entry.szExeFile[0..i];
+        const utf8_len = std.unicode.utf16LeToUtf8(&result.name, wide_slice) catch {
+            return result;
+        };
+        result.name_len = utf8_len;
+
+        return result;
+    }
+};
+
+pub const ModuleEntry = struct {
+    base_address: usize,
+    size: usize,
+    name: [260]u8,
+    name_len: usize,
+
+    pub fn getName(self: *const ModuleEntry) []const u8 {
+        return self.name[0..self.name_len];
+    }
+};
+
+pub const ModuleIterator = struct {
+    snapshot: win.HANDLE,
+    entry: win.MODULEENTRY32W,
+    is_first: bool,
+
+    pub fn init(pid: u32) !ModuleIterator {
+        const hSnap = win.CreateToolhelp32Snapshot(win.TH32CS_SNAPMODULE | win.TH32CS_SNAPMODULE32, pid);
+        if (hSnap == win.INVALID_HANDLE_VALUE) {
+            return error.SnapshotFailed;
+        }
+
+        var entry: win.MODULEENTRY32W = undefined;
+        entry.dwSize = @sizeOf(win.MODULEENTRY32W);
+
+        return ModuleIterator{
+            .snapshot = hSnap,
+            .entry = entry,
+            .is_first = true,
+        };
+    }
+
+    pub fn deinit(self: *ModuleIterator) void {
+        _ = win.CloseHandle(self.snapshot);
+        self.snapshot = win.INVALID_HANDLE_VALUE;
+    }
+
+    pub fn next(self: *ModuleIterator) ?ModuleEntry {
+        const success = if (self.is_first) blk: {
+            self.is_first = false;
+            break :blk win.Module32FirstW(self.snapshot, &self.entry);
+        } else win.Module32NextW(self.snapshot, &self.entry);
+
+        if (success == 0) return null;
+
+        var result: ModuleEntry = .{
+            .base_address = @intFromPtr(self.entry.modBaseAddr),
+            .size = @as(usize, @intCast(self.entry.modBaseSize)),
+            .name = undefined,
+            .name_len = 0,
+        };
+
+        var i: usize = 0;
+        while (i < 256 and self.entry.szModule[i] != 0) : (i += 1) {}
+        const wide_slice = self.entry.szModule[0..i];
         const utf8_len = std.unicode.utf16LeToUtf8(&result.name, wide_slice) catch {
             return result;
         };

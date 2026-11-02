@@ -833,6 +833,9 @@ export component ScanResultRow inherits Rectangle {
     callback freeze_toggled(bool);
     callback pin_clicked();
     callback write_clicked(string);
+    callback ptr_scan_clicked();
+    callback disasm_clicked();
+    callback watch_writes_clicked();
 
     height: 36px;
     background: is_even ? #0c1422cc : #080d16aa;
@@ -934,6 +937,42 @@ export component ScanResultRow inherits Rectangle {
                 hover_color: #0284c7;
                 clicked => {
                     root.write_clicked(root.val_str);
+                }
+            }
+
+            ThematicActionButton {
+                text: "PTR 🔗";
+                devanagari: "व्यूह सूत्र";
+                btn_width: 58px;
+                btn_height: 26px;
+                bg_color: #065f46;
+                hover_color: #059669;
+                clicked => {
+                    root.ptr_scan_clicked();
+                }
+            }
+
+            ThematicActionButton {
+                text: "ASM ⚙";
+                devanagari: "व्याकरण";
+                btn_width: 58px;
+                btn_height: 26px;
+                bg_color: #581c87;
+                hover_color: #7e22ce;
+                clicked => {
+                    root.disasm_clicked();
+                }
+            }
+
+            ThematicActionButton {
+                text: "F6 👁";
+                devanagari: "ताण्डव";
+                btn_width: 52px;
+                btn_height: 26px;
+                bg_color: #831843;
+                hover_color: #be185d;
+                clicked => {
+                    root.watch_writes_clicked();
                 }
             }
         }
@@ -1739,6 +1778,9 @@ export component MainWindow inherits Window {
     callback cycle_data_type();
     callback write_memory_address(string, string);
     callback toggle_freeze_address(string, bool);
+    callback scan_pointer(string);
+    callback disassemble_address(string);
+    callback watch_address_writes(string);
     callback open_save_file();
     callback reparse_save_file();
     callback execute_fuzzy_parse();
@@ -2550,6 +2592,18 @@ export component MainWindow inherits Window {
                                             write_clicked(val) => {
                                                 root.rudra_status_text = "RAM Modified: " + row.address + " set to " + val;
                                                 root.write_memory_address(row.address, val);
+                                            }
+                                            ptr_scan_clicked => {
+                                                root.rudra_status_text = "Vyūha Sūtra: Scanning multi-level pointer chains for " + row.address + "...";
+                                                root.scan_pointer(row.address);
+                                            }
+                                            disasm_clicked => {
+                                                root.rudra_status_text = "Vyākaraṇa: Disassembling instructions at " + row.address + "...";
+                                                root.disassemble_address(row.address);
+                                            }
+                                            watch_writes_clicked => {
+                                                root.rudra_status_text = "Tāṇḍava Netra: Intercepting writes to " + row.address + " [DR0 Breakpoint Armed]...";
+                                                root.watch_address_writes(row.address);
                                             }
                                         }
                                     }

@@ -45,9 +45,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented genuine Win32 `VirtualQueryEx` page crawling across committed, writable virtual memory spaces (`src/memory/scanner.zig`, `src/memory/engine_service.zig`).
   - Full multi-iteration differential filtering supporting `ExactValue`, `IncreasedValue`, `DecreasedValue`, `ChangedValue`, and `UnchangedValue`.
   - Real Win32 `WriteProcessMemory` live RAM mutation with automatic readback verification.
-  - Active `Stambhana Goraksha` memory freeze engine with thread-safe atomic lock enforcement.
   - Dynamic `ScanResultRow` scrollable table in `src/ui/app.slint` rendering real memory addresses in hex, live values, previous values, and data types, with in-place editing, individual `WRITE` triggers, `+ PIN` to cheat table, and `FREEZE` toggling.
   - Binary state persistence (`assets/memory/scan_state.bin`) preserving scan results across CLI invocations.
+- **Multi-Level Pointer Scanner (Vyūha Sūtra // व्यूह सूत्र)**:
+  - High-speed recursive reverse dereference graph traversal (`src/memory/pointer.zig`) to discover pointer paths across arbitrary depths (up to 7 levels) and offsets (up to 4096+ bytes).
+  - Win32 Toolhelp32 module enumeration (`process.ModuleIterator`) identifying static base pointers (`[module.exe + 0xOffset] -> [+0xOffset1] -> ... => 0xTarget`) that remain invariant across ASLR and restarts.
+  - Real-time chain dereference resolver (`resolvePath`) that dereferences live pointer paths through process memory and reports target values.
+  - CLI subcommands: `--pointer-scan <addr> [max_depth] [max_offset]` and `--pointer-resolve <base_module> <base_offset> <offsets...>`.
+  - UI row action button `PTR 🔗` (व्यूह सूत्र) for instantaneous pointer path analysis directly from the memory scanner.
+- **Persistent Active Memory Freeze Sentinel Daemon (Stambhana Goraksha // स्तम्भन गोरक्ष)**:
+  - Dedicated background worker loop (`FreezeDaemon` in `src/memory/freeze.zig`) running at high-frequency 35ms cycles enforcing locked memory values via `WriteProcessMemory`.
+  - Automatic background daemon lifecycle management: auto-spawns silently with `CREATE_NO_WINDOW` on first freeze command, tracks target PID, re-synchronizes with `frozen_entries.txt`, and gracefully terminates when all locks are released.
+  - CLI subcommands: `--freeze-daemon` and `--freeze-status` for live health and active lock inspections.
+- **x86_64 Machine Code Disassembler (Vyākaraṇa // व्याकरण)**:
+  - High-performance pure-Zig instruction decoder and disassembler (`src/memory/disasm.zig`).
+  - Full decoding for REX prefixes, ModR/M, SIB bytes, RIP-relative addressing (`[rip+disp32]`), immediate arithmetic groups (`0x81`/`0x83` add, sub, cmp, xor, and, or), branch/call instructions (`Jcc`, `JMP`, `CALL`, `RET`), register moves, and SSE/AVX vector memory instructions (`movss`, `movsd`).
+  - CLI subcommand: `--disasm <addr> [count]` for inspecting assembly instructions at any process address in hex and mnemonic formats.
+  - UI row action button `ASM ⚙` (व्याकरण) for instant disassembly inspection.
+- **Tāṇḍava Netra Hardware Write Watcher (ताण्डव नेत्र)**:
+  - Non-invasive Win32 Hardware Breakpoint monitor (`src/memory/debugger.zig`, Cheat Engine F6 equivalent).
+  - Uses CPU debug registers (`DR0`..`DR3`, `DR7`) across all target process threads to intercept and catalog instructions that write to watched addresses without crashing the target.
+  - Captures complete register state snapshots (`RAX`, `RBX`, `RCX`, `RDX`, `RSI`, `RDI`, `RBP`, `RSP`, `R8`..`R15`, `RIP`, `EFLAGS`) alongside disassembled instructions.
+  - CLI subcommand: `--watch-writes <addr> [timeout_ms]`.
+  - UI row action button `F6 👁` (ताण्डव) for memory write tracking.
   - Native CLI subcommands (`--attach`, `--scan`, `--rescan`, `--write-mem`, `--freeze-mem`, `--reset-scan`) and PowerShell companion orchestrator (`tools/memory_ops.ps1`).
   - Process picker dialog modal searching and filtering all active host processes.
 - **Universal Command Palette & Knowledge Base**:

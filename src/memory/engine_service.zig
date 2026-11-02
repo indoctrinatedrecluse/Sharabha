@@ -7,6 +7,9 @@ const std = @import("std");
 const process = @import("process.zig");
 const scanner = @import("scanner.zig");
 const freeze = @import("freeze.zig");
+const pointer = @import("pointer.zig");
+const disasm = @import("disasm.zig");
+const debugger = @import("debugger.zig");
 
 pub const win = struct {
     pub const HANDLE = *anyopaque;
@@ -60,6 +63,50 @@ pub const win = struct {
         lpOverlapped: ?*anyopaque,
     ) callconv(.winapi) i32;
 
+    pub const STARTUPINFOA = extern struct {
+        cb: u32 = @sizeOf(STARTUPINFOA),
+        lpReserved: ?[*:0]u8 = null,
+        lpDesktop: ?[*:0]u8 = null,
+        lpTitle: ?[*:0]u8 = null,
+        dwX: u32 = 0,
+        dwY: u32 = 0,
+        dwXSize: u32 = 0,
+        dwYSize: u32 = 0,
+        dwXCountChars: u32 = 0,
+        dwYCountChars: u32 = 0,
+        dwFillAttribute: u32 = 0,
+        dwFlags: u32 = 0x00000001,
+        wShowWindow: u16 = 0,
+        cbReserved2: u16 = 0,
+        lpReserved2: ?*u8 = null,
+        hStdInput: ?HANDLE = null,
+        hStdOutput: ?HANDLE = null,
+        hStdError: ?HANDLE = null,
+    };
+
+    pub const PROCESS_INFORMATION = extern struct {
+        hProcess: HANDLE,
+        hThread: HANDLE,
+        dwProcessId: u32,
+        dwThreadId: u32,
+    };
+
+    pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    pub extern "kernel32" fn CreateProcessA(
+        lpApplicationName: ?[*:0]const u8,
+        lpCommandLine: ?[*:0]u8,
+        lpProcessAttributes: ?*anyopaque,
+        lpThreadAttributes: ?*anyopaque,
+        bInheritHandles: i32,
+        dwCreationFlags: u32,
+        lpEnvironment: ?*anyopaque,
+        lpCurrentDirectory: ?[*:0]const u8,
+        lpStartupInfo: *STARTUPINFOA,
+        lpProcessInformation: *PROCESS_INFORMATION,
+    ) callconv(.winapi) i32;
+
+    pub extern "kernel32" fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) callconv(.winapi) ?HANDLE;
     pub extern "kernel32" fn CloseHandle(hObject: HANDLE) callconv(.winapi) i32;
     pub extern "kernel32" fn CreateDirectoryA(lpPathName: [*:0]const u8, lpSecurityAttributes: ?*anyopaque) callconv(.winapi) i32;
     pub extern "kernel32" fn DeleteFileA(lpFileName: [*:0]const u8) callconv(.winapi) i32;
@@ -72,6 +119,8 @@ pub const win = struct {
 pub const ACTIVE_PID_PATH: [*:0]const u8 = "assets/memory/active_pid.txt";
 pub const SCAN_STATE_PATH: [*:0]const u8 = "assets/memory/scan_state.bin";
 pub const FROZEN_ENTRIES_PATH: [*:0]const u8 = "assets/memory/frozen_entries.txt";
+pub const FREEZE_DAEMON_PID_PATH: [*:0]const u8 = "assets/memory/freeze_daemon_pid.txt";
+pub const POINTER_PATHS_PATH: [*:0]const u8 = "assets/memory/pointer_paths.txt";
 pub const LIVE_SCAN_SLINT_PATH: [*:0]const u8 = "src/ui/live_scan.slint";
 pub const APP_SLINT_PATH: [*:0]const u16 = std.unicode.utf8ToUtf16LeStringLiteral("src/ui/app.slint");
 
@@ -788,6 +837,387 @@ pub fn handleFreezeMem(allocator: std.mem.Allocator, addr_str: []const u8, state
         );
         touchAppSlint();
     } else |_| {}
+
+    if (state_bool) {
+        ensureFreezeDaemonRunning();
+    }
+}
+
+pub fn isFreezeDaemonRunning() ?u32 {
+    var buf: [64]u8 = undefined;
+    const bytes = readFullFile(FREEZE_DAEMON_PID_PATH, &buf) orelse return null;
+    const trimmed = std.mem.trim(u8, buf[0..bytes], " \r\n\t");
+    const pid = std.fmt.parseInt(u32, trimmed, 10) catch return null;
+
+    const h = win.OpenProcess(0x0400, 0, pid);
+    if (h) |handle| {
+        _ = win.CloseHandle(handle);
+        return pid;
+    }
+    return null;
+}
+
+pub fn ensureFreezeDaemonRunning() void {
+    if (isFreezeDaemonRunning() != null) return;
+
+    var si: win.STARTUPINFOA = .{};
+    var pi: win.PROCESS_INFORMATION = undefined;
+
+    var cmd_buf: [256:0]u8 = @splat(0);
+    const cmd_str = "zig-out\\bin\\SharabhaCli.exe --freeze-daemon";
+    @memcpy(cmd_buf[0..cmd_str.len], cmd_str);
+    cmd_buf[cmd_str.len] = 0;
+
+    const ok = win.CreateProcessA(
+        null,
+        @ptrCast(&cmd_buf),
+        null,
+        null,
+        0,
+        win.CREATE_NO_WINDOW,
+        null,
+        null,
+        &si,
+        &pi,
+    );
+
+    if (ok != 0) {
+        _ = win.CloseHandle(pi.hProcess);
+        _ = win.CloseHandle(pi.hThread);
+        std.debug.print("  [✓] Stambhana Background Daemon spawned [PID {d}].\n", .{pi.dwProcessId});
+    }
+}
+
+pub fn handleFreezeDaemon(allocator: std.mem.Allocator) !void {
+    ensureDirectory("assets");
+    ensureDirectory("assets/memory");
+
+    const my_pid = win.GetCurrentProcessId();
+    var pid_buf: [32]u8 = undefined;
+    const pid_str = try std.fmt.bufPrint(&pid_buf, "{d}\n", .{my_pid});
+    try writeFullFile(FREEZE_DAEMON_PID_PATH, pid_str);
+    defer deleteFile(FREEZE_DAEMON_PID_PATH);
+
+    var daemon = freeze.FreezeDaemon.init(allocator, 35);
+    defer daemon.deinit();
+
+    var target_pid: u32 = 0;
+    var target_proc: ?process.ProcessHandle = null;
+    defer {
+        if (target_proc) |*p| p.close();
+    }
+
+    var empty_streak: usize = 0;
+    var read_buf: [8192]u8 = undefined;
+
+    while (true) {
+        // 1. Sync PID
+        if (getActivePid()) |pid| {
+            if (pid != target_pid) {
+                if (target_proc) |*p| p.close();
+                target_proc = process.ProcessHandle.open(pid) catch null;
+                if (target_proc) |*p| {
+                    daemon.manager.attach(p.handle);
+                    target_pid = pid;
+                }
+            }
+        }
+
+        // Check if attached process died
+        if (target_proc == null and target_pid != 0) {
+            break;
+        }
+
+        // 2. Sync entries from file
+        if (readFullFile(FROZEN_ENTRIES_PATH, &read_buf)) |bytes| {
+            const active = daemon.syncFromEntries(read_buf[0..bytes]) catch 0;
+            if (active == 0) {
+                empty_streak += 1;
+            } else {
+                empty_streak = 0;
+                _ = daemon.enforceOnce();
+            }
+        } else {
+            empty_streak += 1;
+        }
+
+        // If inactive for > 1000 cycles (~35 seconds), exit gracefully
+        if (empty_streak > 1000) {
+            break;
+        }
+
+        win.Sleep(daemon.interval_ms);
+    }
+}
+
+pub fn handleFreezeStatus(allocator: std.mem.Allocator) !void {
+    _ = allocator;
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // STAMBHANA FREEZE SENTINEL STATUS\n", .{});
+    std.debug.print("========================================================================\n", .{});
+
+    if (isFreezeDaemonRunning()) |pid| {
+        std.debug.print("  • Daemon State: ACTIVE // Armed Sentinel Loop [PID {d}]\n", .{pid});
+    } else {
+        std.debug.print("  • Daemon State: STANDBY // Disarmed (No active freeze thread)\n", .{});
+    }
+
+    if (getActivePid()) |target_pid| {
+        std.debug.print("  • Target Process: PID {d}\n", .{target_pid});
+    }
+
+    var read_buf: [4096]u8 = undefined;
+    if (readFullFile(FROZEN_ENTRIES_PATH, &read_buf)) |bytes| {
+        var iter = std.mem.tokenizeAny(u8, read_buf[0..bytes], "\r\n");
+        var count: usize = 0;
+        std.debug.print("  • Locked Addresses:\n", .{});
+        while (iter.next()) |line| {
+            std.debug.print("      - {s}\n", .{line});
+            count += 1;
+        }
+        std.debug.print("  [✓] {d} variables currently bound by Stambhana Goraksha.\n", .{count});
+    } else {
+        std.debug.print("  • No frozen address entries found.\n", .{});
+    }
+}
+
+pub fn handlePointerScan(
+    allocator: std.mem.Allocator,
+    addr_str: []const u8,
+    max_depth_str: ?[]const u8,
+    max_offset_str: ?[]const u8,
+) !void {
+    const pid = try getOrDetectTargetPid();
+    var proc = try process.ProcessHandle.open(pid);
+    defer proc.close();
+
+    var clean_addr = std.mem.trim(u8, addr_str, " \t\r\n");
+    if (std.mem.startsWith(u8, clean_addr, "0x") or std.mem.startsWith(u8, clean_addr, "0X")) {
+        clean_addr = clean_addr[2..];
+    }
+    const target_addr = try std.fmt.parseInt(usize, clean_addr, 16);
+
+    const max_depth = if (max_depth_str) |d| std.fmt.parseInt(usize, d, 10) catch 4 else 4;
+    const max_offset = if (max_offset_str) |o| blk: {
+        var clean_o = o;
+        if (std.mem.startsWith(u8, clean_o, "0x") or std.mem.startsWith(u8, clean_o, "0X")) {
+            clean_o = clean_o[2..];
+            break :blk std.fmt.parseInt(usize, clean_o, 16) catch 4096;
+        }
+        break :blk std.fmt.parseInt(usize, clean_o, 10) catch 4096;
+    } else 4096;
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // VYŪHA SŪTRA MULTI-LEVEL POINTER INQUEST (व्यूह सूत्र)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Target Address : 0x{X}\n", .{target_addr});
+    std.debug.print("  Target PID     : {d}\n", .{pid});
+    std.debug.print("  Max Depth      : {d} levels\n", .{max_depth});
+    std.debug.print("  Max Offset     : 0x{X} ({d} bytes)\n", .{ max_offset, max_offset });
+    std.debug.print("------------------------------------------------------------------------\n", .{});
+
+    // 1. Enumerate loaded modules
+    var modules: std.ArrayList(process.ModuleEntry) = .empty;
+    defer modules.deinit(allocator);
+
+    var mod_iter = process.ModuleIterator.init(pid) catch null;
+    if (mod_iter) |*it| {
+        defer it.deinit();
+        while (it.next()) |m| {
+            try modules.append(allocator, m);
+        }
+    }
+    std.debug.print("  [✓] Cataloged {d} loaded modules for static base resolution.\n", .{modules.items.len});
+
+    // 2. Scan memory regions for pointers
+    var mem_blocks: std.ArrayList(pointer.ScannedMemoryBlock) = .empty;
+    defer {
+        for (mem_blocks.items) |b| allocator.free(b.bytes);
+        mem_blocks.deinit(allocator);
+    }
+
+    var reg_iter = scanner.RegionIterator.init(&proc);
+    var total_scanned_bytes: usize = 0;
+    while (reg_iter.next()) |reg| {
+        if (reg.size > 16 * 1024 * 1024) continue; // Skip huge mappings
+        if (total_scanned_bytes >= 128 * 1024 * 1024) break; // Cap at 128MB for interactive responsiveness
+
+        const buf = allocator.alloc(u8, reg.size) catch continue;
+        const read_bytes = proc.readMemory(reg.base_address, buf) catch {
+            allocator.free(buf);
+            continue;
+        };
+
+        if (read_bytes > 0) {
+            try mem_blocks.append(allocator, pointer.ScannedMemoryBlock{
+                .base_address = reg.base_address,
+                .bytes = buf[0..read_bytes],
+            });
+            total_scanned_bytes += read_bytes;
+        } else {
+            allocator.free(buf);
+        }
+    }
+    std.debug.print("  [✓] Harvested {d} memory regions ({d} MB analyzed).\n", .{ mem_blocks.items.len, total_scanned_bytes / (1024 * 1024) });
+
+    // 3. Harvest pointers
+    var ptr_scanner = pointer.PointerScanner.init(allocator);
+    ptr_scanner.setMaxDepth(max_depth);
+    ptr_scanner.setMaxOffset(max_offset);
+
+    var collected_ptrs = try ptr_scanner.collectPointers(mem_blocks.items);
+    defer collected_ptrs.deinit(allocator);
+    std.debug.print("  [✓] Isolated {d} pointer references in user-mode space.\n", .{collected_ptrs.items.len});
+
+    // 4. Discover multi-level paths
+    var paths = try ptr_scanner.findMultiLevelPaths(collected_ptrs.items, modules.items, target_addr, 50);
+    defer paths.deinit(allocator);
+
+    std.debug.print("  [✓] Discovered {d} valid pointer chains terminating at 0x{X}:\n", .{ paths.items.len, target_addr });
+
+    var file_out: std.ArrayList(u8) = .empty;
+    defer file_out.deinit(allocator);
+
+    var str_buf: [256]u8 = undefined;
+    for (paths.items, 0..) |p, i| {
+        const path_str = p.toString(&str_buf);
+        std.debug.print("      [{d: >2}] {s}\n", .{ i + 1, path_str });
+        try appendPrint(&file_out, allocator, "{s}\n", .{path_str});
+    }
+
+    try writeFullFile(POINTER_PATHS_PATH, file_out.items);
+    std.debug.print("  [✓] Pointer paths exported to '{s}'.\n", .{POINTER_PATHS_PATH});
+}
+
+pub fn handlePointerResolve(
+    allocator: std.mem.Allocator,
+    base_module: []const u8,
+    base_offset_str: []const u8,
+    offsets_slice: []const []const u8,
+) !usize {
+    const pid = try getOrDetectTargetPid();
+    var proc = try process.ProcessHandle.open(pid);
+    defer proc.close();
+
+    var modules: std.ArrayList(process.ModuleEntry) = .empty;
+    defer modules.deinit(allocator);
+
+    var mod_iter = process.ModuleIterator.init(pid) catch null;
+    if (mod_iter) |*it| {
+        defer it.deinit();
+        while (it.next()) |m| {
+            try modules.append(allocator, m);
+        }
+    }
+
+    var clean_base_off = base_offset_str;
+    if (std.mem.startsWith(u8, clean_base_off, "0x") or std.mem.startsWith(u8, clean_base_off, "0X")) {
+        clean_base_off = clean_base_off[2..];
+    }
+    const base_offset = try std.fmt.parseInt(usize, clean_base_off, 16);
+
+    var path = pointer.PointerPath{
+        .base_module = @splat(0),
+        .base_module_len = base_module.len,
+        .base_offset = base_offset,
+        .base_address = 0,
+        .offsets = @splat(0),
+        .depth = offsets_slice.len,
+        .resolved_target = 0,
+        .is_static = true,
+    };
+    @memcpy(path.base_module[0..base_module.len], base_module);
+
+    for (offsets_slice, 0..) |o_str, i| {
+        var clean_o = o_str;
+        if (std.mem.startsWith(u8, clean_o, "+")) clean_o = clean_o[1..];
+        if (std.mem.startsWith(u8, clean_o, "0x") or std.mem.startsWith(u8, clean_o, "0X")) clean_o = clean_o[2..];
+        path.offsets[i] = try std.fmt.parseInt(usize, clean_o, 16);
+    }
+
+    const ptr_scanner = pointer.PointerScanner.init(allocator);
+    const resolved_addr = try ptr_scanner.resolvePath(&proc, &path, modules.items);
+
+    var val_buf: [4]u8 = undefined;
+    const val_bytes = proc.readMemory(resolved_addr, &val_buf) catch 0;
+    const val_i32 = if (val_bytes >= 4) std.mem.readInt(i32, val_buf[0..4], .little) else 0;
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // LIVE POINTER CHAIN DEREFERENCE\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    var buf: [256]u8 = undefined;
+    path.resolved_target = resolved_addr;
+    std.debug.print("  Chain      : {s}\n", .{path.toString(&buf)});
+    std.debug.print("  Live Target: 0x{X}\n", .{resolved_addr});
+    std.debug.print("  Live Value : {d} (i32)\n", .{val_i32});
+
+    return resolved_addr;
+}
+
+pub fn handleDisasm(
+    allocator: std.mem.Allocator,
+    addr_str: []const u8,
+    count_str: ?[]const u8,
+) !void {
+    const pid = try getOrDetectTargetPid();
+    var proc = try process.ProcessHandle.open(pid);
+    defer proc.close();
+
+    var clean_addr = std.mem.trim(u8, addr_str, " \t\r\n");
+    if (std.mem.startsWith(u8, clean_addr, "0x") or std.mem.startsWith(u8, clean_addr, "0X")) {
+        clean_addr = clean_addr[2..];
+    }
+    const address = try std.fmt.parseInt(usize, clean_addr, 16);
+    const count = if (count_str) |c| std.fmt.parseInt(usize, c, 10) catch 16 else 16;
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // VYĀKARAṆA x86_64 INSTRUCTION DISASSEMBLER (व्याकरण)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Base Address: 0x{X} | Target PID: {d} | Instructions: {d}\n", .{ address, pid, count });
+    std.debug.print("------------------------------------------------------------------------\n", .{});
+
+    var instructions = try disasm.Disassembler.disassembleProcess(allocator, &proc, address, count);
+    defer instructions.deinit(allocator);
+
+    var buf: [128]u8 = undefined;
+    for (instructions.items) |inst| {
+        std.debug.print("  {s}\n", .{inst.toString(&buf)});
+    }
+    std.debug.print("  [✓] Disassembly complete.\n", .{});
+}
+
+pub fn handleWatchWrites(
+    allocator: std.mem.Allocator,
+    addr_str: []const u8,
+    timeout_ms_str: ?[]const u8,
+) !void {
+    const pid = try getOrDetectTargetPid();
+    var clean_addr = std.mem.trim(u8, addr_str, " \t\r\n");
+    if (std.mem.startsWith(u8, clean_addr, "0x") or std.mem.startsWith(u8, clean_addr, "0X")) {
+        clean_addr = clean_addr[2..];
+    }
+    const target_addr = try std.fmt.parseInt(usize, clean_addr, 16);
+    const timeout_ms = if (timeout_ms_str) |t| std.fmt.parseInt(u32, t, 10) catch 3000 else 3000;
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // TĀṆḌAVA NETRA HARDWARE WRITE WATCHER (ताण्डव नेत्र)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Watched Address: 0x{X} | PID: {d} | Watch Window: {d}ms\n", .{ target_addr, pid, timeout_ms });
+    std.debug.print("  [Cheat Engine F6 Equiv]: Intercepting CPU instructions writing to RAM...\n", .{});
+    std.debug.print("------------------------------------------------------------------------\n", .{});
+
+    var watcher = debugger.DebugWatcher.init(allocator, pid, target_addr);
+    defer watcher.deinit();
+
+    const armed_threads = watcher.armAllThreads() catch 0;
+    std.debug.print("  [✓] Hardware Breakpoint DR0 armed on {d} threads.\n", .{armed_threads});
+
+    // Sleep for observation window
+    win.Sleep(timeout_ms);
+
+    watcher.disarmAllThreads() catch {};
+    std.debug.print("  [✓] Hardware Breakpoints disarmed cleanly.\n", .{});
+    std.debug.print("  [✓] Inquest complete. Non-invasive monitoring concluded.\n", .{});
 }
 
 pub fn handleResetScan(allocator: std.mem.Allocator) !void {

@@ -108,6 +108,9 @@ pub fn main() !void {
         "--on reset_memory_scan \"zig-out/bin/SharabhaCli.exe --reset-scan\" " ++
         "--on write_memory_address \"zig-out/bin/SharabhaCli.exe --write-mem $1 $2\" " ++
         "--on toggle_freeze_address \"zig-out/bin/SharabhaCli.exe --freeze-mem $1 $2\" " ++
+        "--on scan_pointer \"zig-out/bin/SharabhaCli.exe --pointer-scan $1 4 4096\" " ++
+        "--on disassemble_address \"zig-out/bin/SharabhaCli.exe --disasm $1 16\" " ++
+        "--on watch_address_writes \"zig-out/bin/SharabhaCli.exe --watch-writes $1 3000\" " ++
         "--on run_lua_script \"zig-out/bin/SharabhaCli.exe --run-lua \\\"$1\\\"\" " ++
         "--on open_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1\" " ++
         "--on reparse_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1 -Reparse\" " ++

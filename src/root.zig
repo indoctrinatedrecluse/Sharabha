@@ -5,6 +5,8 @@ pub const scanner = @import("memory/scanner.zig");
 pub const freeze = @import("memory/freeze.zig");
 pub const pointer = @import("memory/pointer.zig");
 pub const aob = @import("memory/aob.zig");
+pub const disasm = @import("memory/disasm.zig");
+pub const debugger = @import("memory/debugger.zig");
 pub const engine_service = @import("memory/engine_service.zig");
 
 pub const entropy = @import("save/entropy.zig");
@@ -38,6 +40,8 @@ test {
     _ = freeze;
     _ = pointer;
     _ = aob;
+    _ = disasm;
+    _ = debugger;
     _ = engine_service;
     _ = entropy;
     _ = fuzzy;
