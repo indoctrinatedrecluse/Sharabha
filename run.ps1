@@ -123,6 +123,7 @@ if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
         "--on", "rescan_memory", "$binExe --rescan `$1",
         "--on", "run_lua_script", "$binExe --run-lua `"`$1`"",
         "--on", "open_save_file", "powershell -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1",
+        "--on", "reparse_save_file", "powershell -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1 -Reparse",
         "--on", "save_file_atomic", "$binExe --commit-save assets/saves/ER0000.sl2",
         "--on", "cycle_metric", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Metric Evaluated via Switching Engine'",
         "--on", "cycle_extractor", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Extractor Switched via Agama Engine'",

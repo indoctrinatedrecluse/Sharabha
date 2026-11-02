@@ -20,6 +20,7 @@ Thumbs.db
 # Vault and temporary backup files
 .sharabha_vault.bin
 *.bak
+assets/saves/active_save_path.txt
 
 deps/surrealdb/
 deps/**/bin/*.exe

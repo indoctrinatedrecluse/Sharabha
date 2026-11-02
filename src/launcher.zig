@@ -100,13 +100,14 @@ pub fn main() !void {
 
     // 3. Assemble slint-viewer invocation with hidden PowerShell callbacks
     const cmd = try std.fmt.allocPrint(allocator,
-        "\"{s}\" src/ui/app.slint " ++
+        "\"{s}\" src/ui/app.slint --auto-reload " ++
         "--on refresh_processes \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/refresh_processes.ps1\" " ++
         "--on attach_process \"zig-out/bin/SharabhaCli.exe --attach $1\" " ++
         "--on start_memory_scan \"zig-out/bin/SharabhaCli.exe --scan $1 $2\" " ++
         "--on rescan_memory \"zig-out/bin/SharabhaCli.exe --rescan $1\" " ++
         "--on run_lua_script \"zig-out/bin/SharabhaCli.exe --run-lua \\\"$1\\\"\" " ++
         "--on open_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1\" " ++
+        "--on reparse_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1 -Reparse\" " ++
         "--on save_file_atomic \"zig-out/bin/SharabhaCli.exe --commit-save assets/saves/ER0000.sl2\" " ++
         "--on test_vault \"zig-out/bin/SharabhaCli.exe --test-vault\" " ++
         "--on save_vault \"zig-out/bin/SharabhaCli.exe --seal-vault\" " ++

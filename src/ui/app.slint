@@ -1,6 +1,6 @@
 import { Button, VerticalBox, HorizontalBox, LineEdit, ScrollView, ListView } from "std-widgets.slint";
 import { LiveProcesses } from "live_processes.slint";
-import { LiveSave } from "live_save.slint";
+import { LiveSave, SaveKeyValueRowData } from "live_save.slint";
 
 /* ==========================================================================
    SHARABHA THEME — Shaivite Mysticism & Systems Duality
@@ -858,7 +858,7 @@ export component MainWindow inherits Window {
     ];
 
     // Splash State
-    in-out property <bool> show_splash: true;
+    in-out property <bool> show_splash: !LiveSave.skip_splash_hint;
     in-out property <string> splash_status: "Awakening the Ashtamurti & Invoking Sharabha (अष्टमूर्ति)...";
 
     // Active Tab: 0 = Rudra (Memory), 1 = Kalyana (Save Forge), 2 = Jnana (Knowledge Base)
@@ -1367,6 +1367,8 @@ export component MainWindow inherits Window {
     in-out property <int> current_save_idx: 0;
     in-out property <string> save_commit_feedback: LiveSave.status_feedback;
     in-out property <string> save_table_filter: "";
+    in-out property <[SaveKeyValueRowData]> save_rows: LiveSave.rows;
+    in-out property <int> save_extracted_count: LiveSave.total_extracted_count;
 
     // 10 Unified Extracted Key-Value Rows (सर्वेक्षण सारणी)
     in-out property <string> save_row_0_offset: LiveSave.row_0_offset;
@@ -1522,6 +1524,7 @@ export component MainWindow inherits Window {
     callback write_memory_address(string, string);
     callback toggle_freeze_address(string, bool);
     callback open_save_file();
+    callback reparse_save_file();
     callback execute_fuzzy_parse();
     callback cycle_metric();
     callback cycle_extractor();
@@ -3157,7 +3160,7 @@ export component MainWindow inherits Window {
                                 explanation: "Reloads the active save file from disk and refreshes all extracted keys.";
                                 clicked => {
                                     root.save_commit_feedback = "Re-parsing save vessel from disk (स्थिति पुनः परीक्षा)...";
-                                    root.open_save_file();
+                                    root.reparse_save_file();
                                 }
                             }
                         }
@@ -3188,137 +3191,22 @@ export component MainWindow inherits Window {
 
                         // Table Rows (Scrollable list of extracted key-value records)
                         ScrollView {
+                            vertical-stretch: 1;
+                            min-height: 250px;
                             VerticalLayout {
                                 padding: 2px;
                                 spacing: 4px;
 
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_0_offset;
-                                    key_name: root.save_row_0_key;
-                                    type_str: root.save_row_0_type;
-                                    conf_str: root.save_row_0_conf;
-                                    hex_str: root.save_row_0_hex;
-                                    val_str <=> root.save_row_0_val;
-                                    is_even: false;
+                                for row[idx] in root.save_rows: SaveKeyValueRow {
+                                    offset_str: row.offset;
+                                    key_name: row.key;
+                                    type_str: row.type_name;
+                                    conf_str: row.conf;
+                                    hex_str: row.hex;
+                                    val_str: row.val;
+                                    is_even: Math.mod(idx, 2) == 0;
                                     write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_0_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_1_offset;
-                                    key_name: root.save_row_1_key;
-                                    type_str: root.save_row_1_type;
-                                    conf_str: root.save_row_1_conf;
-                                    hex_str: root.save_row_1_hex;
-                                    val_str <=> root.save_row_1_val;
-                                    is_even: true;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_1_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_2_offset;
-                                    key_name: root.save_row_2_key;
-                                    type_str: root.save_row_2_type;
-                                    conf_str: root.save_row_2_conf;
-                                    hex_str: root.save_row_2_hex;
-                                    val_str <=> root.save_row_2_val;
-                                    is_even: false;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_2_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_3_offset;
-                                    key_name: root.save_row_3_key;
-                                    type_str: root.save_row_3_type;
-                                    conf_str: root.save_row_3_conf;
-                                    hex_str: root.save_row_3_hex;
-                                    val_str <=> root.save_row_3_val;
-                                    is_even: true;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_3_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_4_offset;
-                                    key_name: root.save_row_4_key;
-                                    type_str: root.save_row_4_type;
-                                    conf_str: root.save_row_4_conf;
-                                    hex_str: root.save_row_4_hex;
-                                    val_str <=> root.save_row_4_val;
-                                    is_even: false;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_4_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_5_offset;
-                                    key_name: root.save_row_5_key;
-                                    type_str: root.save_row_5_type;
-                                    conf_str: root.save_row_5_conf;
-                                    hex_str: root.save_row_5_hex;
-                                    val_str <=> root.save_row_5_val;
-                                    is_even: true;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_5_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_6_offset;
-                                    key_name: root.save_row_6_key;
-                                    type_str: root.save_row_6_type;
-                                    conf_str: root.save_row_6_conf;
-                                    hex_str: root.save_row_6_hex;
-                                    val_str <=> root.save_row_6_val;
-                                    is_even: false;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_6_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_7_offset;
-                                    key_name: root.save_row_7_key;
-                                    type_str: root.save_row_7_type;
-                                    conf_str: root.save_row_7_conf;
-                                    hex_str: root.save_row_7_hex;
-                                    val_str <=> root.save_row_7_val;
-                                    is_even: true;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_7_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_8_offset;
-                                    key_name: root.save_row_8_key;
-                                    type_str: root.save_row_8_type;
-                                    conf_str: root.save_row_8_conf;
-                                    hex_str: root.save_row_8_hex;
-                                    val_str <=> root.save_row_8_val;
-                                    is_even: false;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_8_key + " = '" + val + "' • Buffer armed";
-                                    }
-                                }
-
-                                SaveKeyValueRow {
-                                    offset_str: root.save_row_9_offset;
-                                    key_name: root.save_row_9_key;
-                                    type_str: root.save_row_9_type;
-                                    conf_str: root.save_row_9_conf;
-                                    hex_str: root.save_row_9_hex;
-                                    val_str <=> root.save_row_9_val;
-                                    is_even: true;
-                                    write_clicked(val) => {
-                                        root.save_commit_feedback = "Modified " + root.save_row_9_key + " = '" + val + "' • Buffer armed";
+                                        root.save_commit_feedback = "Modified " + row.key + " = '" + val + "' • Buffer armed";
                                     }
                                 }
                             }
