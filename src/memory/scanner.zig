@@ -395,3 +395,55 @@ test "ScanTargetValue matches" {
     std.mem.writeInt(i32, &buf, 43, .little);
     try std.testing.expect(!target.matchesBytes(&buf));
 }
+
+test "MemoryScanner real scan, refine, and write on self process" {
+    const allocator = std.testing.allocator;
+    const pid = process.win.GetCurrentProcessId();
+    var proc = try process.ProcessHandle.open(pid);
+    defer proc.close();
+
+    var target_val: i32 = 888777;
+    const target_addr = @intFromPtr(&target_val);
+
+    var scanner = MemoryScanner.init(allocator, &proc);
+    defer scanner.deinit();
+
+    // 1. First scan for 888777
+    const count = try scanner.firstScan(ScanTargetValue{ .I32 = 888777 });
+    try std.testing.expect(count > 0);
+
+    // Verify target_addr was discovered in virtual memory
+    var found = false;
+    for (scanner.results.items) |r| {
+        if (r.address == target_addr) {
+            found = true;
+            break;
+        }
+    }
+    try std.testing.expect(found);
+
+    // 2. Refine scan (Next Scan Exact) after value changes
+    target_val = 888778;
+    const refined_count = try scanner.nextScanExact(ScanTargetValue{ .I32 = 888778 });
+    try std.testing.expect(refined_count > 0);
+    try std.testing.expect(refined_count <= count);
+
+    var found_refined = false;
+    for (scanner.results.items) |r| {
+        if (r.address == target_addr) {
+            found_refined = true;
+            break;
+        }
+    }
+    try std.testing.expect(found_refined);
+
+    // 3. Differential scan (IncreasedValue)
+    target_val = 888790;
+    const inc_count = try scanner.nextScanDifferential(.IncreasedValue, .I32);
+    try std.testing.expect(inc_count > 0);
+
+    // 4. Write memory test: mutate variable via Win32 WriteProcessMemory
+    const new_val: i32 = 999111;
+    _ = try proc.writeMemory(target_addr, std.mem.asBytes(&new_val));
+    try std.testing.expectEqual(@as(i32, 999111), target_val);
+}

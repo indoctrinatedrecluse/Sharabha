@@ -104,7 +104,10 @@ pub fn main() !void {
         "--on refresh_processes \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/refresh_processes.ps1\" " ++
         "--on attach_process \"zig-out/bin/SharabhaCli.exe --attach $1\" " ++
         "--on start_memory_scan \"zig-out/bin/SharabhaCli.exe --scan $1 $2\" " ++
-        "--on rescan_memory \"zig-out/bin/SharabhaCli.exe --rescan $1\" " ++
+        "--on rescan_memory \"zig-out/bin/SharabhaCli.exe --rescan $1 $2\" " ++
+        "--on reset_memory_scan \"zig-out/bin/SharabhaCli.exe --reset-scan\" " ++
+        "--on write_memory_address \"zig-out/bin/SharabhaCli.exe --write-mem $1 $2\" " ++
+        "--on toggle_freeze_address \"zig-out/bin/SharabhaCli.exe --freeze-mem $1 $2\" " ++
         "--on run_lua_script \"zig-out/bin/SharabhaCli.exe --run-lua \\\"$1\\\"\" " ++
         "--on open_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1\" " ++
         "--on reparse_save_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_dialog.ps1 -Reparse\" " ++

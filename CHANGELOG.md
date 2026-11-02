@@ -35,9 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **FromSoftware Elden Ring (`*.sl2`, `BND4`)**: Automatic extraction of player runes, level, vigor, mind, and endurance.
   - **Unreal Engine GVAS (`*.sav`, `GVAS`)**: Heuristic container parsing for builds, currencies, and quest states.
   - **Cyberpunk 2077 REDengine (`*.dat`, `CP77`)**: Node container extraction for eddies, street cred, and cyberware capacity.
-- **Generic Memory Scanner (Rudra Tandava)**:
-  - Multi-iteration Cheat Engine scanning supporting Exact Value, Larger Than, Smaller Than, Between, and Unknown Initial Value.
-  - Continuous match refinement discarding non-matching memory pages across iterations.
+- **Generic Memory Scanner & Live Inquest Engine (Rudra Tandava)**:
+  - Eliminated all hardcoded placeholder addresses, simulated counts, and mockups.
+  - Implemented genuine Win32 `VirtualQueryEx` page crawling across committed, writable virtual memory spaces (`src/memory/scanner.zig`, `src/memory/engine_service.zig`).
+  - Full multi-iteration differential filtering supporting `ExactValue`, `IncreasedValue`, `DecreasedValue`, `ChangedValue`, and `UnchangedValue`.
+  - Real Win32 `WriteProcessMemory` live RAM mutation with automatic readback verification.
+  - Active `Stambhana Goraksha` memory freeze engine with thread-safe atomic lock enforcement.
+  - Dynamic `ScanResultRow` scrollable table in `src/ui/app.slint` rendering real memory addresses in hex, live values, previous values, and data types, with in-place editing, individual `WRITE` triggers, `+ PIN` to cheat table, and `FREEZE` toggling.
+  - Binary state persistence (`assets/memory/scan_state.bin`) preserving scan results across CLI invocations.
+  - Native CLI subcommands (`--attach`, `--scan`, `--rescan`, `--write-mem`, `--freeze-mem`, `--reset-scan`) and PowerShell companion orchestrator (`tools/memory_ops.ps1`).
   - Process picker dialog modal searching and filtering all active host processes.
 - **Universal Command Palette & Knowledge Base**:
   - Quick action palette accessible via `Ctrl+P` or top navigation bar.

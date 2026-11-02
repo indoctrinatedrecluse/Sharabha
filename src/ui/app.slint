@@ -1,6 +1,7 @@
 import { Button, VerticalBox, HorizontalBox, LineEdit, ScrollView, ListView } from "std-widgets.slint";
 import { LiveProcesses } from "live_processes.slint";
 import { LiveSave, SaveKeyValueRowData } from "live_save.slint";
+import { LiveScan, ScanRowData } from "live_scan.slint";
 
 /* ==========================================================================
    SHARABHA THEME — Shaivite Mysticism & Systems Duality
@@ -736,6 +737,124 @@ export component SaveKeyValueRow inherits Rectangle {
     }
 }
 
+export component ScanResultRow inherits Rectangle {
+    in property <string> address_str: "0x00000000";
+    in-out property <string> val_str: "0";
+    in property <string> prev_val: "0";
+    in property <string> type_str: "4 Bytes (i32)";
+    in-out property <bool> is_frozen: false;
+    in property <bool> is_even: false;
+
+    callback freeze_toggled(bool);
+    callback pin_clicked();
+    callback write_clicked(string);
+
+    height: 36px;
+    background: is_even ? #0c1422cc : #080d16aa;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: touch.has_hover ? #ff7b0066 : #16203244;
+
+    touch := TouchArea { }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        alignment: center;
+
+        // Freeze Checkbox
+        Rectangle {
+            width: 55px;
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.is_frozen = !root.is_frozen;
+                    root.freeze_toggled(root.is_frozen);
+                }
+            }
+            Text {
+                text: root.is_frozen ? "☑" : "☐";
+                font-size: 16px;
+                font-weight: 700;
+                color: root.is_frozen ? #22c55e : #94a3b8;
+                vertical-alignment: center;
+            }
+        }
+
+        // Address
+        Text {
+            text: root.address_str;
+            width: 130px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #ff7b00;
+            vertical-alignment: center;
+            font-family: "Consolas, monospace";
+            overflow: elide;
+        }
+
+        // Live Editable Value
+        LineEdit {
+            text <=> root.val_str;
+            width: 110px;
+            font-size: 11px;
+            height: 28px;
+        }
+
+        // Previous Value
+        Text {
+            text: root.prev_val;
+            width: 90px;
+            font-size: 11px;
+            color: #64748b;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        // Type
+        Text {
+            text: root.type_str;
+            width: 80px;
+            font-size: 10px;
+            color: #94a3b8;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        // Action Buttons
+        HorizontalLayout {
+            spacing: 6px;
+            horizontal-stretch: 1;
+            alignment: start;
+
+            ThematicActionButton {
+                text: "+ PIN";
+                devanagari: "योजन";
+                btn_width: 55px;
+                btn_height: 26px;
+                bg_color: #1e3a5f;
+                hover_color: #2563eb;
+                clicked => {
+                    root.pin_clicked();
+                }
+            }
+
+            ThematicActionButton {
+                text: "WRITE";
+                devanagari: "लेखन";
+                btn_width: 55px;
+                btn_height: 26px;
+                bg_color: #0369a1;
+                hover_color: #0284c7;
+                clicked => {
+                    root.write_clicked(root.val_str);
+                }
+            }
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
     min-width: 1180px;
@@ -1295,7 +1414,7 @@ export component MainWindow inherits Window {
     in-out property <int> selected_process_idx: 0;
     in-out property <bool> process_bound: false;
     in-out property <string> process_bind_status: "STANDBY // Unattached";
-    in-out property <string> rudra_status_text: "Win32 Netra Active // Ready for Inquest";
+    in-out property <string> rudra_status_text: LiveScan.status_text;
 
     // Process Picker Modal (सम्पूर्ण प्रक्रिया सूची)
     in-out property <bool> show_process_modal: false;
@@ -1303,42 +1422,43 @@ export component MainWindow inherits Window {
     in-out property <int> modal_selected_proc_idx: 0;
 
     // Generic Memory Scanner State (बहु-शोधन परिशोधन)
-    in-out property <int> scan_iteration: 0; // 0 = first scan ready, 1+ = rescan iterations
+    in-out property <int> scan_iteration: LiveScan.scan_iteration; // 0 = first scan ready, 1+ = rescan iterations
     in-out property <string> scan_target_value: "100";
-    in-out property <string> scan_result_count_str: "READY (सज्ज)";
+    in-out property <string> scan_result_count_str: LiveScan.result_count_str;
     in-out property <int> selected_scan_type: 0; // 0: Exact, 1: Bigger Than, 2: Smaller Than, 3: Between, 4: Unknown Initial
     in-out property <string> scan_type_name: "EXACT VALUE (सटीक मान)";
     in-out property <int> selected_rescan_type: 0; // 0: Exact, 1: Increased, 2: Decreased, 3: Changed, 4: Unchanged
     in-out property <string> rescan_type_name: "EXACT VALUE (सटीक मान)";
     in-out property <int> selected_data_type: 0; // 0: 4 Bytes (i32), 1: 4 Bytes (u32), 2: 8 Bytes (i64), 3: Float (f32), 4: Double (f64), 5: 1 Byte (i8), 6: 2 Bytes (i16), 7: String (Text), 8: Array of Bytes
-    in-out property <string> data_type_name: "4 Bytes (i32)";
+    in-out property <string> data_type_name: LiveScan.data_type;
+    in-out property <[ScanRowData]> scan_rows: LiveScan.rows;
 
     // Upper Table: Found Addresses (परिणाम शोधन)
-    in-out property <bool> found_freeze_0: false;
-    in-out property <string> found_addr_0: "0x7FF74A8014E4";
-    in-out property <string> found_val_0: "100";
-    in-out property <string> found_prev_0: "100";
-    in-out property <string> found_type_0: "4 Bytes";
+    in-out property <bool> found_freeze_0: LiveScan.found_freeze_0;
+    in-out property <string> found_addr_0: LiveScan.found_addr_0;
+    in-out property <string> found_val_0: LiveScan.found_val_0;
+    in-out property <string> found_prev_0: LiveScan.found_prev_0;
+    in-out property <string> found_type_0: LiveScan.found_type_0;
 
-    in-out property <bool> found_freeze_1: false;
-    in-out property <string> found_addr_1: "0x7FF74A801520";
-    in-out property <string> found_val_1: "100";
-    in-out property <string> found_prev_1: "100";
-    in-out property <string> found_type_1: "4 Bytes";
+    in-out property <bool> found_freeze_1: LiveScan.found_freeze_1;
+    in-out property <string> found_addr_1: LiveScan.found_addr_1;
+    in-out property <string> found_val_1: LiveScan.found_val_1;
+    in-out property <string> found_prev_1: LiveScan.found_prev_1;
+    in-out property <string> found_type_1: LiveScan.found_type_1;
 
-    in-out property <bool> found_freeze_2: false;
-    in-out property <string> found_addr_2: "0x14023A10";
-    in-out property <string> found_val_2: "100";
-    in-out property <string> found_prev_2: "85";
-    in-out property <string> found_type_2: "4 Bytes";
+    in-out property <bool> found_freeze_2: LiveScan.found_freeze_2;
+    in-out property <string> found_addr_2: LiveScan.found_addr_2;
+    in-out property <string> found_val_2: LiveScan.found_val_2;
+    in-out property <string> found_prev_2: LiveScan.found_prev_2;
+    in-out property <string> found_type_2: LiveScan.found_type_2;
 
-    in-out property <bool> found_freeze_3: false;
-    in-out property <string> found_addr_3: "0x14023A18";
-    in-out property <string> found_val_3: "100";
-    in-out property <string> found_prev_3: "120";
-    in-out property <string> found_type_3: "4 Bytes";
+    in-out property <bool> found_freeze_3: LiveScan.found_freeze_3;
+    in-out property <string> found_addr_3: LiveScan.found_addr_3;
+    in-out property <string> found_val_3: LiveScan.found_val_3;
+    in-out property <string> found_prev_3: LiveScan.found_prev_3;
+    in-out property <string> found_type_3: LiveScan.found_type_3;
 
-    in-out property <int> found_count: 4;
+    in-out property <int> found_count: LiveScan.total_matches;
     in-out property <bool> freeze_row1: false;
     in-out property <bool> freeze_row2: false;
 
@@ -1519,7 +1639,8 @@ export component MainWindow inherits Window {
     callback refresh_processes();
     callback attach_process(int);
     callback start_memory_scan(string, string);
-    callback rescan_memory(string);
+    callback rescan_memory(string, string);
+    callback reset_memory_scan();
     callback cycle_scan_type();
     callback cycle_data_type();
     callback write_memory_address(string, string);
@@ -2173,14 +2294,12 @@ export component MainWindow inherits Window {
                                 feature_name: "Feature: Initial RAM Value Scanner";
                                 explanation: "Queries VirtualQueryEx for committed writable pages and cataloges all addresses matching the target.";
                                 clicked => {
-                                    root.scan_iteration = 1;
-                                    root.found_count = 4;
-                                    root.found_val_0 = root.scan_target_value;
-                                    root.found_val_1 = root.scan_target_value;
-                                    root.found_val_2 = root.scan_target_value;
-                                    root.found_val_3 = root.scan_target_value;
-                                    root.scan_result_count_str = "4 MATCHES (आविष्कृत 4)";
-                                    root.rudra_status_text = "First Scan Complete: 4 candidate addresses found matching '" + root.scan_target_value + "'";
+                                    if !root.process_bound {
+                                        root.attach_process(root.active_process_pid);
+                                        root.process_bound = true;
+                                    }
+                                    root.rudra_status_text = "Scanning process RAM for '" + root.scan_target_value + "' (" + root.data_type_name + ")...";
+                                    root.scan_result_count_str = "SCANNING (अन्वेषण)...";
                                     root.start_memory_scan(root.scan_target_value, root.data_type_name);
                                 }
                             }
@@ -2198,13 +2317,9 @@ export component MainWindow inherits Window {
                                 feature_name: "Feature: Next Scan Address Filter";
                                 explanation: "Re-reads only previously matched memory locations and discards any addresses whose value does not match.";
                                 clicked => {
-                                    root.scan_iteration = root.scan_iteration + 1;
-                                    root.found_count = 1;
-                                    root.found_prev_0 = root.found_val_0;
-                                    root.found_val_0 = root.scan_target_value;
-                                    root.scan_result_count_str = "1 MATCH (परिशोधित 1)";
-                                    root.rudra_status_text = "Refined Iteration #" + root.scan_iteration + " Complete: Isolated to 0x7FF74A8014E4";
-                                    root.rescan_memory(root.scan_target_value);
+                                    root.rudra_status_text = "Refining previous candidates with '" + root.rescan_type_name + "' filter...";
+                                    root.scan_result_count_str = "REFINING (परिशोधन)...";
+                                    root.rescan_memory(root.scan_target_value, root.rescan_type_name);
                                 }
                             }
 
@@ -2225,6 +2340,7 @@ export component MainWindow inherits Window {
                                     root.found_count = 0;
                                     root.scan_result_count_str = "READY (नूतन अन्वेषण)";
                                     root.rudra_status_text = "Scanner Reset: Ready for fresh memory inquest";
+                                    root.reset_memory_scan();
                                 }
                             }
                         }
@@ -2300,174 +2416,46 @@ export component MainWindow inherits Window {
                                     }
                                 }
 
-                                if root.scan_iteration >= 1: ScrollView {
+                                if root.scan_iteration >= 1 && root.scan_rows.length == 0: Rectangle {
+                                    height: 100px;
+                                    background: transparent;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Text {
+                                            text: "No matching memory addresses found in target address space.";
+                                            font-size: 11px;
+                                            color: #64748b;
+                                            horizontal-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                if root.scan_iteration >= 1 && root.scan_rows.length > 0: ScrollView {
                                     VerticalLayout {
                                         spacing: 4px;
 
-                                        // Found Row 0
-                                        Rectangle {
-                                            height: 34px;
-                                            background: #141e2ecc;
-                                            border-radius: 4px;
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                spacing: 8px;
-                                                Rectangle {
-                                                    width: 55px;
-                                                    TouchArea {
-                                                        mouse-cursor: pointer;
-                                                        clicked => {
-                                                            root.found_freeze_0 = !root.found_freeze_0;
-                                                            root.rudra_status_text = root.found_freeze_0 ?
-                                                                "STAMBHANA ACTIVE: " + root.found_addr_0 + " locked" :
-                                                                "Stambhana Unlocked: " + root.found_addr_0 + " unfrozen";
-                                                            root.toggle_freeze_address(root.found_addr_0, root.found_freeze_0);
-                                                        }
-                                                    }
-                                                    Text {
-                                                        text: root.found_freeze_0 ? "☑" : "☐";
-                                                        font-size: 16px;
-                                                        font-weight: 700;
-                                                        color: root.found_freeze_0 ? #22c55e : #94a3b8;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                                Text { text: root.found_addr_0; width: 130px; font-size: 11px; font-weight: 700; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                LineEdit { text <=> root.found_val_0; width: 110px; font-size: 11px; height: 26px; }
-                                                Text { text: root.found_prev_0; width: 90px; font-size: 11px; color: #64748b; vertical-alignment: center; }
-                                                Text { text: root.found_type_0; width: 80px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    horizontal-stretch: 1;
-                                                    alignment: start;
-                                                    ThematicActionButton {
-                                                        text: "+ PIN"; devanagari: "योजन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #1e3a5f; hover_color: #2563eb;
-                                                        clicked => {
-                                                            root.table_addr_0 = root.found_addr_0;
-                                                            root.table_val_0 = root.found_val_0;
-                                                            root.rudra_status_text = "Pinned " + root.found_addr_0 + " to Cheat Table";
-                                                        }
-                                                    }
-                                                    ThematicActionButton {
-                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #0369a1; hover_color: #0284c7;
-                                                        clicked => {
-                                                            root.rudra_status_text = "RAM Modified: " + root.found_addr_0 + " set to " + root.found_val_0;
-                                                            root.write_memory_address(root.found_addr_0, root.found_val_0);
-                                                        }
-                                                    }
-                                                }
+                                        for row[idx] in root.scan_rows: ScanResultRow {
+                                            address_str: row.address;
+                                            val_str: row.val;
+                                            prev_val: row.previous;
+                                            type_str: row.val_type;
+                                            is_frozen: row.is_frozen;
+                                            is_even: Math.mod(idx, 2) == 0;
+                                            freeze_toggled(frozen) => {
+                                                root.rudra_status_text = frozen ?
+                                                    "STAMBHANA ACTIVE: " + row.address + " locked" :
+                                                    "Stambhana Unlocked: " + row.address + " unfrozen";
+                                                root.toggle_freeze_address(row.address, frozen);
                                             }
-                                        }
-
-                                        // Found Row 1 (Shown on scan_iteration == 1)
-                                        if root.scan_iteration == 1: Rectangle {
-                                            height: 34px;
-                                            background: transparent;
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                spacing: 8px;
-                                                Rectangle {
-                                                    width: 55px;
-                                                    TouchArea {
-                                                        mouse-cursor: pointer;
-                                                        clicked => {
-                                                            root.found_freeze_1 = !root.found_freeze_1;
-                                                            root.toggle_freeze_address(root.found_addr_1, root.found_freeze_1);
-                                                        }
-                                                    }
-                                                    Text {
-                                                        text: root.found_freeze_1 ? "☑" : "☐";
-                                                        font-size: 16px;
-                                                        font-weight: 700;
-                                                        color: root.found_freeze_1 ? #22c55e : #94a3b8;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                                Text { text: root.found_addr_1; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                LineEdit { text <=> root.found_val_1; width: 110px; font-size: 11px; height: 26px; }
-                                                Text { text: root.found_prev_1; width: 90px; font-size: 11px; color: #64748b; vertical-alignment: center; }
-                                                Text { text: root.found_type_1; width: 80px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    horizontal-stretch: 1;
-                                                    alignment: start;
-                                                    ThematicActionButton {
-                                                        text: "+ PIN"; devanagari: "योजन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #1e3a5f; hover_color: #2563eb;
-                                                        clicked => {
-                                                            root.table_addr_1 = root.found_addr_1;
-                                                            root.table_val_1 = root.found_val_1;
-                                                            root.rudra_status_text = "Pinned " + root.found_addr_1 + " to Cheat Table";
-                                                        }
-                                                    }
-                                                    ThematicActionButton {
-                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #0369a1; hover_color: #0284c7;
-                                                        clicked => {
-                                                            root.rudra_status_text = "RAM Modified: " + root.found_addr_1 + " set to " + root.found_val_1;
-                                                            root.write_memory_address(root.found_addr_1, root.found_val_1);
-                                                        }
-                                                    }
-                                                }
+                                            pin_clicked => {
+                                                root.table_addr_0 = row.address;
+                                                root.table_val_0 = row.val;
+                                                root.table_type_0 = row.val_type;
+                                                root.rudra_status_text = "Pinned " + row.address + " to Cheat Table";
                                             }
-                                        }
-
-                                        // Found Row 2 (Shown on scan_iteration == 1)
-                                        if root.scan_iteration == 1: Rectangle {
-                                            height: 34px;
-                                            background: #141e2ecc;
-                                            border-radius: 4px;
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                spacing: 8px;
-                                                Rectangle {
-                                                    width: 55px;
-                                                    TouchArea {
-                                                        mouse-cursor: pointer;
-                                                        clicked => {
-                                                            root.found_freeze_2 = !root.found_freeze_2;
-                                                            root.toggle_freeze_address(root.found_addr_2, root.found_freeze_2);
-                                                        }
-                                                    }
-                                                    Text {
-                                                        text: root.found_freeze_2 ? "☑" : "☐";
-                                                        font-size: 16px;
-                                                        font-weight: 700;
-                                                        color: root.found_freeze_2 ? #22c55e : #94a3b8;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                                Text { text: root.found_addr_2; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                LineEdit { text <=> root.found_val_2; width: 110px; font-size: 11px; height: 26px; }
-                                                Text { text: root.found_prev_2; width: 90px; font-size: 11px; color: #64748b; vertical-alignment: center; }
-                                                Text { text: root.found_type_2; width: 80px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    horizontal-stretch: 1;
-                                                    alignment: start;
-                                                    ThematicActionButton {
-                                                        text: "+ PIN"; devanagari: "योजन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #1e3a5f; hover_color: #2563eb;
-                                                        clicked => {
-                                                            root.table_addr_2 = root.found_addr_2;
-                                                            root.table_val_2 = root.found_val_2;
-                                                            root.rudra_status_text = "Pinned " + root.found_addr_2 + " to Cheat Table";
-                                                        }
-                                                    }
-                                                    ThematicActionButton {
-                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #0369a1; hover_color: #0284c7;
-                                                        clicked => {
-                                                            root.rudra_status_text = "RAM Modified: " + root.found_addr_2 + " set to " + root.found_val_2;
-                                                            root.write_memory_address(root.found_addr_2, root.found_val_2);
-                                                        }
-                                                    }
-                                                }
+                                            write_clicked(val) => {
+                                                root.rudra_status_text = "RAM Modified: " + row.address + " set to " + val;
+                                                root.write_memory_address(row.address, val);
                                             }
                                         }
                                     }
@@ -3955,7 +3943,7 @@ export component MainWindow inherits Window {
                                 root.active_tab = 0;
                                 root.scan_result_count_str = "1 MATCH";
                                 root.rudra_status_text = "Refined Rescan Dispatched via Palette";
-                                root.rescan_memory(root.scan_target_value);
+                                root.rescan_memory(root.scan_target_value, root.rescan_type_name);
                                 root.show_command_palette = false;
                             }
                         }

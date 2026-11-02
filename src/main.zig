@@ -41,54 +41,96 @@ pub fn main() !void {
         return;
     }
 
-    if (std.mem.indexOf(u8, cmd_utf8, "--attach") != null) {
+    if (std.mem.indexOf(u8, cmd_utf8, "--attach")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--attach".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const pid_str = parts.next() orelse "";
+        const pid = std.fmt.parseInt(u32, pid_str, 10) catch blk: {
+            break :blk Sharabha.engine_service.getOrDetectTargetPid() catch 0;
+        };
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // RUDRA TANDAVA PROCESS BINDING\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] Win32 OpenProcess hook established with VM_READ | VM_WRITE access.\n", .{});
-        std.debug.print("  [✓] Memory Scanner & Stambhana Sentinel armed with full VM access.\n", .{});
+        Sharabha.engine_service.handleAttach(allocator, pid) catch |err| {
+            std.debug.print("  ❌ [Attach Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
         return;
     }
 
-    if (std.mem.indexOf(u8, cmd_utf8, "--scan") != null) {
+    if (std.mem.indexOf(u8, cmd_utf8, "--scan")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--scan".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const val_str = parts.next() orelse "100";
+        const type_str = if (parts.rest().len > 0) parts.rest() else "4 Bytes (i32)";
+
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // MEMORY SCANNER INQUEST (प्रथम शोधन)\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] VirtualQueryEx scanned committed writable pages.\n", .{});
-        std.debug.print("  [✓] Candidate Addresses Matching Target in Virtual Address Space:\n", .{});
-        std.debug.print("      • [0x7FF74A8014E4] Value: 100   | Type: 4 Bytes (i32) [Address Candidate #1]\n", .{});
-        std.debug.print("      • [0x7FF74A801520] Value: 100   | Type: 4 Bytes (i32) [Address Candidate #2]\n", .{});
-        std.debug.print("      • [0x14023A10]     Value: 100   | Type: 4 Bytes (i32) [Address Candidate #3]\n", .{});
-        std.debug.print("      • [0x14023A18]     Value: 100   | Type: 4 Bytes (i32) [Address Candidate #4]\n", .{});
+        _ = Sharabha.engine_service.handleFirstScan(allocator, val_str, type_str) catch |err| {
+            std.debug.print("  ❌ [Scan Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
         return;
     }
 
-    if (std.mem.indexOf(u8, cmd_utf8, "--rescan") != null) {
+    if (std.mem.indexOf(u8, cmd_utf8, "--rescan")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--rescan".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const val_str = parts.next() orelse "100";
+        const rescan_type_str = if (parts.rest().len > 0) parts.rest() else "EXACT";
+
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // REFINED MEMORY SCAN ITERATION (पुनर्दृष्टि)\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] Filtered previous matches down to isolated exact address:\n", .{});
-        std.debug.print("      • [0x7FF74A8014E4] Value: 100   | Type: 4 Bytes (i32) [ISOLATED TARGET]\n", .{});
+        _ = Sharabha.engine_service.handleNextScan(allocator, val_str, rescan_type_str) catch |err| {
+            std.debug.print("  ❌ [Rescan Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--reset-scan") != null) {
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // RESET MEMORY SCAN (नूतन शोधन)\n", .{});
+        std.debug.print("========================================================================\n", .{});
+        Sharabha.engine_service.handleResetScan(allocator) catch |err| {
+            std.debug.print("  ❌ [Reset Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
         return;
     }
 
     if (std.mem.indexOf(u8, cmd_utf8, "--write-mem")) |idx| {
         const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--write-mem".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const addr_str = parts.next() orelse "";
+        const val_str = parts.next() orelse "";
+
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // MEMORY MUTATION (WriteProcessMemory)\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] Win32 WriteProcessMemory dispatched: {s}\n", .{args_raw});
-        std.debug.print("  [✓] Target RAM value updated successfully.\n", .{});
+        Sharabha.engine_service.handleWriteMem(allocator, addr_str, val_str) catch |err| {
+            std.debug.print("  ❌ [Write Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
         return;
     }
 
     if (std.mem.indexOf(u8, cmd_utf8, "--freeze-mem")) |idx| {
         const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--freeze-mem".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const addr_str = parts.next() orelse "";
+        const bool_str = parts.next() orelse "true";
+        const state_bool = std.ascii.eqlIgnoreCase(bool_str, "true") or std.mem.eql(u8, bool_str, "1");
+
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // STAMBHANA FREEZE SENTINEL (स्तम्भन गोरक्ष)\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  [✓] Active Freeze Sentinel armed: {s}\n", .{args_raw});
-        std.debug.print("  [✓] Memory location pinned to 100ms background rewrite loop.\n", .{});
+        Sharabha.engine_service.handleFreezeMem(allocator, addr_str, state_bool) catch |err| {
+            std.debug.print("  ❌ [Freeze Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
         return;
     }
 
