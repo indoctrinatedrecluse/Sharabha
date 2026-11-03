@@ -1001,6 +1001,25 @@ foreach ($item in $sortedRows) {
 $totalExtracted = $rows.Count
 Write-Host "[OK] Extracted $totalExtracted key-values from $filename via Fine Line Engine (Ranked by confidence descending)"
 
+# Cache all rows for dynamic & gated filtering
+try {
+    $cacheObj = [PSCustomObject]@{
+        filename = $filename
+        gameTitle = $gameTitle
+        md5Str = $md5Str
+        verdict = $verdict
+        len = $len
+        isDeterministicProfile = $isDeterministicProfile
+        totalExtracted = $totalExtracted
+        rows = $rows
+    }
+    $cacheDir = Join-Path $projectDir "assets\saves"
+    if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null }
+    $cachePath = Join-Path $cacheDir "current_save_cache.json"
+    $cacheJson = $cacheObj | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($cachePath, $cacheJson, (New-Object System.Text.UTF8Encoding $false))
+} catch { }
+
 # Helper for Slint string escaping
 function Escape-Slint($str) {
     if (-not $str) { return "" }
@@ -1030,6 +1049,8 @@ $lines.Add("    in property <string> metric_verdict: ${q}$(Escape-Slint $verdict
 $lines.Add("    in property <string> metric_score: ${q}${len} Bytes Analyzed${q};")
 $lines.Add("    in property <string> status_feedback: ${q}Loaded: $(Escape-Slint $filename) (${len} Bytes, ${totalExtracted} Key-Values, Ranked by Confidence Descending)${q};")
 $lines.Add("    in property <int> total_extracted_count: ${totalExtracted};")
+$lines.Add("    in property <string> search_filter: ${q}${q};")
+$lines.Add("    in property <int> filtered_count: ${totalExtracted};")
 $lines.Add("")
 $lines.Add("    in property <[SaveKeyValueRowData]> rows: [")
 

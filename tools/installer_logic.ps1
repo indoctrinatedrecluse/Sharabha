@@ -109,7 +109,7 @@ if ($makeDesktop) {
     $shortcut.TargetPath = $mainExe
     $shortcut.WorkingDirectory = $TargetPath
     $shortcut.IconLocation = "$icoPath, 0"
-    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.3.0)'
+    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.3.1)'
     $shortcut.Save()
     Write-Host "    [✓] Desktop shortcut created: $shortcutPath" -ForegroundColor Green
 }
@@ -121,7 +121,7 @@ if ($makeStartMenu) {
     $shortcut.TargetPath = $mainExe
     $shortcut.WorkingDirectory = $TargetPath
     $shortcut.IconLocation = "$icoPath, 0"
-    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.3.0)'
+    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.3.1)'
     $shortcut.Save()
     Write-Host "    [✓] Start Menu shortcut created: $shortcutPath" -ForegroundColor Green
 }
@@ -133,7 +133,7 @@ if (-not (Test-Path $regKey)) {
     New-Item -Path $regKey -Force | Out-Null
 }
 Set-ItemProperty -Path $regKey -Name "DisplayName" -Value "Sharabha (शरभेश्वर) - The Dual Aspect Engine" -Force
-Set-ItemProperty -Path $regKey -Name "DisplayVersion" -Value "0.3.0" -Force
+Set-ItemProperty -Path $regKey -Name "DisplayVersion" -Value "0.3.1" -Force
 Set-ItemProperty -Path $regKey -Name "Publisher" -Value "Indoctrinated Recluse" -Force
 Set-ItemProperty -Path $regKey -Name "DisplayIcon" -Value "$icoPath, 0" -Force
 Set-ItemProperty -Path $regKey -Name "InstallLocation" -Value $TargetPath -Force

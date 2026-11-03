@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.1] - 2026-11-04
+
+### Fixed
+- **Save Editor Column Alignment & Full-Width Justification ("स्थान संरेखण // Sthana Samrekhana")**:
+  - Re-anchored the save forge table from centered layout to flush-left start (`padding-left: 8px`), ensuring all columns start at the very left edge of available space.
+  - Resolved container clipping and right-edge truncation by adding `overflow: elide` to dynamic game titles, vessel names, and status feedback bars.
+  - Unlocked full horizontal stretch on the editable VALUE (`तत्त्व`) column, extending all the way to the right edge of the card.
+  - Locked Column 7 (`ACTION` / `WRITE`) flush against the right border in both table headers and rows.
+  - Guaranteed that column resizing flows strictly towards the right, eliminating leftward content shifting during column expansion.
+- **Installer & Launcher Startup Visibility**:
+  - Updated `src/launcher.zig` to use `wShowWindow = 1` (`SW_SHOWNORMAL`) and normal creation flags (`0` instead of `CREATE_NO_WINDOW`), ensuring double-clicking `Sharabha.exe` visibly renders the main application window without requiring a terminal console.
+  - Reinforced universal baseline CPU architecture (`x86_64-windows`) across CI workflow and packaging tools, eliminating `0xC000001D` (`STATUS_ILLEGAL_INSTRUCTION`) exceptions.
+
+### Added
+- **Search Bar Explicit Action Button & Dynamic Gating Mechanism ("अन्वेषण शोधन // Anveshana Shodhana")**:
+  - Added dedicated `SEARCH 🔍` (`अन्वेषण`) action button and dynamic `RESET ✖` (`निवारण`) clear filter button.
+  - Introduced an intelligent gating mechanism (`filter_gating_threshold = 100`):
+    - **Compact / Curated Lists (<= 100 entries)**: Live dynamic filtering on keystroke (`edited`) as the user types, accompanied by an emerald `⚡ LIVE FILTER` badge indicator.
+    - **Large / Massive Datasets (> 100 entries)**: Dynamic keystroke filtering is gated to prevent performance overhead, allowing filtering on-demand via the `SEARCH 🔍` button or Enter (`accepted`), accompanied by an amber `🔒 GATED (>100)` badge indicator.
+  - Implemented `tools/filter_save.ps1` powered by an in-memory JSON cache (`assets/saves/current_save_cache.json`) for multi-field search across key identifiers, hex offsets, data types, values, and confidence scores.
+
+---
+
 ## [0.3.0] - 2026-11-03
 
 ### Added

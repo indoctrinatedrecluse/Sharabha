@@ -122,6 +122,7 @@ pub fn main() !void {
         "--on load_memory_table \"zig-out/bin/SharabhaCli.exe --load-table $1\" " ++
         "--on inject_dll \"zig-out/bin/SharabhaCli.exe --inject-dll $1\" " ++
         "--on export_agamas \"zig-out/bin/SharabhaCli.exe --export-agamas $1\" " ++
+        "--on filter_save_rows \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/filter_save.ps1 \\\"$1\\\"\" " ++
         "--on register_agama_profile \"zig-out/bin/SharabhaCli.exe --export-surreal\"",
         .{slint_exe}
     );
@@ -130,12 +131,12 @@ pub fn main() !void {
 
     var si: win.STARTUPINFOW = .{
         .dwFlags = 0x00000001, // STARTF_USESHOWWINDOW
-        .wShowWindow = 0, // SW_HIDE
+        .wShowWindow = 1, // SW_SHOWNORMAL
     };
     var pi: win.PROCESS_INFORMATION = undefined;
 
-    // Launch without allocating any console window
-    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, null, &si, &pi) != 0) {
+    // Launch slint-viewer with visible window
+    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, 0, null, null, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);

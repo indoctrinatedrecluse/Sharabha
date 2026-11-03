@@ -52,6 +52,8 @@ export component ThematicActionButton inherits Rectangle {
 
     callback clicked();
 
+    min-width: root.btn_width > 0px ? root.btn_width : 60px;
+    max-width: root.btn_width > 0px ? root.btn_width : 10000px;
     preferred-width: root.btn_width > 0px ? root.btn_width : 155px;
     horizontal-stretch: root.btn_width > 0px ? 0 : 1;
     height: btn_height;
@@ -617,10 +619,9 @@ export component SaveKeyValueRow inherits Rectangle {
     touch := TouchArea { }
 
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: 8px;
+        padding-right: 8px;
         spacing: 0px;
-        alignment: center;
 
         // 1. Offset / Sthana (Left-aligned, monospace, clean padding)
         Rectangle {
@@ -784,6 +785,7 @@ export component SaveKeyValueRow inherits Rectangle {
                 padding-right: 8px;
                 LineEdit {
                     text <=> root.val_str;
+                    min-width: 60px;
                     height: 32px;
                     font-size: 12px;
                 }
@@ -1612,10 +1614,13 @@ export component MainWindow inherits Window {
     // Kalyana Sthiti Interactive State
     in-out property <int> current_save_idx: 0;
     in-out property <string> save_commit_feedback: LiveSave.status_feedback;
-    in-out property <string> save_table_filter: "";
+    in-out property <string> save_table_filter: LiveSave.search_filter;
     in-out property <[SaveKeyValueRowData]> save_rows: LiveSave.rows;
     in-out property <int> save_extracted_count: LiveSave.total_extracted_count;
+    in-out property <int> save_filtered_count: LiveSave.filtered_count;
     in-out property <bool> is_deterministic: LiveSave.is_deterministic_profile;
+    in property <int> filter_gating_threshold: 100;
+    property <bool> is_filter_gated: root.save_extracted_count > root.filter_gating_threshold;
 
     // Resizable Column Widths for Save Editor Table
     in-out property <length> col_width_offset: 100px;
@@ -1790,6 +1795,7 @@ export component MainWindow inherits Window {
     callback export_agamas(string);
     callback open_save_file();
     callback reparse_save_file();
+    callback filter_save_rows(string);
     callback execute_fuzzy_parse();
     callback cycle_metric();
     callback cycle_extractor();
@@ -1866,6 +1872,10 @@ export component MainWindow inherits Window {
     // LAYER 2: MAIN WORKSPACE INTERFACE
     // =========================================================================
     if !root.show_splash: VerticalLayout {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
         padding: 16px;
         spacing: 12px;
 
@@ -2054,6 +2064,7 @@ export component MainWindow inherits Window {
 
         // BODY WORKSPACE CONTAINER (Frosted Glass)
         Rectangle {
+            vertical-stretch: 1;
             background: #05080f70;
             border-radius: 12px;
             border-width: 1.5px;
@@ -2063,6 +2074,8 @@ export component MainWindow inherits Window {
             // TAB 0: 🔥 RUDRA ENGINE (Memory Scanner & Injection)
             // -------------------------------------------------------------
             if root.active_tab == 0: HorizontalLayout {
+                width: 100%;
+                height: 100%;
                 padding: 16px;
                 spacing: 12px;
 
@@ -3038,6 +3051,8 @@ export component MainWindow inherits Window {
             // TAB 1: 🧊 KALYANA / SAVE FORGE (Fuzzy Save Editor)
             // -------------------------------------------------------------
             if root.active_tab == 1: HorizontalLayout {
+                width: 100%;
+                height: 100%;
                 padding: 16px;
                 spacing: 12px;
 
@@ -3318,6 +3333,7 @@ export component MainWindow inherits Window {
                             border-radius: 8px;
                             border-width: 1.5px;
                             border-color: #0284c766;
+                            clip: true;
 
                             HorizontalLayout {
                                 padding-left: 18px;
@@ -3325,6 +3341,7 @@ export component MainWindow inherits Window {
                                 alignment: space-between;
 
                                 VerticalLayout {
+                                    horizontal-stretch: 1;
                                     alignment: center;
                                     spacing: 3px;
 
@@ -3335,6 +3352,7 @@ export component MainWindow inherits Window {
                                             font-size: 14px;
                                             font-weight: 800;
                                             color: #38bdf8;
+                                            overflow: elide;
                                             vertical-alignment: center;
                                         }
                                         Rectangle {
@@ -3361,6 +3379,7 @@ export component MainWindow inherits Window {
                                         text: "Vessel: " + root.save_filename + " (" + root.metric_verdict_value + " • " + root.metric_score_value + ")";
                                         font-size: 11px;
                                         color: #94a3b8;
+                                        overflow: elide;
                                     }
                                 }
 
@@ -3386,7 +3405,7 @@ export component MainWindow inherits Window {
                                         }
                                     }
                                     Text {
-                                        text: "Ranked by Confidence ↓ • " + root.save_extracted_count + " Extracted K-V Pairs";
+                                        text: "Ranked by Confidence ↓ • " + root.save_filtered_count + " of " + root.save_extracted_count + " Extracted K-V Pairs";
                                         font-size: 9px;
                                         color: #64748b;
                                         horizontal-alignment: right;
@@ -3395,16 +3414,81 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Search Filter & Table Quick Actions Bar
+                        // Search Filter & Table Quick Actions Bar (with Gated Dynamic Filtering & Search Button)
                         HorizontalLayout {
                             spacing: 8px;
 
                             LineEdit {
                                 text <=> root.save_table_filter;
-                                placeholder-text: "Filter by key name, offset, or type (e.g. runes, level, 0x000C, i32)...";
+                                placeholder-text: root.is_filter_gated ? 
+                                    "Filter keys, offset, or type (Large list: press Search 🔍 or Enter)..." : 
+                                    "Filter keys, offset, or type (Live filter active ⚡ or press Search)...";
+                                min-width: 100px;
                                 font-size: 12px;
                                 horizontal-stretch: 1;
                                 height: 38px;
+                                edited(val) => {
+                                    if (!root.is_filter_gated) {
+                                        root.filter_save_rows(val);
+                                    }
+                                }
+                                accepted(val) => {
+                                    root.filter_save_rows(val);
+                                }
+                            }
+
+                            // Dynamic / Gated Status Indicator Pill
+                            Rectangle {
+                                width: 135px;
+                                height: 38px;
+                                background: root.is_filter_gated ? #854d0e25 : #15803d25;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: root.is_filter_gated ? #ca8a0466 : #22c55e66;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    spacing: 4px;
+                                    Text {
+                                        text: root.is_filter_gated ? "🔒 GATED (>100)" : "⚡ LIVE FILTER";
+                                        font-size: 10px;
+                                        font-weight: 800;
+                                        color: root.is_filter_gated ? #facc15 : #4ade80;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            ThematicActionButton {
+                                text: "SEARCH 🔍";
+                                devanagari: "अन्वेषण";
+                                btn_width: 105px;
+                                btn_height: 38px;
+                                bg_color: #0284c7;
+                                hover_color: #0ea5e9;
+                                sanskrit_title: "अन्वेषण // SEARCH FILTER";
+                                feature_name: "Feature: Key-Value Search";
+                                explanation: root.is_filter_gated ? 
+                                    "Gated search mode active (> 100 rows). Click or press Enter to filter." : 
+                                    "Dynamic live search active (<= 100 rows). Filtering updates dynamically on keystroke or click.";
+                                clicked => {
+                                    root.filter_save_rows(root.save_table_filter);
+                                }
+                            }
+
+                            if root.save_table_filter != "": ThematicActionButton {
+                                text: "RESET ✖";
+                                devanagari: "निवारण";
+                                btn_width: 85px;
+                                btn_height: 38px;
+                                bg_color: #334155;
+                                hover_color: #475569;
+                                sanskrit_title: "निवारण // RESET FILTER";
+                                feature_name: "Feature: Clear Search Filter";
+                                explanation: "Clears active search query and restores all extracted save rows.";
+                                clicked => {
+                                    root.save_table_filter = "";
+                                    root.filter_save_rows("");
+                                }
                             }
 
                             ThematicActionButton {
@@ -3418,7 +3502,7 @@ export component MainWindow inherits Window {
                                 feature_name: "Feature: Commit All Values";
                                 explanation: "Applies all modified values across all key rows into the save memory buffer.";
                                 clicked => {
-                                    root.save_commit_feedback = "✓ Applied all 10 extracted key-value edits into memory buffer";
+                                    root.save_commit_feedback = "✓ Applied all " + root.save_rows.length + " extracted key-value edits into memory buffer";
                                 }
                             }
 
@@ -3439,7 +3523,7 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Table Column Headers (with Interactive Column Resizers & Justified Headers)
+                        // Table Column Headers (with Interactive Column Resizers & Left-Anchored Stretch Justification)
                         Rectangle {
                             height: 36px;
                             background: #0d1626ee;
@@ -3448,10 +3532,9 @@ export component MainWindow inherits Window {
                             border-color: #1e293b;
 
                             HorizontalLayout {
-                                padding-left: 10px;
-                                padding-right: 10px;
+                                padding-left: 8px;
+                                padding-right: 8px;
                                 spacing: 0px;
-                                alignment: center;
 
                                 // 1. Column: OFFSET
                                 Rectangle {
@@ -3683,7 +3766,11 @@ export component MainWindow inherits Window {
                             vertical-stretch: 1;
                             min-height: 250px;
                             VerticalLayout {
-                                padding: 2px;
+                                width: 100%;
+                                padding-left: 0px;
+                                padding-right: 0px;
+                                padding-top: 2px;
+                                padding-bottom: 2px;
                                 spacing: 4px;
 
                                 for row[idx] in root.save_rows: SaveKeyValueRow {
@@ -3714,6 +3801,7 @@ export component MainWindow inherits Window {
                             border-radius: 6px;
                             border-width: 1px;
                             border-color: #0284c755;
+                            clip: true;
 
                             HorizontalLayout {
                                 padding-left: 14px;
@@ -3721,13 +3809,15 @@ export component MainWindow inherits Window {
                                 alignment: space-between;
 
                                 HorizontalLayout {
+                                    horizontal-stretch: 1;
                                     spacing: 8px;
-                                    alignment: center;
+                                    alignment: start;
                                     Text {
                                         text: "🛡️ " + root.save_commit_feedback;
                                         font-size: 11px;
                                         font-weight: 700;
                                         color: #38bdf8;
+                                        overflow: elide;
                                         vertical-alignment: center;
                                     }
                                 }
@@ -3748,6 +3838,8 @@ export component MainWindow inherits Window {
             // TAB 2: 📜 JNANA KOSHA (SurrealDB Knowledge Base)
             // -------------------------------------------------------------
             if root.active_tab == 2: VerticalLayout {
+                width: 100%;
+                height: 100%;
                 padding: 20px;
                 spacing: 16px;
 

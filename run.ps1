@@ -18,7 +18,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host ""
 Write-Host "========================================================================" -ForegroundColor DarkYellow
-Write-Host "  SHARABHA (Sharabheshwara) - The Dual Aspect Engine (v0.3.0)" -ForegroundColor Yellow
+Write-Host "  SHARABHA (Sharabheshwara) - The Dual Aspect Engine (v0.3.1)" -ForegroundColor Yellow
 Write-Host "  [Kalyana Sthiti: Calm]   |   [Rudra Tandava: Violent]" -ForegroundColor Cyan
 Write-Host "  Om Namah Sharabhaya - Awakening the Ashtamurti on Windows" -ForegroundColor Magenta
 Write-Host "========================================================================" -ForegroundColor DarkYellow
@@ -136,6 +136,7 @@ if (-not $CliOnly -and $slintExe -and (Test-Path $slintExe)) {
         "--on", "save_vault", "$binExe --seal-vault",
         "--on", "toggle_save_view_mode", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Dual-Mode View Switched'",
         "--on", "cycle_canvas_mode", "powershell -WindowStyle Hidden -NoProfile -Command Write-Host '[OK] Chitrapata Video Mode Cycled'",
+        "--on", "filter_save_rows", "powershell -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/filter_save.ps1 `"`$1`"",
         "--on", "register_agama_profile", "$binExe --export-surreal"
     )
     & $slintExe "src/ui/app.slint" --auto-reload $callbacks

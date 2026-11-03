@@ -1,0 +1,123 @@
+{
+    "filename":  "ME3Save.pcsav",
+    "gameTitle":  "MASS EFFECT 3 (LEGENDARY EDITION) // Alliance Normandy SR-2 (BioWare Agama // à¤ªà¥à¤°à¤®à¤¾à¤£ à¤†à¤—à¤®)",
+    "md5Str":  "61ED75153DC4BF6A",
+    "verdict":  "BioWare Unreal 3 Vessel (MELE3 Package v59)",
+    "len":  110343,
+    "isDeterministicProfile":  true,
+    "totalExtracted":  14,
+    "rows":  [
+                 {
+                     "offset":  "PLOT:Key[10380]",
+                     "key":  "Plot.ReputationPoints",
+                     "type":  "i32 (Morality)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "1511"
+                 },
+                 {
+                     "offset":  "PLOT:Key[10297]",
+                     "key":  "Plot.Reputation",
+                     "type":  "i32 (Morality)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "3"
+                 },
+                 {
+                     "offset":  "PLOT:Key[10160]",
+                     "key":  "Plot.Renegade",
+                     "type":  "i32 (Morality)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "1139"
+                 },
+                 {
+                     "offset":  "PLOT:Key[10159]",
+                     "key":  "Plot.Paragon",
+                     "type":  "i32 (Morality)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "233"
+                 },
+                 {
+                     "offset":  "PLAYER:XP",
+                     "key":  "Player.CurrentXP",
+                     "type":  "f32 (Progression)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "121400"
+                 },
+                 {
+                     "offset":  "PLAYER:WarAssets",
+                     "key":  "Player.WarAssetsCount",
+                     "type":  "i32 (War Assets)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "64"
+                 },
+                 {
+                     "offset":  "PLAYER:TalentPoints",
+                     "key":  "Player.TalentPoints",
+                     "type":  "i32 (Progression)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "3"
+                 },
+                 {
+                     "offset":  "PLAYER:Level",
+                     "key":  "Player.Level",
+                     "type":  "i32 (Progression)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "60"
+                 },
+                 {
+                     "offset":  "PLAYER:FirstName",
+                     "key":  "Player.FirstName",
+                     "type":  "String (Identity)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "\u0027Clare\u0027"
+                 },
+                 {
+                     "offset":  "PLAYER:FaceCode",
+                     "key":  "Player.FaceCode",
+                     "type":  "String (Identity)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 00 00",
+                     "val":  "\u0027743.8GD.I13.D2G.EG1.17E.4AG.611.C31.1A7.2G6.212\u0027"
+                 },
+                 {
+                     "offset":  "0xBF9A",
+                     "key":  "Player.Grenades",
+                     "type":  "i32 (Supplies)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "04 00 00 00",
+                     "val":  "4"
+                 },
+                 {
+                     "offset":  "0xBF96",
+                     "key":  "Player.CurrentFuel",
+                     "type":  "f32 (Supplies)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "00 00 7A 44",
+                     "val":  "1000"
+                 },
+                 {
+                     "offset":  "0xBF7E",
+                     "key":  "Player.Medigel",
+                     "type":  "i32 (Supplies)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "07 00 00 00",
+                     "val":  "7"
+                 },
+                 {
+                     "offset":  "0xBF7A",
+                     "key":  "Player.Credits",
+                     "type":  "i32 (Resources)",
+                     "conf":  "100% Curated Agama",
+                     "hex":  "29 4A 17 00",
+                     "val":  "1526313"
+                 }
+             ]
+}
