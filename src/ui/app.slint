@@ -1767,6 +1767,9 @@ export component MainWindow inherits Window {
     // Interactive Lua Altar Properties
     in-out property <string> lua_script_input: "sharabha.write_u32(0x7FF74A8014E4, 999999); print('Mudra Awakened!')";
     in-out property <string> lua_status_msg: "LuaJIT 2.1 Ashtamurti Ready // Memory Inquest Armed";
+    in-out property <string> lua_output_text: "🔱 LuaJIT Ashtamurti Ready. Output will stream here after script execution.";
+    in-out property <string> table_file_path: "assets/tables/workspace.sharabha";
+    in-out property <string> dll_inject_path: "C:\\Sharabha\\payload.dll";
 
     // Callbacks to Zig core
     callback refresh_processes();
@@ -1781,6 +1784,10 @@ export component MainWindow inherits Window {
     callback scan_pointer(string);
     callback disassemble_address(string);
     callback watch_address_writes(string);
+    callback save_memory_table(string);
+    callback load_memory_table(string);
+    callback inject_dll(string);
+    callback export_agamas(string);
     callback open_save_file();
     callback reparse_save_file();
     callback execute_fuzzy_parse();
@@ -2678,6 +2685,39 @@ export component MainWindow inherits Window {
                                                 root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
                                             }
                                         }
+                                        ThematicActionButton {
+                                            text: "SAVE .sharabha"; devanagari: "सारिणी संग्रह"; btn_width: 105px; btn_height: 26px;
+                                            bg_color: #0369a1; hover_color: #0284c7;
+                                            sanskrit_title: "सारिणी संग्रह // SAVE TABLE";
+                                            feature_name: "Feature: Serialize Cheat Table";
+                                            explanation: "Saves tracked addresses, pointer chains, freeze sentinels, and Lua scripts to a .sharabha workspace file.";
+                                            clicked => {
+                                                root.rudra_status_text = "✓ Serializing Memory Table to " + root.table_file_path;
+                                                root.save_memory_table(root.table_file_path);
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "LOAD .sharabha"; devanagari: "सारिणी प्रवेश"; btn_width: 105px; btn_height: 26px;
+                                            bg_color: #0d9488; hover_color: #14b8a6;
+                                            sanskrit_title: "सारिणी प्रवेश // LOAD TABLE";
+                                            feature_name: "Feature: Load Cheat Table";
+                                            explanation: "Loads persistent .sharabha workspace table, activating known records and embedded scripts.";
+                                            clicked => {
+                                                root.rudra_status_text = "✓ Loading Memory Table from " + root.table_file_path;
+                                                root.load_memory_table(root.table_file_path);
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "INJECT DLL"; devanagari: "पाश बन्धन"; btn_width: 85px; btn_height: 26px;
+                                            bg_color: #9333ea; hover_color: #a855f7;
+                                            sanskrit_title: "पाश बन्धन // DLL INJECTION";
+                                            feature_name: "Feature: Win32 Remote Thread Injection";
+                                            explanation: "Injects native DLL into attached process via CreateRemoteThread and LoadLibraryW.";
+                                            clicked => {
+                                                root.rudra_status_text = "🔱 Pasha Bandhana: Injecting " + root.dll_inject_path + " into " + root.active_process_name;
+                                                root.inject_dll(root.dll_inject_path);
+                                            }
+                                        }
                                     }
                                 }
 
@@ -2849,47 +2889,143 @@ export component MainWindow inherits Window {
 
                         // Interactive Lua Altar (उद्बोधन वेदी)
                         Rectangle {
-                            height: 48px;
-                            background: #101622d0;
+                            background: #0e131fd8;
                             border-radius: 8px;
                             border-width: 1.5px;
-                            border-color: #7c3aed66;
+                            border-color: #7c3aed88;
 
-                            HorizontalLayout {
-                                padding-left: 12px;
-                                padding-right: 12px;
-                                spacing: 10px;
-                                alignment: center;
+                            VerticalLayout {
+                                padding: 10px;
+                                spacing: 8px;
 
-                                Text {
-                                    text: "🔱 LUA:";
-                                    font-size: 11px;
-                                    font-weight: 800;
-                                    color: #c084fc;
-                                    vertical-alignment: center;
+                                // Altar Header & Template Quick-Pickers
+                                HorizontalLayout {
+                                    alignment: space-between;
+
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        alignment: start;
+                                        Text {
+                                            text: "🔱 LUA SCRIPT ALTAR (उद्बोधन वेदी):";
+                                            font-size: 11px;
+                                            font-weight: 800;
+                                            color: #c084fc;
+                                            vertical-alignment: center;
+                                        }
+                                        Text {
+                                            text: "Process: " + root.active_process_name + " (PID " + root.active_process_pid + ")";
+                                            font-size: 10px;
+                                            color: #94a3b8;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        spacing: 4px;
+                                        ThematicActionButton {
+                                            text: "READ/WRITE"; devanagari: "स्मृति म्यूटेशन"; btn_width: 82px; btn_height: 22px;
+                                            bg_color: #1e1b4b; hover_color: #312e81;
+                                            clicked => {
+                                                root.lua_script_input = "local addr = 0x7FF74A8014E4; local v = sharabha.read_i32(addr) or 0; sharabha.write_i32(addr, v + 1000); print('🔱 Mutated RAM value to: ' .. tostring(v + 1000));";
+                                                root.lua_output_text = "Template Loaded: Direct Memory Read & Mutation";
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "POINTER CHAIN"; devanagari: "व्यूह सूत्र"; btn_width: 92px; btn_height: 22px;
+                                            bg_color: #1e1b4b; hover_color: #312e81;
+                                            clicked => {
+                                                root.lua_script_input = "local base = 0x7FF74A800000; local offsets = { 0x18, 0x68, 0x30 }; local target = sharabha.read_pointer(base, offsets); if target then print('✓ Resolved: 0x' .. string.format('%X', target) .. ' Val: ' .. tostring(sharabha.read_i32(target))); else print('❌ Traversal failed'); end";
+                                                root.lua_output_text = "Template Loaded: Multi-Level Pointer Traversal";
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "FREEZE LOCK"; devanagari: "स्तम्भन"; btn_width: 82px; btn_height: 22px;
+                                            bg_color: #1e1b4b; hover_color: #312e81;
+                                            clicked => {
+                                                root.lua_script_input = "local ok = sharabha.freeze_i32(0x7FF74A8014E0, 999999, 'Godmode Lock'); if ok then print('✓ Stambhana Freeze Sentinel Armed'); else print('❌ Freeze failed'); end";
+                                                root.lua_output_text = "Template Loaded: Stambhana Freeze Sentinel";
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "INJECT DLL"; devanagari: "पाश बन्धन"; btn_width: 82px; btn_height: 22px;
+                                            bg_color: #1e1b4b; hover_color: #312e81;
+                                            clicked => {
+                                                root.lua_script_input = "local hMod = sharabha.inject_dll('" + root.dll_inject_path + "'); if hMod then print('✓ Injected Base: 0x' .. string.format('%X', hMod)); else print('❌ Injection failed'); end";
+                                                root.lua_output_text = "Template Loaded: Remote Thread DLL Injection";
+                                            }
+                                        }
+                                        ThematicActionButton {
+                                            text: "CODE CAVE"; devanagari: "गुहा स्थापन"; btn_width: 82px; btn_height: 22px;
+                                            bg_color: #1e1b4b; hover_color: #312e81;
+                                            clicked => {
+                                                root.lua_script_input = "local cave = sharabha.allocate_cave(256); if cave then print('✓ Remote Code Cave Allocated: 0x' .. string.format('%X', cave)); else print('❌ Allocation failed'); end";
+                                                root.lua_output_text = "Template Loaded: Executable Code Cave Allocation";
+                                            }
+                                        }
+                                    }
                                 }
 
-                                LineEdit {
-                                    text <=> root.lua_script_input;
-                                    placeholder-text: "sharabha.write_u32(0x7FF74A8014E4, 999999);";
-                                    font-size: 11px;
-                                    horizontal-stretch: 1;
-                                    height: 34px;
+                                // Script Code Editor Input Bar
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: center;
+
+                                    LineEdit {
+                                        text <=> root.lua_script_input;
+                                        placeholder-text: "sharabha.write_u32(0x7FF74A8014E4, 999999); print('Mudra Awakened!')";
+                                        font-size: 11px;
+                                        font-family: "Consolas, monospace";
+                                        horizontal-stretch: 1;
+                                        height: 34px;
+                                    }
+
+                                    ThematicActionButton {
+                                        text: "AWAKEN // Run";
+                                        devanagari: "उद्बोधन";
+                                        btn_width: 140px;
+                                        btn_height: 34px;
+                                        bg_color: #6d28d9;
+                                        hover_color: #7c3aed;
+                                        sanskrit_title: "उद्बोधन // AWAKEN LUA";
+                                        feature_name: "Feature: Execute LuaJIT Script";
+                                        explanation: "Executes custom Lua script with native memory read/write and freeze bindings directly against attached game process.";
+                                        clicked => {
+                                            root.rudra_status_text = "🔱 Lua Script Awakened: Memory mutation applied to " + root.active_process_name;
+                                            root.lua_output_text = "🔱 Executing script against PID " + root.active_process_pid + "...";
+                                            root.run_lua_script(root.lua_script_input);
+                                        }
+                                    }
                                 }
 
-                                ThematicActionButton {
-                                    text: "AWAKEN // Run";
-                                    devanagari: "उद्बोधन";
-                                    btn_width: 130px;
-                                    btn_height: 34px;
-                                    bg_color: #6d28d9;
-                                    hover_color: #7c3aed;
-                                    sanskrit_title: "उद्बोधन // AWAKEN LUA";
-                                    feature_name: "Feature: Execute LuaJIT Script";
-                                    explanation: "Executes custom Lua script with native memory read/write and freeze bindings directly against attached game process.";
-                                    clicked => {
-                                        root.rudra_status_text = "🔱 Lua Script Awakened: Memory mutation applied to " + root.active_process_name;
-                                        root.run_lua_script(root.lua_script_input);
+                                // Interactive Script Output / Console Log
+                                Rectangle {
+                                    height: 26px;
+                                    background: #07090ebd;
+                                    border-radius: 4px;
+                                    border-width: 1px;
+                                    border-color: #334155;
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        spacing: 8px;
+
+                                        Text {
+                                            text: "OUTPUT:";
+                                            font-size: 9px;
+                                            font-weight: 800;
+                                            color: #a855f7;
+                                            vertical-alignment: center;
+                                        }
+                                        Text {
+                                            text: root.lua_output_text;
+                                            font-size: 10px;
+                                            font-family: "Consolas, monospace";
+                                            color: #22c55e;
+                                            vertical-alignment: center;
+                                            horizontal-stretch: 1;
+                                            overflow: elide;
+                                        }
                                     }
                                 }
                             }
@@ -3634,19 +3770,37 @@ export component MainWindow inherits Window {
                         }
                     }
 
-                    ThematicActionButton {
-                        text: "+ NEW AGAMA // Register Profile";
-                        devanagari: "आगम रचना";
-                        btn_width: 220px;
-                        btn_height: 44px;
-                        bg_color: #854d0e;
-                        hover_color: #9e5b11;
-                        sanskrit_title: "आगम रचना // AGAMA RECORD";
-                        feature_name: "Feature: Register Game Schema";
-                        explanation: "Saves a new game structure in embedded SurrealDB to permanently remember save offsets and pointer chains.";
-                        clicked => {
-                            root.jnana_status_msg = "✓ New Game Profile Registered in SurrealDB Knowledge Graph (schema: agamas:custom)";
-                            root.register_agama_profile();
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ThematicActionButton {
+                            text: "+ NEW AGAMA // Register";
+                            devanagari: "आगम रचना";
+                            btn_width: 175px;
+                            btn_height: 44px;
+                            bg_color: #854d0e;
+                            hover_color: #9e5b11;
+                            sanskrit_title: "आगम रचना // AGAMA RECORD";
+                            feature_name: "Feature: Register Game Schema";
+                            explanation: "Saves a new game structure in embedded SurrealDB to permanently remember save offsets and pointer chains.";
+                            clicked => {
+                                root.jnana_status_msg = "✓ New Game Profile Registered in SurrealDB Knowledge Graph (schema: agamas:custom)";
+                                root.register_agama_profile();
+                            }
+                        }
+                        ThematicActionButton {
+                            text: "EXPORT JSON // Community";
+                            devanagari: "ज्ञान निर्यात";
+                            btn_width: 175px;
+                            btn_height: 44px;
+                            bg_color: #0369a1;
+                            hover_color: #0284c7;
+                            sanskrit_title: "ज्ञान निर्यात // EXPORT AGAMAS";
+                            feature_name: "Feature: Export Community JSON";
+                            explanation: "Exports verified game profiles, pointer routes, and user annotations into portable JSON.";
+                            clicked => {
+                                root.jnana_status_msg = "✓ Exporting Knowledge Base Profiles to JSON format...";
+                                root.export_agamas("assets/knowledge/community_agamas.json");
+                            }
                         }
                     }
                 }

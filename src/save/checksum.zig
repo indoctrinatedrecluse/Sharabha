@@ -13,6 +13,7 @@ pub const ChecksumAlgorithm = enum(u8) {
     Sum32 = 3,
     Xor8 = 4,
     Crc32Bzip2 = 5,
+    Murmur3_32 = 6,
 
     pub fn getName(self: ChecksumAlgorithm) []const u8 {
         return switch (self) {
@@ -22,6 +23,7 @@ pub const ChecksumAlgorithm = enum(u8) {
             .Sum32 => "Additive Sum-32",
             .Xor8 => "Rolling XOR-8",
             .Crc32Bzip2 => "CRC-32/BZIP2 (BioWare Unreal)",
+            .Murmur3_32 => "MurmurHash3 (32-bit Capcom RE Engine)",
         };
     }
 
@@ -33,6 +35,7 @@ pub const ChecksumAlgorithm = enum(u8) {
             .Sum32 => "योग संकलन (Yoga)",
             .Xor8 => "विलोम सूत्र (Viloma)",
             .Crc32Bzip2 => "ब्रह्म चक्र (Brahma Chakra)",
+            .Murmur3_32 => "मर्म सूत्र (Marma Sutra)",
         };
     }
 };
@@ -44,6 +47,7 @@ pub const ChecksumResult = union(ChecksumAlgorithm) {
     Sum32: u32,
     Xor8: u8,
     Crc32Bzip2: u32,
+    Murmur3_32: u32,
 };
 
 pub const ChecksumTarget = struct {
@@ -106,6 +110,50 @@ pub const ChecksumEngine = struct {
         return crc ^ 0xFFFFFFFF;
     }
 
+    /// MurmurHash3 (32-bit x86, seed 0xFFFFFFFF) used in Capcom RE Engine (Dragon's Dogma 2, RE4, etc.)
+    pub fn computeMurmur3_32(data: []const u8, seed: u32) u32 {
+        const c1: u32 = 0xcc9e2d51;
+        const c2: u32 = 0x1b873593;
+
+        var h: u32 = seed;
+        const nblocks = data.len / 4;
+
+        var i: usize = 0;
+        while (i < nblocks) : (i += 1) {
+            var k = std.mem.readInt(u32, data[i * 4 ..][0..4], .little);
+            k = k *% c1;
+            k = std.math.rotl(u32, k, 15);
+            k = k *% c2;
+
+            h ^= k;
+            h = std.math.rotl(u32, h, 13);
+            h = h *% 5 +% 0xe6546b64;
+        }
+
+        // Tail
+        const tail = data[nblocks * 4 ..];
+        var k1: u32 = 0;
+        if (tail.len >= 3) k1 ^= @as(u32, tail[2]) << 16;
+        if (tail.len >= 2) k1 ^= @as(u32, tail[1]) << 8;
+        if (tail.len >= 1) {
+            k1 ^= @as(u32, tail[0]);
+            k1 = k1 *% c1;
+            k1 = std.math.rotl(u32, k1, 15);
+            k1 = k1 *% c2;
+            h ^= k1;
+        }
+
+        // Finalization
+        h ^= @as(u32, @intCast(data.len));
+        h ^= h >> 16;
+        h = h *% 0x85ebca6b;
+        h ^= h >> 13;
+        h = h *% 0xc2b2ae35;
+        h ^= h >> 16;
+
+        return h;
+    }
+
     pub fn compute(algo: ChecksumAlgorithm, data: []const u8) ChecksumResult {
         return switch (algo) {
             .Crc32 => .{ .Crc32 = computeCrc32(data) },
@@ -114,6 +162,7 @@ pub const ChecksumEngine = struct {
             .Sum32 => .{ .Sum32 = computeSum32(data) },
             .Xor8 => .{ .Xor8 = computeXor8(data) },
             .Crc32Bzip2 => .{ .Crc32Bzip2 = computeCrc32Bzip2(data) },
+            .Murmur3_32 => .{ .Murmur3_32 = computeMurmur3_32(data, 0xFFFFFFFF) },
         };
     }
 
@@ -167,6 +216,15 @@ pub const ChecksumEngine = struct {
                 const expected = computeXor8(payload);
                 return expected == data[target.target_offset];
             },
+            .Murmur3_32 => {
+                if (target.target_offset + 4 > data.len) return false;
+                const expected = computeMurmur3_32(payload, 0xFFFFFFFF);
+                const stored = if (target.is_little_endian)
+                    std.mem.readInt(u32, data[target.target_offset..][0..4], .little)
+                else
+                    std.mem.readInt(u32, data[target.target_offset..][0..4], .big);
+                return expected == stored;
+            },
         }
     }
 
@@ -218,11 +276,32 @@ pub const ChecksumEngine = struct {
                 if (target.target_offset >= data.len) return error.TargetOffsetOutOfBounds;
                 data[target.target_offset] = computeXor8(payload);
             },
+            .Murmur3_32 => {
+                if (target.target_offset + 4 > data.len) return error.TargetOffsetOutOfBounds;
+                const val = computeMurmur3_32(payload, 0xFFFFFFFF);
+                if (target.is_little_endian) {
+                    std.mem.writeInt(u32, data[target.target_offset..][0..4], val, .little);
+                } else {
+                    std.mem.writeInt(u32, data[target.target_offset..][0..4], val, .big);
+                }
+            },
         }
     }
 
     /// Auto-detects game save type by extension and patches appropriate integrity seals
     pub fn autoPatchKnownFormat(file_ext: []const u8, data: []u8) !?ChecksumAlgorithm {
+        // Capcom RE Engine saves (Dragon's Dogma 2, RE4, MH Wilds): DSSS container with trailing 4-byte Murmur3
+        if (data.len >= 16 and std.mem.eql(u8, data[0..4], "DSSS")) {
+            const payload_len = data.len - 4;
+            try patch(.{
+                .algorithm = .Murmur3_32,
+                .payload_start = 0,
+                .payload_end = payload_len,
+                .target_offset = payload_len,
+                .is_little_endian = true,
+            }, data);
+            return .Murmur3_32;
+        }
         // Elden Ring (.sl2): 16-byte MD5 header at slot block 0x300
         if (std.mem.eql(u8, file_ext, ".sl2")) {
             if (data.len >= 0x400) {
@@ -328,4 +407,35 @@ test "ChecksumEngine - CRC32, Adler32, MD5 and Patching" {
     };
     try ChecksumEngine.patch(bzip2_target, &buffer);
     try std.testing.expect(ChecksumEngine.verify(bzip2_target, &buffer));
+
+    // Test Murmur3_32 (Capcom RE Engine)
+    const murmur_target = ChecksumTarget{
+        .algorithm = .Murmur3_32,
+        .payload_start = 8,
+        .payload_end = 24,
+        .target_offset = 56,
+        .is_little_endian = true,
+    };
+    try ChecksumEngine.patch(murmur_target, &buffer);
+    try std.testing.expect(ChecksumEngine.verify(murmur_target, &buffer));
+
+    // Test autoPatchKnownFormat with DSSS Capcom container
+    var dsss_buf: [32]u8 = undefined;
+    @memcpy(dsss_buf[0..4], "DSSS");
+    std.mem.writeInt(u32, dsss_buf[4..8], 2, .little); // Version 2
+    @memset(dsss_buf[8..28], 0x42);
+    @memset(dsss_buf[28..32], 0x00); // Checksum space
+
+    const algo = try ChecksumEngine.autoPatchKnownFormat(".bin", &dsss_buf);
+    try std.testing.expect(algo != null);
+    try std.testing.expectEqual(ChecksumAlgorithm.Murmur3_32, algo.?);
+    // Verify that the patched checksum matches
+    const dsss_verify = ChecksumEngine.verify(.{
+        .algorithm = .Murmur3_32,
+        .payload_start = 0,
+        .payload_end = 28,
+        .target_offset = 28,
+        .is_little_endian = true,
+    }, &dsss_buf);
+    try std.testing.expect(dsss_verify);
 }

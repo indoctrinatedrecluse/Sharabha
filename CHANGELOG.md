@@ -11,6 +11,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-11-03
+
+### Added
+- **Agama Deterministic Save Override Engine: Dragon's Dogma 2 & Capcom RE Engine Ecosystem**:
+  - Full reverse-engineering and native container integration for Capcom RE Engine save format (`DSSS` container magic `0x44 0x53 0x53 0x53`, container version `2`).
+  - **MurmurHash3 (32-bit x86) Integrity Algorithm ("मर्म सूत्र // Marma Sutra")**:
+    - Added high-performance native Murmur3_32 checksum algorithm with seed `0xFFFFFFFF` over the `0..len-4` payload span to `src/save/checksum.zig`.
+    - Automated detection and recalculation of trailing 4-byte checksum footers in `.bin` save vessels (`data001Slot.bin`), preventing in-game corruption or anti-tamper warnings upon loading edited saves.
+  - **Dragon's Dogma 2 (`Steam AppID: 2054970`) Curated Variables (23 Ground-Truth Rules)**:
+    - **Economy**: Gold (`Base.Gold`), Rift Crystals (`Base.RC`).
+    - **Arisen Progression & Attributes**: Level (1..999), Total Experience (EXP), Discipline Points (DCP), Active Vocation (Jobs 0..9: Fighter, Archer, Mage, Thief, Warrior, Sorcerer, Magick Archer, Mystic Spearhand, Trickster, Warfarer), Current HP, Max HP, Loss Gauge (unrecoverable health), Current Stamina, Max Stamina.
+    - **Main Pawn Progression & Attributes**: Level (1..999), Total Experience (EXP), Discipline Points (DCP), Active Vocation (Core Jobs 0..5), Current HP, Max HP, Loss Gauge, Current Stamina, Max Stamina.
+    - **Key Items & Consumables**: Ferrystones (Item 81), Wakestones (Item 82), Allheal Elixirs (Item 3).
+  - **RE Engine Ecosystem Profile Definitions**:
+    - Pre-configured profiles with container signature validation for *Resident Evil 4 Remake* (`re4`), *Monster Hunter Wilds* (`re_mhw`), *Monster Hunter Rise* (`re_mhr`), *Resident Evil 2 Remake* (`re2`), *Resident Evil 3 Remake* (`re3`), *Resident Evil Village* (`re8`), and *Resident Evil 7: Biohazard* (`re7`).
+  - **Jñāna Kośa Multi-Model Knowledge Graph Integration**:
+    - Seeded canonical knowledge graph nodes: `game:dd2`, `save_profile:dd2_bin`, pointer path routes (`pointer:dd2_gold`), and integrity rule (`kavacha:dd2_murmur3`) into the embedded graph engine with SurrealQL export support.
+  - **Third-Party Research Attribution & Legal Compliance**:
+    - Added explicit legal notices and MIT acknowledgements in `README.md`, `NOTICE`, `LICENSE`, and code comments for `kagenocookie` (`dd2-content-editor`) and `kvasszn` (`ree-save-editor`).
+- **Phase 5: Pasha Bandhana (Win32 Remote Thread DLL Injection)**:
+  - Native DLL injection via `VirtualAllocEx`, `WriteProcessMemory`, and `CreateRemoteThread` invoking `LoadLibraryW`.
+  - Comprehensive timeout tracking, remote `HMODULE` base address validation, and automatic remote parameter buffer cleanup.
+  - CLI subcommand: `SharabhaCli.exe --inject-dll <pid> <path_to_dll>`.
+  - Native Lua binding: `sharabha.inject_dll(dll_path)` returning the remote module base address.
+- **Phase 5: Guha Sthapana (Code Cave & 64-Bit Absolute Detour Inline Hooks)**:
+  - 14-byte 64-bit absolute indirect jump encoding: `FF 25 00 00 00 00 <8-byte destination>` (`JMP [RIP+0]`), operating without 2GB branch range limitations.
+  - Stolen instructions preservation with automatic NOP padding.
+  - Remote code cave allocation with `PAGE_EXECUTE_READWRITE` and trampoline return jump assembly.
+  - `hook.remove(hProcess)` restoring original instruction bytes and releasing remote cave memory.
+  - Native Lua binding: `sharabha.allocate_cave(size)` for dynamic code cave allocation.
+- **Phase 5: Sharabha Memory Table Workspace (`.sharabha` Cheat Table Format)**:
+  - Structured Cheat Engine `.CT` equivalent file format serializing full reverse-engineering workspaces.
+  - Stores target process metadata, static addresses, multi-level pointer chains, AOB patterns, value types (`i32`, `i64`, `f32`, `f64`, `byte`, `string`), freeze values, hotkeys, annotations, and embedded Lua scripts.
+  - Memory-safe serialization and deserialization powered by heap-backed `std.heap.ArenaAllocator`.
+  - CLI subcommands: `SharabhaCli.exe --save-table <path>` and `SharabhaCli.exe --load-table <path>`.
+  - Dedicated Slint UI buttons: `SAVE .sharabha` (सारिणी संग्रह) and `LOAD .sharabha` (सारिणी प्रवेश).
+- **Phase 4: Lua Altar Interactive Script Editor & Output Console**:
+  - In-app interactive script editor panel in Rudra Tandava targeting attached process PID.
+  - Five canonical template quick-pickers: `READ/WRITE`, `POINTER CHAIN`, `FREEZE LOCK`, `INJECT DLL`, and `CODE CAVE`.
+  - Output and error capture buffer routing all Lua `print(...)` and `sharabha.log(...)` calls to an interactive console row in the UI.
+  - Expanded Lua API bindings: `sharabha.read_i64`/`write_i64`, `sharabha.read_f64`/`write_f64`, and multi-level pointer chain traversal (`sharabha.read_pointer(base, {offsets})`).
+- **Phase 4: Jnana Kosha Profile CRUD & User Annotations**:
+  - Embedded multi-model knowledge graph CRUD operations: `registerGame`, `updateGame`, and `deleteGame` with cascaded profile/pointer cleanup.
+  - User reverse-engineering annotations: `addAnnotation` and `getAnnotationsForGame` tracking custom offset notes.
+  - Community profile sharing: `exportProfilesJson` and `SharabhaCli.exe --export-agamas` generating portable community JSON.
+  - Slint UI action: `EXPORT JSON // Community` in the Jnana Kosha tab.
+
+---
+
 ## [0.2.0] - 2026-11-03
 
 ### Added

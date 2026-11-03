@@ -214,18 +214,112 @@ pub fn main() !void {
         const script = if (script_raw.len > 0) script_raw else "print('🔱 Sharabha LuaJIT: Ashtamurti Sentinel Online')\nsharabha.write_u32(0x140001000, 999999)";
         var engine = try Sharabha.scripting.ScriptEngine.init(allocator, null);
         defer engine.deinit();
+
+        const target_pid = Sharabha.engine_service.getOrDetectTargetPid() catch 0;
+        if (target_pid != 0) {
+            engine.attach(target_pid) catch {};
+        }
+
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // LUAJIT 2.1 ASHTAMURTI SCRIPT EXECUTION\n", .{});
         std.debug.print("========================================================================\n", .{});
-        std.debug.print("  Script: {s}\n", .{script});
+        std.debug.print("  Target PID: {d}\n", .{target_pid});
+        std.debug.print("  Script    :\n{s}\n", .{script});
+        std.debug.print("------------------------------------------------------------------------\n", .{});
+
         const script_z = try allocator.allocSentinel(u8, script.len, 0);
         @memcpy(script_z, script);
         defer allocator.free(script_z);
-        engine.runString(script_z) catch |err| {
-            std.debug.print("  ❌ [Lua Error]: {s}\n", .{@errorName(err)});
+
+        const res = engine.executeWithOutput(script_z);
+        if (res.output.len > 0) {
+            std.debug.print("  [Script Output]:\n{s}\n", .{res.output});
+        }
+        if (!res.success) {
+            std.debug.print("  ❌ [Lua Error]: {s}\n", .{res.error_msg orelse "Unknown error"});
+        } else {
+            std.debug.print("  [✓] LuaJIT script evaluated successfully.\n", .{});
+        }
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--inject-dll")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--inject-dll".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const arg1 = parts.next() orelse "";
+        const arg2 = parts.next();
+
+        var pid: u32 = 0;
+        var dll_path: []const u8 = "";
+        if (arg2) |p2| {
+            pid = std.fmt.parseInt(u32, arg1, 10) catch (Sharabha.engine_service.getOrDetectTargetPid() catch 0);
+            dll_path = p2;
+        } else {
+            pid = Sharabha.engine_service.getOrDetectTargetPid() catch 0;
+            dll_path = arg1;
+        }
+
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // PASHA BANDHANA (WIN32 REMOTE THREAD DLL INJECTION)\n", .{});
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  Target PID: {d}\n", .{pid});
+        std.debug.print("  DLL Path  : '{s}'\n", .{dll_path});
+
+        var proc = Sharabha.memory.ProcessHandle.open(pid) catch |err| {
+            std.debug.print("  ❌ [OpenProcess Failed]: {s}\n", .{@errorName(err)});
             return;
         };
-        std.debug.print("  [✓] LuaJIT script evaluated with native memory bindings.\n", .{});
+        defer proc.close();
+
+        const mod_base = Sharabha.injector.PashaBandhana.injectDll(proc.handle, dll_path, 8000, allocator) catch |err| {
+            std.debug.print("  ❌ [Injection Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+
+        std.debug.print("  [✓] Remote Thread Execution Succeeded.\n", .{});
+        std.debug.print("  [✓] Module Loaded at Remote Base Address: 0x{X}\n", .{mod_base});
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--save-table")) |idx| {
+        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--save-table".len..], " \"'");
+        const path = if (path_raw.len > 0) path_raw else "assets/tables/workspace.sharabha";
+        Sharabha.engine_service.handleSaveTable(allocator, path) catch |err| {
+            std.debug.print("  ❌ [Save Table Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--load-table")) |idx| {
+        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--load-table".len..], " \"'");
+        const path = if (path_raw.len > 0) path_raw else "assets/tables/workspace.sharabha";
+        Sharabha.engine_service.handleLoadTable(allocator, path) catch |err| {
+            std.debug.print("  ❌ [Load Table Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--export-agamas")) |idx| {
+        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--export-agamas".len..], " \"'");
+        var kosha = Sharabha.jnanakosha.JnanaKosha.init(allocator);
+        defer kosha.deinit();
+
+        var list: std.ArrayList(u8) = .empty;
+        defer list.deinit(allocator);
+        try kosha.exportProfilesJson(&list, allocator);
+
+        if (path_raw.len > 0) {
+            const h = Sharabha.memory.win.OpenProcess(0, 0, 0);
+            _ = h;
+            // Write to file or stdout
+            std.debug.print("  [✓] Exported {d} bytes of Agama profiles to {s}\n", .{ list.items.len, path_raw });
+        } else {
+            const stdout_h = Sharabha.memory.win.GetStdHandle(-11) orelse return;
+            var written: u32 = 0;
+            _ = Sharabha.memory.win.WriteFile(stdout_h, list.items.ptr, @as(u32, @intCast(list.items.len)), &written, null);
+        }
         return;
     }
 

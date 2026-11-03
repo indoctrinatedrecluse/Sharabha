@@ -31,6 +31,49 @@ pub const GameProfile = struct {
     rules: []const KnownFieldRule,
 
     pub fn matchesFile(self: *const GameProfile, filename: []const u8, content_or_header: []const u8) bool {
+        // Capcom RE Engine recognition (DSSS container format, version 2, MurmurHash3_x86_32 footer)
+        if (std.mem.startsWith(u8, self.id, "dd2") or std.mem.startsWith(u8, self.id, "re_") or std.mem.startsWith(u8, self.id, "re2") or std.mem.startsWith(u8, self.id, "re3") or std.mem.startsWith(u8, self.id, "re4") or std.mem.startsWith(u8, self.id, "re7") or std.mem.startsWith(u8, self.id, "re8")) {
+            if (content_or_header.len < 8) return false;
+            // Must begin with "DSSS"
+            if (!std.mem.eql(u8, content_or_header[0..4], "DSSS")) return false;
+            // Must have container version 2
+            const ver = std.mem.readInt(u32, content_or_header[4..8], .little);
+            if (ver != 2) return false;
+
+            if (std.mem.eql(u8, self.id, "dd2")) {
+                if (std.mem.indexOf(u8, filename, "2054970") != null or
+                    std.mem.indexOf(u8, filename, "dd2") != null or
+                    std.mem.indexOf(u8, filename, "dragonsdogma") != null or
+                    std.mem.indexOf(u8, filename, "data001Slot") != null) {
+                    return true;
+                }
+                // Default fallback if generic data000.bin / data001.bin without other game tags
+                const has_other_tag = std.mem.indexOf(u8, filename, "re2") != null or
+                    std.mem.indexOf(u8, filename, "re3") != null or
+                    std.mem.indexOf(u8, filename, "re4") != null or
+                    std.mem.indexOf(u8, filename, "re7") != null or
+                    std.mem.indexOf(u8, filename, "re8") != null or
+                    std.mem.indexOf(u8, filename, "mhw") != null or
+                    std.mem.indexOf(u8, filename, "mhr") != null;
+                return !has_other_tag and (std.mem.endsWith(u8, filename, ".bin") or std.mem.endsWith(u8, filename, ".BIN"));
+            } else if (std.mem.eql(u8, self.id, "re4")) {
+                return (std.mem.indexOf(u8, filename, "2050650") != null or std.mem.indexOf(u8, filename, "re4") != null);
+            } else if (std.mem.eql(u8, self.id, "re2")) {
+                return (std.mem.indexOf(u8, filename, "883710") != null or std.mem.indexOf(u8, filename, "re2") != null);
+            } else if (std.mem.eql(u8, self.id, "re3")) {
+                return (std.mem.indexOf(u8, filename, "952060") != null or std.mem.indexOf(u8, filename, "re3") != null);
+            } else if (std.mem.eql(u8, self.id, "re8")) {
+                return (std.mem.indexOf(u8, filename, "1196590") != null or std.mem.indexOf(u8, filename, "re8") != null or std.mem.indexOf(u8, filename, "village") != null);
+            } else if (std.mem.eql(u8, self.id, "re7")) {
+                return (std.mem.indexOf(u8, filename, "418370") != null or std.mem.indexOf(u8, filename, "re7") != null);
+            } else if (std.mem.eql(u8, self.id, "re_mhw")) {
+                return (std.mem.indexOf(u8, filename, "2246340") != null or std.mem.indexOf(u8, filename, "wilds") != null or std.mem.indexOf(u8, filename, "mhw") != null);
+            } else if (std.mem.eql(u8, self.id, "re_mhr")) {
+                return (std.mem.indexOf(u8, filename, "1446780") != null or std.mem.indexOf(u8, filename, "rise") != null or std.mem.indexOf(u8, filename, "mhr") != null);
+            }
+            return false;
+        }
+
         // Mass Effect Legendary Edition recognition (LE1, LE2, LE3; strictly LE, explicitly rejecting mid-2000s & Andromeda)
         if (std.mem.startsWith(u8, self.id, "mele")) {
             const is_pcsav = std.mem.endsWith(u8, filename, ".pcsav") or std.mem.endsWith(u8, filename, ".PCSAV");
@@ -1212,6 +1255,331 @@ pub const MELE3_RULES = [_]KnownFieldRule{
     },
 };
 
+// ============================================================================
+// DRAGON'S DOGMA 2 — CAPCOM RE ENGINE (व्याघ्रेश्वर आगम)
+// Reference: dd2-content-editor (kagenocookie) & ree-save-editor (kvasszn)
+// Steam AppID: 2054970 | win64_save/data001Slot.bin
+// ============================================================================
+pub const DD2_RULES = [_]KnownFieldRule{
+    // Economy
+    .{
+        .key_name = "Base.Gold",
+        .display_title = "Gold (G) // सुवर्ण धनम्",
+        .sanskrit_title = "सुवर्ण धनम् (Gold)",
+        .category = "Economy",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    .{
+        .key_name = "Base.RC",
+        .display_title = "Rift Crystals (RC) // रिफ्ट मणयः",
+        .sanskrit_title = "रिफ्ट स्फटिक (Rift Crystals)",
+        .category = "Economy",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    // Arisen Progression
+    .{
+        .key_name = "Arisen.Level",
+        .display_title = "Arisen Level (Max 999)",
+        .sanskrit_title = "जाग्रत स्तर (Arisen Level)",
+        .category = "Arisen Progression",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Arisen.Experience",
+        .display_title = "Arisen Total Experience (EXP)",
+        .sanskrit_title = "जाग्रत अनुभव (Arisen Exp)",
+        .category = "Arisen Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999999999,
+    },
+    .{
+        .key_name = "Arisen.Dcp",
+        .display_title = "Arisen Discipline Points (DCP)",
+        .sanskrit_title = "जाग्रत अनुशासन बिन्दु (Arisen DCP)",
+        .category = "Arisen Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Arisen.Vocation",
+        .display_title = "Arisen Active Vocation (Job ID 0..9)",
+        .sanskrit_title = "जाग्रत वृत्ति (Arisen Vocation)",
+        .category = "Arisen Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9,
+        .warning = "0: Fighter, 1: Archer, 2: Mage, 3: Thief, 4: Warrior, 5: Sorcerer, 6: Magick Archer, 7: Mystic Spearhand, 8: Trickster, 9: Warfarer",
+    },
+    // Arisen Attributes
+    .{
+        .key_name = "Arisen.CurrentHP",
+        .display_title = "Arisen Current Health (HP)",
+        .sanskrit_title = "जाग्रत प्राण शक्ति (Current HP)",
+        .category = "Arisen Attributes",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "Arisen.MaxHP",
+        .display_title = "Arisen Max Health",
+        .sanskrit_title = "जाग्रत परम प्राण (Max HP)",
+        .category = "Arisen Attributes",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "Arisen.LossGauge",
+        .display_title = "Arisen Loss Gauge (Unrecoverable HP)",
+        .sanskrit_title = "जाग्रत क्षत सीमा (Loss Gauge)",
+        .category = "Arisen Attributes",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "Arisen.CurrentStamina",
+        .display_title = "Arisen Current Stamina",
+        .sanskrit_title = "जाग्रत धैर्य शक्ति (Current Stamina)",
+        .category = "Arisen Attributes",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "Arisen.MaxStamina",
+        .display_title = "Arisen Max Stamina",
+        .sanskrit_title = "जाग्रत परम धैर्य (Max Stamina)",
+        .category = "Arisen Attributes",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 99999,
+    },
+    // Main Pawn Progression
+    .{
+        .key_name = "MainPawn.Level",
+        .display_title = "Main Pawn Level (Max 999)",
+        .sanskrit_title = "पौन स्तर (Main Pawn Level)",
+        .category = "Main Pawn Progression",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "MainPawn.Experience",
+        .display_title = "Main Pawn Total Experience (EXP)",
+        .sanskrit_title = "पौन अनुभव (Main Pawn Exp)",
+        .category = "Main Pawn Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999999999,
+    },
+    .{
+        .key_name = "MainPawn.Dcp",
+        .display_title = "Main Pawn Discipline Points (DCP)",
+        .sanskrit_title = "पौन अनुशासन बिन्दु (Pawn DCP)",
+        .category = "Main Pawn Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "MainPawn.Vocation",
+        .display_title = "Main Pawn Active Vocation (Job ID 0..5)",
+        .sanskrit_title = "पौन वृत्ति (Pawn Vocation)",
+        .category = "Main Pawn Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 5,
+        .warning = "Pawns can only use core vocations: 0: Fighter, 1: Archer, 2: Mage, 3: Thief, 4: Warrior, 5: Sorcerer",
+    },
+    // Main Pawn Attributes
+    .{
+        .key_name = "MainPawn.CurrentHP",
+        .display_title = "Main Pawn Current Health (HP)",
+        .sanskrit_title = "पौन प्राण शक्ति (Pawn HP)",
+        .category = "Main Pawn Attributes",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "MainPawn.MaxHP",
+        .display_title = "Main Pawn Max Health",
+        .sanskrit_title = "पौन परम प्राण (Pawn Max HP)",
+        .category = "Main Pawn Attributes",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "MainPawn.LossGauge",
+        .display_title = "Main Pawn Loss Gauge",
+        .sanskrit_title = "पौन क्षत सीमा (Pawn Loss Gauge)",
+        .category = "Main Pawn Attributes",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "MainPawn.CurrentStamina",
+        .display_title = "Main Pawn Current Stamina",
+        .sanskrit_title = "पौन धैर्य शक्ति (Pawn Stamina)",
+        .category = "Main Pawn Attributes",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999,
+    },
+    .{
+        .key_name = "MainPawn.MaxStamina",
+        .display_title = "Main Pawn Max Stamina",
+        .sanskrit_title = "पौन परम धैर्य (Pawn Max Stamina)",
+        .category = "Main Pawn Attributes",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 99999,
+    },
+    // Critical Items
+    .{
+        .key_name = "Items.Ferrystones",
+        .display_title = "Ferrystones (Teleportation // Item 81)",
+        .sanskrit_title = "सेतु प्रस्तर (Ferrystone)",
+        .category = "Key Items",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Items.Wakestones",
+        .display_title = "Wakestones (Resurrection // Item 82)",
+        .sanskrit_title = "पुनरुज्जीवन प्रस्तर (Wakestone)",
+        .category = "Key Items",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Items.AllhealElixirs",
+        .display_title = "Allheal Elixirs (Full Recovery // Item 3)",
+        .sanskrit_title = "सर्वसंजीवनी रस (Allheal Elixir)",
+        .category = "Consumables",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+};
+
+// ============================================================================
+// RESIDENT EVIL 4 REMAKE — CAPCOM RE ENGINE (भैरव आगम)
+// Steam AppID: 2050650
+// ============================================================================
+pub const RE4_RULES = [_]KnownFieldRule{
+    .{
+        .key_name = "Player.Pesetas",
+        .display_title = "Pesetas (PTAS // मुद्रा)",
+        .sanskrit_title = "सुवर्ण मुद्रा (Pesetas)",
+        .category = "Economy",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    .{
+        .key_name = "Player.Spinels",
+        .display_title = "Spinel Jewels (स्पिनेल)",
+        .sanskrit_title = "रत्न मुद्रा (Spinels)",
+        .category = "Trade",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999,
+    },
+    .{
+        .key_name = "Player.CP",
+        .display_title = "Completion Points (CP)",
+        .sanskrit_title = "सिद्धि बिन्दु (CP)",
+        .category = "Extra Content",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Leon.CurrentHP",
+        .display_title = "Leon Current Health",
+        .sanskrit_title = "लियोन प्राण शक्ति (Current HP)",
+        .category = "Player Stats",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 2500,
+    },
+    .{
+        .key_name = "Leon.MaxHP",
+        .display_title = "Leon Max Health",
+        .sanskrit_title = "लियोन परम प्राण (Max HP)",
+        .category = "Player Stats",
+        .field_type = .Int32LE,
+        .min_value = 1000,
+        .max_value = 2500,
+    },
+};
+
+// ============================================================================
+// MONSTER HUNTER WILDS — CAPCOM RE ENGINE (महिषमर्दिनी आगम)
+// Steam AppID: 2246340
+// ============================================================================
+pub const RE_MHW_RULES = [_]KnownFieldRule{
+    .{
+        .key_name = "Hunter.Zenny",
+        .display_title = "Zenny (z // ज़ेनी मुद्रा)",
+        .sanskrit_title = "शिकारी धनम् (Zenny)",
+        .category = "Economy",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    .{
+        .key_name = "Hunter.ResearchPoints",
+        .display_title = "Research Points (RP)",
+        .sanskrit_title = "अनुसन्धान बिन्दु (Research Points)",
+        .category = "Research",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+};
+
+// ============================================================================
+// MONSTER HUNTER RISE — CAPCOM RE ENGINE (कामरूप आगम)
+// Steam AppID: 1446780
+// ============================================================================
+pub const RE_MHR_RULES = [_]KnownFieldRule{
+    .{
+        .key_name = "Hunter.Zenny",
+        .display_title = "Zenny (z // ज़ेनी मुद्रा)",
+        .sanskrit_title = "शिकारी धनम् (Zenny)",
+        .category = "Economy",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    .{
+        .key_name = "Hunter.KamuraPoints",
+        .display_title = "Kamura Points (कमूरा बिन्दु)",
+        .sanskrit_title = "कमूरा बिन्दु (Kamura Points)",
+        .category = "Village",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+};
+
 pub const BUILTIN_PROFILES = [_]GameProfile{
     .{
         .id = "suzerain_rizia",
@@ -1262,6 +1630,46 @@ pub const BUILTIN_PROFILES = [_]GameProfile{
         .magic_signature = null,
         .is_key_based = false,
         .rules = &MELE3_RULES,
+    },
+    .{
+        .id = "dd2",
+        .title = "DRAGON'S DOGMA 2 // Capcom RE Engine (व्याघ्रेश्वर आगम)",
+        .sanskrit_title = "व्याघ्रेश्वर आगम — ड्रैगन्स डोग्मा २ (Capcom RE Engine)",
+        .campaign_name = "DD2_MainSlot",
+        .filename_pattern = "data001Slot.bin",
+        .magic_signature = "DSSS",
+        .is_key_based = false,
+        .rules = &DD2_RULES,
+    },
+    .{
+        .id = "re4",
+        .title = "RESIDENT EVIL 4 REMAKE // Capcom RE Engine (भैरव आगम)",
+        .sanskrit_title = "भैरव आगम — रेजिडेंट ईविल ४ (Capcom RE Engine)",
+        .campaign_name = "RE4_Main",
+        .filename_pattern = ".bin",
+        .magic_signature = "DSSS",
+        .is_key_based = false,
+        .rules = &RE4_RULES,
+    },
+    .{
+        .id = "re_mhw",
+        .title = "MONSTER HUNTER WILDS // Capcom RE Engine (महिषमर्दिनी आगम)",
+        .sanskrit_title = "महिषमर्दिनी आगम — मॉन्स्टर हंटर वाइल्ड्स (Capcom RE Engine)",
+        .campaign_name = "MHW_Main",
+        .filename_pattern = ".bin",
+        .magic_signature = "DSSS",
+        .is_key_based = false,
+        .rules = &RE_MHW_RULES,
+    },
+    .{
+        .id = "re_mhr",
+        .title = "MONSTER HUNTER RISE // Capcom RE Engine (कामरूप आगम)",
+        .sanskrit_title = "कामरूप आगम — मॉन्स्टर हंटर राइज़ (Capcom RE Engine)",
+        .campaign_name = "MHR_Main",
+        .filename_pattern = ".bin",
+        .magic_signature = "DSSS",
+        .is_key_based = false,
+        .rules = &RE_MHR_RULES,
     },
 };
 
@@ -1340,4 +1748,32 @@ test "Agama Profiles - Suzerain Detection and Differentiation" {
     // 8. Non-pcsav file with MELE header must NOT match
     const non_pcsav_prof = findMatchingProfile("Save_0001.dat", &mele1_header);
     try std.testing.expect(non_pcsav_prof == null);
+
+    // 9. Dragon's Dogma 2 (DSSS + version 2 + data001Slot.bin)
+    const dd2_header = [_]u8{ 'D', 'S', 'S', 'S', 0x02, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    const dd2_prof = findMatchingProfile("data001Slot.bin", &dd2_header);
+    try std.testing.expect(dd2_prof != null);
+    try std.testing.expectEqualStrings("dd2", dd2_prof.?.id);
+    try std.testing.expectEqual(@as(usize, 23), dd2_prof.?.rules.len);
+
+    // 10. Resident Evil 4 Remake (DSSS + version 2 + re4 in path)
+    const re4_prof = findMatchingProfile("re4_data000.bin", &dd2_header);
+    try std.testing.expect(re4_prof != null);
+    try std.testing.expectEqualStrings("re4", re4_prof.?.id);
+    try std.testing.expectEqual(@as(usize, 5), re4_prof.?.rules.len);
+
+    // 11. Monster Hunter Wilds (DSSS + version 2 + wilds / mhw in path)
+    const mhw_prof = findMatchingProfile("mhw_data001.bin", &dd2_header);
+    try std.testing.expect(mhw_prof != null);
+    try std.testing.expectEqualStrings("re_mhw", mhw_prof.?.id);
+
+    // 12. Non-DSSS file must NOT match RE Engine
+    const fake_re_header = [_]u8{ 'X', 'S', 'S', 'S', 0x02, 0x00, 0x00, 0x00 };
+    const fake_re_prof = findMatchingProfile("data001Slot.bin", &fake_re_header);
+    try std.testing.expect(fake_re_prof == null);
+
+    // 13. DSSS container with unsupported version (e.g., version 1) must NOT match
+    const fake_ver_header = [_]u8{ 'D', 'S', 'S', 'S', 0x01, 0x00, 0x00, 0x00 };
+    const fake_ver_prof = findMatchingProfile("data001Slot.bin", &fake_ver_header);
+    try std.testing.expect(fake_ver_prof == null);
 }

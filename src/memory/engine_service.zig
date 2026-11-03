@@ -1230,6 +1230,114 @@ pub fn handleResetScan(allocator: std.mem.Allocator) !void {
     std.debug.print("  [✓] Memory Scanner & candidate cache cleared.\n", .{});
 }
 
+pub fn handleSaveTable(allocator: std.mem.Allocator, file_path: []const u8) !void {
+    const table_mod = @import("table.zig");
+    const pid = getOrDetectTargetPid() catch 0;
+    var proc_name: []const u8 = "game.exe";
+    var name_buf: [260]u8 = undefined;
+    if (pid != 0) {
+        if (process.ProcessIterator.init()) |*it| {
+            var iter = it.*;
+            defer iter.deinit();
+            while (iter.next()) |p| {
+                if (p.pid == pid) {
+                    @memcpy(name_buf[0..p.name_len], p.getName());
+                    proc_name = name_buf[0..p.name_len];
+                    break;
+                }
+            }
+        } else |_| {}
+    }
+
+    var tbl = table_mod.SharabhaTable.init(allocator, "Rudra Tandava Cheat Table", proc_name);
+    defer tbl.deinit();
+
+    tbl.annotations = "Serialized via Sharabha Memory Engine. Contains live candidates and freeze sentinels.";
+
+    // Load active candidates
+    var scan_state = loadScanState(allocator) catch null;
+    if (scan_state) |*state| {
+        defer state.deinit();
+        for (state.results, 0..) |c, i| {
+            if (i >= 50) break; // store top 50 in table
+            var desc_buf: [64]u8 = undefined;
+            const desc = std.fmt.bufPrint(&desc_buf, "Candidate #{d}", .{i + 1}) catch "Candidate";
+            var val_buf: [32]u8 = undefined;
+            const val_str = std.fmt.bufPrint(&val_buf, "{d}", .{c.current_value}) catch "0";
+            var addr_hex: [32]u8 = undefined;
+            const a_hex = std.fmt.bufPrint(&addr_hex, "0x{X}", .{c.address}) catch "";
+            const is_fz = isAddressFrozen(a_hex);
+
+            try tbl.addRecord(.{
+                .id = @as(u32, @intCast(i + 1)),
+                .description = desc,
+                .sanskrit_label = "शोधित मूल्य",
+                .address_type = .StaticAddress,
+                .static_address = c.address,
+                .value_type = .Int32,
+                .freeze_value = val_str,
+                .is_frozen = is_fz,
+                .hotkey = if (is_fz) "NUMPAD1" else "",
+            });
+        }
+    }
+
+    // Add canonical template scripts
+    try tbl.addScript(.{
+        .name = "Godmode Value Lock",
+        .sanskrit_name = "अमृत्व रक्षा",
+        .script_body = "sharabha.freeze_i32(0x140001000, 999999, 'Godmode Lock')\nprint('🔱 Godmode Armed')",
+        .auto_run = false,
+    });
+
+    ensureDirectory("assets");
+    ensureDirectory("assets/tables");
+
+    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.sharabha";
+    try tbl.saveToFile(final_path);
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // CHEAT TABLE SERIALIZATION (.sharabha)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  [✓] Successfully serialized {d} records and {d} scripts to:\n", .{ tbl.records.items.len, tbl.scripts.items.len });
+    std.debug.print("      '{s}'\n", .{final_path});
+}
+
+pub fn handleLoadTable(allocator: std.mem.Allocator, file_path: []const u8) !void {
+    const table_mod = @import("table.zig");
+    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.sharabha";
+
+    var tbl = try table_mod.SharabhaTable.loadFromFile(allocator, final_path);
+    defer tbl.deinit();
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // CHEAT TABLE DESERIALIZATION (.sharabha)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Title       : {s} ({s})\n", .{ tbl.title, tbl.sanskrit_title });
+    std.debug.print("  Target Exe  : {s} [{s}]\n", .{ tbl.process_name, tbl.architecture });
+    std.debug.print("  Records ({d}):\n", .{tbl.records.items.len});
+
+    for (tbl.records.items, 0..) |rec, i| {
+        if (i < 15) {
+            std.debug.print("    • [{d}] 0x{X} | {s} ({s}) | Frozen: {s}\n", .{
+                rec.id,
+                rec.static_address,
+                rec.description,
+                rec.value_type.toString(),
+                if (rec.is_frozen) "YES" else "NO",
+            });
+        }
+    }
+    if (tbl.records.items.len > 15) {
+        std.debug.print("    ... and {d} more records in table.\n", .{tbl.records.items.len - 15});
+    }
+
+    std.debug.print("  Embedded Scripts ({d}):\n", .{tbl.scripts.items.len});
+    for (tbl.scripts.items) |sc| {
+        std.debug.print("    🔱 '{s}' [Auto-Run: {s}]\n", .{ sc.name, if (sc.auto_run) "YES" else "NO" });
+    }
+}
+
 test "engine_service self process scan, filter, and write" {
     const allocator = std.testing.allocator;
 

@@ -308,6 +308,8 @@ See the [LICENSE](LICENSE) and [NOTICE](NOTICE) files for full legal details.
 
 ### Third-Party Attributions
 - **Mass Effect Trilogy Save Editor**: The deterministic Agama save override profiles for Mass Effect Legendary Edition (MELE1, MELE2, MELE3), including UE3 serialization layouts, chunk container decompression, and CRC-32/BZIP2 integrity algorithms, are based on reverse engineering research and save models by **Karlitos** ([`KarlitosVII/trilogy-save-editor`](https://github.com/KarlitosVII/trilogy-save-editor), MIT License).
+- **Dragon's Dogma 2 Content Editor**: The deterministic Agama save override profiles and variable schemas for Dragon's Dogma 2 are based on reverse engineering research and item database mappings by **kagenocookie** ([`kagenocookie/dd2-content-editor`](https://github.com/kagenocookie/dd2-content-editor), MIT License).
+- **Capcom RE Engine Save Editor**: The RE Engine `DSSS` save container specifications and MurmurHash3 (32-bit) integrity verification engine are derived from reverse engineering research and tooling by **kvasszn** ([`kvasszn/ree-save-editor`](https://github.com/kvasszn/ree-save-editor), MIT License).
 
 ---
 

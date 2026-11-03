@@ -1,0 +1,19 @@
+{
+  "magic": "SHARABHA_TABLE_V1",
+  "version": 1,
+  "title": "Rudra Tandava Cheat Table",
+  "sanskrit_title": "रुद्र ताण्डव महासारिणी",
+  "process_name": "ipf_helper.exe",
+  "architecture": "x64",
+  "annotations": "Serialized via Sharabha Memory Engine. Contains live candidates and freeze sentinels.",
+  "records": [
+  ],
+  "scripts": [
+    {
+      "name": "Godmode Value Lock",
+      "sanskrit_name": "अमृत्व रक्षा",
+      "auto_run": false,
+      "script_body": "sharabha.freeze_i32(0x140001000, 999999, 'Godmode Lock')\nprint('🔱 Godmode Armed')"
+    }
+  ]
+}

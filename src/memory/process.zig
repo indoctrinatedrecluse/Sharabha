@@ -20,10 +20,26 @@ pub const win = struct {
     pub const TH32CS_SNAPTHREAD: u32 = 0x00000004;
 
     pub const PROCESS_ALL_ACCESS: u32 = 0x001F0FFF;
+    pub const PROCESS_CREATE_THREAD: u32 = 0x0002;
     pub const PROCESS_VM_READ: u32 = 0x0010;
     pub const PROCESS_VM_WRITE: u32 = 0x0020;
     pub const PROCESS_VM_OPERATION: u32 = 0x0008;
     pub const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+
+    pub const MEM_COMMIT: u32 = 0x00001000;
+    pub const MEM_RESERVE: u32 = 0x00002000;
+    pub const MEM_RELEASE: u32 = 0x00008000;
+
+    pub const PAGE_NOACCESS: u32 = 0x01;
+    pub const PAGE_READONLY: u32 = 0x02;
+    pub const PAGE_READWRITE: u32 = 0x04;
+    pub const PAGE_EXECUTE: u32 = 0x10;
+    pub const PAGE_EXECUTE_READ: u32 = 0x20;
+    pub const PAGE_EXECUTE_READWRITE: u32 = 0x40;
+
+    pub const INFINITE: u32 = 0xFFFFFFFF;
+    pub const WAIT_OBJECT_0: u32 = 0x00000000;
+    pub const WAIT_TIMEOUT: u32 = 0x00000102;
 
     pub const PROCESSENTRY32W = extern struct {
         dwSize: u32,
@@ -65,6 +81,14 @@ pub const win = struct {
     pub extern "kernel32" fn GetCommandLineW() callconv(.winapi) [*:0]const u16;
     pub extern "kernel32" fn GetStdHandle(nStdHandle: i32) callconv(.winapi) ?HANDLE;
     pub extern "kernel32" fn WriteFile(hFile: HANDLE, lpBuffer: [*]const u8, nNumberOfBytesToWrite: u32, lpNumberOfBytesWritten: ?*u32, lpOverlapped: ?*anyopaque) callconv(.winapi) i32;
+    pub extern "kernel32" fn VirtualAllocEx(hProcess: HANDLE, lpAddress: ?*anyopaque, dwSize: usize, flAllocationType: u32, flProtect: u32) callconv(.winapi) ?*anyopaque;
+    pub extern "kernel32" fn VirtualFreeEx(hProcess: HANDLE, lpAddress: ?*anyopaque, dwSize: usize, dwFreeType: u32) callconv(.winapi) i32;
+    pub extern "kernel32" fn VirtualProtectEx(hProcess: HANDLE, lpAddress: ?*anyopaque, dwSize: usize, flNewProtect: u32, lpflOldProtect: *u32) callconv(.winapi) i32;
+    pub extern "kernel32" fn CreateRemoteThread(hProcess: HANDLE, lpThreadAttributes: ?*anyopaque, dwStackSize: usize, lpStartAddress: ?*const anyopaque, lpParameter: ?*anyopaque, dwCreationFlags: u32, lpThreadId: ?*u32) callconv(.winapi) ?HANDLE;
+    pub extern "kernel32" fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: u32) callconv(.winapi) u32;
+    pub extern "kernel32" fn GetExitCodeThread(hThread: HANDLE, lpExitCode: *u32) callconv(.winapi) i32;
+    pub extern "kernel32" fn GetProcAddress(hModule: HMODULE, lpProcName: [*:0]const u8) callconv(.winapi) ?*const anyopaque;
+    pub extern "kernel32" fn GetModuleHandleW(lpModuleName: ?[*:0]const u16) callconv(.winapi) ?HMODULE;
 };
 
 pub const ProcessIterator = struct {

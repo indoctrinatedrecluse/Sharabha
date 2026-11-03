@@ -118,6 +118,10 @@ pub fn main() !void {
         "--on save_file_atomic \"zig-out/bin/SharabhaCli.exe --commit-save\" " ++
         "--on test_vault \"zig-out/bin/SharabhaCli.exe --test-vault\" " ++
         "--on save_vault \"zig-out/bin/SharabhaCli.exe --seal-vault\" " ++
+        "--on save_memory_table \"zig-out/bin/SharabhaCli.exe --save-table $1\" " ++
+        "--on load_memory_table \"zig-out/bin/SharabhaCli.exe --load-table $1\" " ++
+        "--on inject_dll \"zig-out/bin/SharabhaCli.exe --inject-dll $1\" " ++
+        "--on export_agamas \"zig-out/bin/SharabhaCli.exe --export-agamas $1\" " ++
         "--on register_agama_profile \"zig-out/bin/SharabhaCli.exe --export-surreal\"",
         .{slint_exe}
     );

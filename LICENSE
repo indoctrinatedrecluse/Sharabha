@@ -215,3 +215,17 @@ from the reverse engineering work of the open source community:
   Editor project (https://github.com/KarlitosVII/trilogy-save-editor), licensed
   under the MIT License:
   Copyright (c) 2021 Karlitos
+
+- **Dragon's Dogma 2 Content Editor**:
+  The deterministic Agama profile definitions, item mappings, and game variables
+  for Dragon's Dogma 2 are derived from reverse engineering research by
+  kagenocookie in the dd2-content-editor project
+  (https://github.com/kagenocookie/dd2-content-editor), licensed under the MIT License:
+  Copyright (c) 2024 kagenocookie
+
+- **Capcom RE Engine Save Editor (ree-save-editor)**:
+  The Capcom RE Engine DSSS save container format specifications and MurmurHash3_x86_32
+  integrity algorithm layouts are based on research and tooling created by kvasszn
+  in the ree-save-editor project (https://github.com/kvasszn/ree-save-editor),
+  licensed under the MIT License:
+  Copyright (c) 2024 kvasszn

@@ -1,5 +1,5 @@
 param(
-    [string]$Tag = "v0.2.0",
+    [string]$Tag = "v0.3.0",
     [string]$ChangelogPath = "CHANGELOG.md",
     [string]$OutputPath = "release_notes.md"
 )

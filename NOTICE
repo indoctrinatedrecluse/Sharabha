@@ -18,3 +18,19 @@ inspired by the following third-party projects:
    Description: Save game models, chunk package layout, serialization structures,
    and CRC-32/BZIP2 integrity algorithms for Mass Effect Legendary Edition (MELE1,
    MELE2, MELE3).
+
+2. Dragon's Dogma 2 Content Editor
+   Author: kagenocookie
+   Repository: https://github.com/kagenocookie/dd2-content-editor
+   License: MIT License
+   Copyright (c) 2024 kagenocookie
+   Description: Item IDs, game variable mappings, MurmurHash3 container checksum layout,
+   and schema definitions for Dragon's Dogma 2.
+
+3. RE Engine Save Editor (ree-save-editor)
+   Author: kvasszn
+   Repository: https://github.com/kvasszn/ree-save-editor
+   License: MIT License
+   Copyright (c) 2024 kvasszn
+   Description: Capcom RE Engine DSSS save container specifications, header/footer layout,
+   and MurmurHash3_x86_32 integrity algorithm implementation.
