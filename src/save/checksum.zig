@@ -12,6 +12,7 @@ pub const ChecksumAlgorithm = enum(u8) {
     Md5 = 2,
     Sum32 = 3,
     Xor8 = 4,
+    Crc32Bzip2 = 5,
 
     pub fn getName(self: ChecksumAlgorithm) []const u8 {
         return switch (self) {
@@ -20,6 +21,7 @@ pub const ChecksumAlgorithm = enum(u8) {
             .Md5 => "MD5 (128-bit FromSoftware)",
             .Sum32 => "Additive Sum-32",
             .Xor8 => "Rolling XOR-8",
+            .Crc32Bzip2 => "CRC-32/BZIP2 (BioWare Unreal)",
         };
     }
 
@@ -30,6 +32,7 @@ pub const ChecksumAlgorithm = enum(u8) {
             .Md5 => "मृत्युंजय मुद्रा (Mrityunjaya)",
             .Sum32 => "योग संकलन (Yoga)",
             .Xor8 => "विलोम सूत्र (Viloma)",
+            .Crc32Bzip2 => "ब्रह्म चक्र (Brahma Chakra)",
         };
     }
 };
@@ -40,6 +43,7 @@ pub const ChecksumResult = union(ChecksumAlgorithm) {
     Md5: [16]u8,
     Sum32: u32,
     Xor8: u8,
+    Crc32Bzip2: u32,
 };
 
 pub const ChecksumTarget = struct {
@@ -85,6 +89,23 @@ pub const ChecksumEngine = struct {
         return xor_acc;
     }
 
+    pub fn computeCrc32Bzip2(data: []const u8) u32 {
+        var crc: u32 = 0xFFFFFFFF;
+        const poly: u32 = 0x04C11DB7;
+        for (data) |b| {
+            crc ^= (@as(u32, b) << 24);
+            var i: usize = 0;
+            while (i < 8) : (i += 1) {
+                if ((crc & 0x80000000) != 0) {
+                    crc = (crc << 1) ^ poly;
+                } else {
+                    crc = crc << 1;
+                }
+            }
+        }
+        return crc ^ 0xFFFFFFFF;
+    }
+
     pub fn compute(algo: ChecksumAlgorithm, data: []const u8) ChecksumResult {
         return switch (algo) {
             .Crc32 => .{ .Crc32 = computeCrc32(data) },
@@ -92,6 +113,7 @@ pub const ChecksumEngine = struct {
             .Md5 => .{ .Md5 = computeMd5(data) },
             .Sum32 => .{ .Sum32 = computeSum32(data) },
             .Xor8 => .{ .Xor8 = computeXor8(data) },
+            .Crc32Bzip2 => .{ .Crc32Bzip2 = computeCrc32Bzip2(data) },
         };
     }
 
@@ -105,6 +127,15 @@ pub const ChecksumEngine = struct {
             .Crc32 => {
                 if (target.target_offset + 4 > data.len) return false;
                 const expected = computeCrc32(payload);
+                const stored = if (target.is_little_endian)
+                    std.mem.readInt(u32, data[target.target_offset..][0..4], .little)
+                else
+                    std.mem.readInt(u32, data[target.target_offset..][0..4], .big);
+                return expected == stored;
+            },
+            .Crc32Bzip2 => {
+                if (target.target_offset + 4 > data.len) return false;
+                const expected = computeCrc32Bzip2(payload);
                 const stored = if (target.is_little_endian)
                     std.mem.readInt(u32, data[target.target_offset..][0..4], .little)
                 else
@@ -149,6 +180,15 @@ pub const ChecksumEngine = struct {
             .Crc32 => {
                 if (target.target_offset + 4 > data.len) return error.TargetOffsetOutOfBounds;
                 const val = computeCrc32(payload);
+                if (target.is_little_endian) {
+                    std.mem.writeInt(u32, data[target.target_offset..][0..4], val, .little);
+                } else {
+                    std.mem.writeInt(u32, data[target.target_offset..][0..4], val, .big);
+                }
+            },
+            .Crc32Bzip2 => {
+                if (target.target_offset + 4 > data.len) return error.TargetOffsetOutOfBounds;
+                const val = computeCrc32Bzip2(payload);
                 if (target.is_little_endian) {
                     std.mem.writeInt(u32, data[target.target_offset..][0..4], val, .little);
                 } else {
@@ -222,6 +262,24 @@ pub const ChecksumEngine = struct {
             }
         }
 
+        // Mass Effect Legendary Edition (.pcsav): CRC32/BZIP2 footer (LE2 / LE3)
+        if (std.mem.eql(u8, file_ext, ".pcsav") or std.mem.eql(u8, file_ext, ".PCSAV")) {
+            if (data.len >= 16) {
+                const ver = std.mem.readInt(i32, data[0..4], .little);
+                // MELE2 is ver 30, MELE3 is ver 59
+                if (ver == 30 or ver == 59) {
+                    try patch(.{
+                        .algorithm = .Crc32Bzip2,
+                        .payload_start = 0,
+                        .payload_end = data.len - 4,
+                        .target_offset = data.len - 4,
+                        .is_little_endian = true,
+                    }, data);
+                    return .Crc32Bzip2;
+                }
+            }
+        }
+
         return null;
     }
 };
@@ -260,4 +318,14 @@ test "ChecksumEngine - CRC32, Adler32, MD5 and Patching" {
     };
     try ChecksumEngine.patch(adler_target, &buffer);
     try std.testing.expect(ChecksumEngine.verify(adler_target, &buffer));
+
+    // Test Crc32Bzip2 (BioWare Unreal Engine)
+    const bzip2_target = ChecksumTarget{
+        .algorithm = .Crc32Bzip2,
+        .payload_start = 8,
+        .payload_end = 24,
+        .target_offset = 52,
+    };
+    try ChecksumEngine.patch(bzip2_target, &buffer);
+    try std.testing.expect(ChecksumEngine.verify(bzip2_target, &buffer));
 }

@@ -447,3 +447,41 @@ test "DualModeSaveState - Real Suzerain FinalSave file verification" {
     }
 }
 
+test "DualModeSaveState - Mass Effect Legendary Edition Recognition & Rejection of original ME2" {
+    const allocator = std.testing.allocator;
+
+    // 1. MELE1 (.pcsav with 0x9E2A83C1)
+    const mele1_buf = [_]u8{ 0xC1, 0x83, 0x2A, 0x9E, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    var state1 = try DualModeSaveState.init(allocator, "Save_0001.pcsav", &mele1_buf);
+    defer state1.deinit();
+    try std.testing.expect(state1.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.AgamaDeterministic, state1.view_mode);
+    try std.testing.expectEqualStrings("MASS EFFECT 1 // Legendary Edition (BioWare Unreal // प्रमाण आगम)", state1.game_title);
+    try std.testing.expectEqual(@as(usize, 11), state1.agama_fields.items.len);
+
+    // 2. MELE2 (.pcsav with version 30)
+    const mele2_buf = [_]u8{ 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    var state2 = try DualModeSaveState.init(allocator, "Save_0002.pcsav", &mele2_buf);
+    defer state2.deinit();
+    try std.testing.expect(state2.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.AgamaDeterministic, state2.view_mode);
+    try std.testing.expectEqualStrings("MASS EFFECT 2 // Legendary Edition (BioWare Unreal // प्रमाण आगम)", state2.game_title);
+    try std.testing.expectEqual(@as(usize, 15), state2.agama_fields.items.len);
+
+    // 3. MELE3 (.pcsav with version 59)
+    const mele3_buf = [_]u8{ 0x3B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    var state3 = try DualModeSaveState.init(allocator, "Save_0003.pcsav", &mele3_buf);
+    defer state3.deinit();
+    try std.testing.expect(state3.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.AgamaDeterministic, state3.view_mode);
+    try std.testing.expectEqualStrings("MASS EFFECT 3 // Legendary Edition (BioWare Unreal // प्रमाण आगम)", state3.game_title);
+    try std.testing.expectEqual(@as(usize, 14), state3.agama_fields.items.len);
+
+    // 4. Original ME2 (version 29): MUST NOT be treated as MELE, must fallback to PravahaFuzzyRaw
+    const orig_me2_buf = [_]u8{ 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    var state_orig = try DualModeSaveState.init(allocator, "Save_0002.pcsav", &orig_me2_buf);
+    defer state_orig.deinit();
+    try std.testing.expect(!state_orig.is_known_game);
+    try std.testing.expectEqual(SaveViewMode.PravahaFuzzyRaw, state_orig.view_mode);
+}
+

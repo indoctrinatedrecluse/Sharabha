@@ -31,6 +31,27 @@ pub const GameProfile = struct {
     rules: []const KnownFieldRule,
 
     pub fn matchesFile(self: *const GameProfile, filename: []const u8, content_or_header: []const u8) bool {
+        // Mass Effect Legendary Edition recognition (LE1, LE2, LE3; strictly LE, explicitly rejecting mid-2000s & Andromeda)
+        if (std.mem.startsWith(u8, self.id, "mele")) {
+            const is_pcsav = std.mem.endsWith(u8, filename, ".pcsav") or std.mem.endsWith(u8, filename, ".PCSAV");
+            if (!is_pcsav) return false;
+            if (content_or_header.len < 4) return false;
+
+            if (std.mem.eql(u8, self.id, "mele1")) {
+                const me1_magic = [_]u8{ 0xC1, 0x83, 0x2A, 0x9E };
+                return std.mem.eql(u8, content_or_header[0..4], &me1_magic);
+            } else if (std.mem.eql(u8, self.id, "mele2")) {
+                // Must be version 30 (0x0000001E). Note: original ME2 is 29 (0x0000001D), which must NOT match.
+                const ver = std.mem.readInt(i32, content_or_header[0..4], .little);
+                return ver == 30;
+            } else if (std.mem.eql(u8, self.id, "mele3")) {
+                // ME3 / MELE3 version is 59 (0x0000003B)
+                const ver = std.mem.readInt(i32, content_or_header[0..4], .little);
+                return ver == 59;
+            }
+            return false;
+        }
+
         // Special recognition for Suzerain Torpor saves
         if (std.mem.startsWith(u8, self.id, "suzerain")) {
             const has_pack = std.mem.indexOf(u8, content_or_header, "\"currentStoryPack\"") != null;
@@ -825,6 +846,372 @@ pub const SUZERAIN_RIZIA_RULES = [_]KnownFieldRule{
     },
 };
 
+// ============================================================================
+// MASS EFFECT LEGENDARY EDITION — CURATED AGAMA PROFILES
+// Format specifications and field structures reverse-engineered based on the
+// work of Karlitos (KarlitosVII/trilogy-save-editor):
+// MELE1 (zlib chunk package 0x9E2A83C1, version 50)
+// MELE2 (uncompressed Unreal package stream, version 30)
+// MELE3 (uncompressed Unreal package stream, version 59)
+// ============================================================================
+
+pub const MELE1_RULES = [_]KnownFieldRule{
+    .{
+        .key_name = "Player.Credits",
+        .display_title = "Credits",
+        .sanskrit_title = "धन (Credits)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Player.Medigel",
+        .display_title = "Medi-Gel",
+        .sanskrit_title = "औषधि (Medi-Gel)",
+        .category = "Supplies",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Player.Grenades",
+        .display_title = "Grenades",
+        .sanskrit_title = "विस्फोटक (Grenades)",
+        .category = "Supplies",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 99,
+    },
+    .{
+        .key_name = "Player.Omnigel",
+        .display_title = "Omni-Gel",
+        .sanskrit_title = "सर्वौषध (Omni-Gel)",
+        .category = "Supplies",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Plot.Paragon",
+        .display_title = "Paragon Points (Plot Int 47)",
+        .sanskrit_title = "धर्म / आदर्श (Paragon)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 350,
+    },
+    .{
+        .key_name = "Plot.Renegade",
+        .display_title = "Renegade Points (Plot Int 46)",
+        .sanskrit_title = "क्रोध / विद्रोही (Renegade)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 350,
+    },
+    .{
+        .key_name = "Player.Level",
+        .display_title = "Character Level (Max 60)",
+        .sanskrit_title = "स्तर (Level)",
+        .category = "Progression",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 60,
+    },
+    .{
+        .key_name = "Player.CurrentXP",
+        .display_title = "Experience Points (XP)",
+        .sanskrit_title = "अनुभव (XP)",
+        .category = "Progression",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 10000000,
+    },
+    .{
+        .key_name = "Player.TalentPoints",
+        .display_title = "Talent Points",
+        .sanskrit_title = "कौशल बिन्दु (Talent Points)",
+        .category = "Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Player.FirstName",
+        .display_title = "Character First Name",
+        .sanskrit_title = "नाम (First Name)",
+        .category = "Identity",
+        .field_type = .StringAscii,
+    },
+    .{
+        .key_name = "Player.FaceCode",
+        .display_title = "Identity / Face Code",
+        .sanskrit_title = "मुख रेखा (Face Code)",
+        .category = "Identity",
+        .field_type = .StringAscii,
+    },
+};
+
+pub const MELE2_RULES = [_]KnownFieldRule{
+    .{
+        .key_name = "Player.Credits",
+        .display_title = "Credits",
+        .sanskrit_title = "धन (Credits)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    .{
+        .key_name = "Player.Medigel",
+        .display_title = "Medi-Gel",
+        .sanskrit_title = "औषधि (Medi-Gel)",
+        .category = "Supplies",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99,
+    },
+    .{
+        .key_name = "Player.Eezo",
+        .display_title = "Element Zero (Eezo)",
+        .sanskrit_title = "शून्य तत्त्व (Eezo)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Player.Iridium",
+        .display_title = "Iridium",
+        .sanskrit_title = "इरीडियम (Iridium)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Player.Palladium",
+        .display_title = "Palladium",
+        .sanskrit_title = "पैलेडियम (Palladium)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Player.Platinum",
+        .display_title = "Platinum",
+        .sanskrit_title = "प्लैटिनम (Platinum)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 9999999,
+    },
+    .{
+        .key_name = "Player.Probes",
+        .display_title = "Planetary Probes",
+        .sanskrit_title = "अन्वेषक (Probes)",
+        .category = "Supplies",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 100,
+    },
+    .{
+        .key_name = "Player.CurrentFuel",
+        .display_title = "Normandy Fuel",
+        .sanskrit_title = "इन्धन (Fuel)",
+        .category = "Supplies",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 5000,
+    },
+    .{
+        .key_name = "Plot.Paragon",
+        .display_title = "Paragon Points (Plot Int 2)",
+        .sanskrit_title = "धर्म / आदर्श (Paragon)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 1950,
+    },
+    .{
+        .key_name = "Plot.Renegade",
+        .display_title = "Renegade Points (Plot Int 3)",
+        .sanskrit_title = "क्रोध / विद्रोही (Renegade)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 1950,
+    },
+    .{
+        .key_name = "Player.Level",
+        .display_title = "Character Level (Max 30)",
+        .sanskrit_title = "स्तर (Level)",
+        .category = "Progression",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 30,
+    },
+    .{
+        .key_name = "Player.CurrentXP",
+        .display_title = "Experience Points (XP)",
+        .sanskrit_title = "अनुभव (XP)",
+        .category = "Progression",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 10000000,
+    },
+    .{
+        .key_name = "Player.TalentPoints",
+        .display_title = "Talent Points",
+        .sanskrit_title = "कौशल बिन्दु (Talent Points)",
+        .category = "Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Player.FirstName",
+        .display_title = "Character First Name",
+        .sanskrit_title = "नाम (First Name)",
+        .category = "Identity",
+        .field_type = .StringAscii,
+    },
+    .{
+        .key_name = "Player.FaceCode",
+        .display_title = "Identity / Face Code",
+        .sanskrit_title = "मुख रेखा (Face Code)",
+        .category = "Identity",
+        .field_type = .StringAscii,
+    },
+};
+
+pub const MELE3_RULES = [_]KnownFieldRule{
+    .{
+        .key_name = "Player.Credits",
+        .display_title = "Credits",
+        .sanskrit_title = "धन (Credits)",
+        .category = "Resources",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99999999,
+    },
+    .{
+        .key_name = "Player.Medigel",
+        .display_title = "Medi-Gel",
+        .sanskrit_title = "औषधि (Medi-Gel)",
+        .category = "Supplies",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99,
+    },
+    .{
+        .key_name = "Player.Grenades",
+        .display_title = "Grenades",
+        .sanskrit_title = "विस्फोटक (Grenades)",
+        .category = "Supplies",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 99,
+    },
+    .{
+        .key_name = "Player.CurrentFuel",
+        .display_title = "Normandy Fuel",
+        .sanskrit_title = "इन्धन (Fuel)",
+        .category = "Supplies",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 5000,
+    },
+    .{
+        .key_name = "Plot.Paragon",
+        .display_title = "Paragon Points (Plot Key 10159)",
+        .sanskrit_title = "धर्म / आदर्श (Paragon)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 2000,
+    },
+    .{
+        .key_name = "Plot.Renegade",
+        .display_title = "Renegade Points (Plot Key 10160)",
+        .sanskrit_title = "क्रोध / विद्रोही (Renegade)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 2000,
+    },
+    .{
+        .key_name = "Plot.Reputation",
+        .display_title = "Reputation Bars (Plot Key 10297)",
+        .sanskrit_title = "कीर्ति (Reputation)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 10,
+    },
+    .{
+        .key_name = "Plot.ReputationPoints",
+        .display_title = "Reputation Total Points (Plot Key 10380)",
+        .sanskrit_title = "कीर्ति बिन्दु (Reputation Points)",
+        .category = "Morality",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 2000,
+    },
+    .{
+        .key_name = "Player.WarAssetsCount",
+        .display_title = "War Assets Registered Count",
+        .sanskrit_title = "युद्ध सम्पत्ति गणना (War Assets)",
+        .category = "War Assets",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 500,
+    },
+    .{
+        .key_name = "Player.Level",
+        .display_title = "Character Level (Max 60)",
+        .sanskrit_title = "स्तर (Level)",
+        .category = "Progression",
+        .field_type = .Int32LE,
+        .min_value = 1,
+        .max_value = 60,
+    },
+    .{
+        .key_name = "Player.CurrentXP",
+        .display_title = "Experience Points (XP)",
+        .sanskrit_title = "अनुभव (XP)",
+        .category = "Progression",
+        .field_type = .Float32LE,
+        .min_value = 0,
+        .max_value = 10000000,
+    },
+    .{
+        .key_name = "Player.TalentPoints",
+        .display_title = "Talent Points",
+        .sanskrit_title = "कौशल बिन्दु (Talent Points)",
+        .category = "Progression",
+        .field_type = .Int32LE,
+        .min_value = 0,
+        .max_value = 999,
+    },
+    .{
+        .key_name = "Player.FirstName",
+        .display_title = "Character First Name",
+        .sanskrit_title = "नाम (First Name)",
+        .category = "Identity",
+        .field_type = .StringAscii,
+    },
+    .{
+        .key_name = "Player.FaceCode",
+        .display_title = "Identity / Face Code",
+        .sanskrit_title = "मुख रेखा (Face Code)",
+        .category = "Identity",
+        .field_type = .StringAscii,
+    },
+};
+
 pub const BUILTIN_PROFILES = [_]GameProfile{
     .{
         .id = "suzerain_rizia",
@@ -845,6 +1232,36 @@ pub const BUILTIN_PROFILES = [_]GameProfile{
         .magic_signature = null,
         .is_key_based = true,
         .rules = &SUZERAIN_SORDLAND_RULES,
+    },
+    .{
+        .id = "mele1",
+        .title = "MASS EFFECT 1 // Legendary Edition (BioWare Unreal // प्रमाण आगम)",
+        .sanskrit_title = "महा प्रभाव १ — लीजेंडरी संस्करण (प्रमाण आगम)",
+        .campaign_name = "MELE1_Main",
+        .filename_pattern = ".pcsav",
+        .magic_signature = &[_]u8{ 0xC1, 0x83, 0x2A, 0x9E },
+        .is_key_based = false,
+        .rules = &MELE1_RULES,
+    },
+    .{
+        .id = "mele2",
+        .title = "MASS EFFECT 2 // Legendary Edition (BioWare Unreal // प्रमाण आगम)",
+        .sanskrit_title = "महा प्रभाव २ — लीजेंडरी संस्करण (प्रमाण आगम)",
+        .campaign_name = "MELE2_Main",
+        .filename_pattern = ".pcsav",
+        .magic_signature = null,
+        .is_key_based = false,
+        .rules = &MELE2_RULES,
+    },
+    .{
+        .id = "mele3",
+        .title = "MASS EFFECT 3 // Legendary Edition (BioWare Unreal // प्रमाण आगम)",
+        .sanskrit_title = "महा प्रभाव ३ — लीजेंडरी संस्करण (प्रमाण आगम)",
+        .campaign_name = "MELE3_Main",
+        .filename_pattern = ".pcsav",
+        .magic_signature = null,
+        .is_key_based = false,
+        .rules = &MELE3_RULES,
     },
 };
 
@@ -893,4 +1310,34 @@ test "Agama Profiles - Suzerain Detection and Differentiation" {
     const unknown_mock = "DATA_STREAM_HEADER_RAW_BYTES";
     const unknown_prof = findMatchingProfile("unknown.dat", unknown_mock);
     try std.testing.expect(unknown_prof == null);
+
+    // 4. Mass Effect 1 Legendary Edition (.pcsav + 0x9E2A83C1)
+    const mele1_header = [_]u8{ 0xC1, 0x83, 0x2A, 0x9E, 0x00, 0x00, 0x04, 0x00 };
+    const mele1_prof = findMatchingProfile("Save_0001.pcsav", &mele1_header);
+    try std.testing.expect(mele1_prof != null);
+    try std.testing.expectEqualStrings("mele1", mele1_prof.?.id);
+    try std.testing.expectEqual(@as(usize, 11), mele1_prof.?.rules.len);
+
+    // 5. Mass Effect 2 Legendary Edition (.pcsav + version 30)
+    const mele2_header = [_]u8{ 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    const mele2_prof = findMatchingProfile("Save_0002.pcsav", &mele2_header);
+    try std.testing.expect(mele2_prof != null);
+    try std.testing.expectEqualStrings("mele2", mele2_prof.?.id);
+    try std.testing.expectEqual(@as(usize, 15), mele2_prof.?.rules.len);
+
+    // 6. Mass Effect 3 Legendary Edition (.pcsav + version 59)
+    const mele3_header = [_]u8{ 0x3B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    const mele3_prof = findMatchingProfile("Save_0003.pcsav", &mele3_header);
+    try std.testing.expect(mele3_prof != null);
+    try std.testing.expectEqualStrings("mele3", mele3_prof.?.id);
+    try std.testing.expectEqual(@as(usize, 14), mele3_prof.?.rules.len);
+
+    // 7. Non-LE original Mass Effect 2 (version 29): MUST NOT MATCH MELE
+    const orig_me2_header = [_]u8{ 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    const orig_me2_prof = findMatchingProfile("Save_0002.pcsav", &orig_me2_header);
+    try std.testing.expect(orig_me2_prof == null);
+
+    // 8. Non-pcsav file with MELE header must NOT match
+    const non_pcsav_prof = findMatchingProfile("Save_0001.dat", &mele1_header);
+    try std.testing.expect(non_pcsav_prof == null);
 }

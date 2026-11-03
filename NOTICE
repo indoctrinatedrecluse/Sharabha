@@ -1,0 +1,20 @@
+Sharabha (शरभेश्वर) — The Dual Aspect Engine
+Copyright 2026 Abhishek Mitra (indoctrinatedrecluse)
+
+This product includes software developed by Abhishek Mitra.
+
+================================================================================
+Third-Party Acknowledgements & Attributions
+================================================================================
+
+This project includes research, file formats, and data models derived from or
+inspired by the following third-party projects:
+
+1. Mass Effect Trilogy Save Editor
+   Author: Karlitos (KarlitosVII)
+   Repository: https://github.com/KarlitosVII/trilogy-save-editor
+   License: MIT License
+   Copyright (c) 2021 Karlitos
+   Description: Save game models, chunk package layout, serialization structures,
+   and CRC-32/BZIP2 integrity algorithms for Mass Effect Legendary Edition (MELE1,
+   MELE2, MELE3).

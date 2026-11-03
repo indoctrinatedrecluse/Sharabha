@@ -18,7 +18,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host ""
 Write-Host "========================================================================" -ForegroundColor DarkYellow
-Write-Host "  SHARABHA (Sharabheshwara) - The Dual Aspect Engine (v0.1.0)" -ForegroundColor Yellow
+Write-Host "  SHARABHA (Sharabheshwara) - The Dual Aspect Engine (v0.2.0)" -ForegroundColor Yellow
 Write-Host "  [Kalyana Sthiti: Calm]   |   [Rudra Tandava: Violent]" -ForegroundColor Cyan
 Write-Host "  Om Namah Sharabhaya - Awakening the Ashtamurti on Windows" -ForegroundColor Magenta
 Write-Host "========================================================================" -ForegroundColor DarkYellow

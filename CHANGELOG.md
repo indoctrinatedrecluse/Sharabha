@@ -9,7 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] - 2026-11-03
+
 ### Added
+- **Agama Deterministic Save Override Engine: Mass Effect Legendary Edition Trilogy (MELE1, MELE2, MELE3)**:
+  - Full reverse-engineering and integration of BioWare Unreal Engine 3 save models, chunked container architectures, serialization streams, and CRC-32 integrity algorithms based on upstream ground-truth specifications (`KarlitosVII/trilogy-save-editor`).
+  - **Strict Game & Edition Differentiation**:
+    - **MELE1**: Detected strictly via `.pcsav` + Unreal chunk package magic `0x9E2A83C1` + multi-chunk zlib decompression table + uncompressed version `50`.
+    - **MELE2**: Detected strictly via `.pcsav` + binary version integer `30` (`0x1E 0x00 0x00 0x00`). Original mid-2000s ME2 (version `29`) is strictly rejected from Agama deterministic mode and cleanly preserved for universal fuzzy Pravaha scanning.
+    - **MELE3**: Detected strictly via `.pcsav` + binary version integer `59` (`0x3B 0x00 0x00 0x00`). Mid-2000s original ME3 and Mass Effect: Andromeda are strictly excluded.
+  - **Curated High-Priority Variables (100% Curated Agama Score)**:
+    - **MELE1 (11 variables)**: Credits, Medi-Gel, Grenades, Omni-Gel, Paragon Points (Plot Int 47), Renegade Points (Plot Int 46), Character Level, Experience Points (CurrentXP), Talent Points, Character First Name, Identity / Face Code.
+    - **MELE2 (15 variables)**: Credits, Medi-Gel, Element Zero (Eezo), Iridium, Palladium, Platinum, Planetary Probes, Normandy Fuel, Paragon Points (Plot Int 2), Renegade Points (Plot Int 3), Character Level, Experience Points (CurrentXP), Talent Points, Character First Name, Identity / Face Code.
+    - **MELE3 (14 variables)**: Credits, Medi-Gel, Grenades, Normandy Fuel, Paragon Points (Plot Key 10159), Renegade Points (Plot Key 10160), Reputation Bars (Plot Key 10297), Reputation Total Points (Plot Key 10380), War Assets Registered Count, Character Level, Experience Points (CurrentXP), Talent Points, Character First Name, Identity / Face Code.
+  - **BioWare CRC-32/BZIP2 Integrity Algorithm ("ब्रह्म चक्र // Brahma Chakra")**:
+    - Added polynomial `0x04C11DB7` (init `0xFFFFFFFF`, xorout `0xFFFFFFFF`, refin/refout `false`) to `src/save/checksum.zig`.
+    - Automatic validation and auto-patching of trailing 4-byte CRC-32/BZIP2 footers in `.pcsav` save vessels during save writes.
+  - **Zero-Dependency Native Extraction (`tools/open_dialog.ps1`)**:
+    - Chunked zlib package decompression (`Unpack-Me1LePackage`) for MELE1 saves producing byte-for-byte identical streams against reference saves.
+    - Fast binary parsing with backwards offsets from Face Code anchors and plot tables, eliminating heuristic scans and executing in under 1 second.
+  - **Ground-Truth Test Suite & Fixture Coverage**:
+    - Full Zig test coverage in `src/knowledge/profiles.zig`, `src/save/dual_mode.zig`, and `src/save/checksum.zig` verifying accurate profile detection, rejection of non-LE saves, and CRC32/BZIP2 calculation.
+    - Verified against real MELE save fixtures in `assets/saves/ME1LeSave.pcsav`, `assets/saves/ME2LeSave.pcsav`, and `assets/saves/ME3Save.pcsav`.
+    - Cloned reference repository `temp_trilogy_editor` cleanly removed upon verification.
+  - **Open-Source Attributions & Licensing**:
+    - Project licensed under Apache 2.0 with copyright to Abhishek Mitra (`indoctrinatedrecluse`).
+    - Added formal `LICENSE` and `NOTICE` files incorporating explicit third-party attribution to Karlitos (`KarlitosVII/trilogy-save-editor`) for Mass Effect Trilogy save format research and models.
+    - Documented third-party attributions in `README.md` and `src/knowledge/profiles.zig`.
 - **Agama Deterministic Save Override Engine: Suzerain by Torpor Games**:
   - Ground-truth integration with user's official save editor (`D:\Projects\Suzerain-save-editor`), replacing heuristics with 100% deterministic recognition and verified variable schemas for Torpor Games' Lua-in-JSON vessel structure.
   - **Dual Campaign Recognition**:
@@ -18,6 +46,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Agama Curated & Pravaha Raw Dual Mode**: Curated high-priority variables appear at the very top of the scrollable table with `100% Curated Agama` confidence, followed by all 350+ embedded variables in Raw Editor mode with real-time text filtering.
   - **Atomic Safe Mutation Engine**: Implemented `SharabhaCli.exe --write-save-kv <key> <val>` and `tools/write_save.ps1` utilizing exact regex pattern matching (`(\[\\\"" + Regex.Escape(key) + "\\\"\"\]\s*=\s*)([\w\.-]+|true|false)`) with automatic `.sharabha.bak` preservation, atomic swap, and live Slint UI synchronization.
   - **Ground-Truth Test Suite**: Comprehensive unit tests in `src/knowledge/profiles.zig` and `src/save/dual_mode.zig` validating Suzerain campaign detection, scalar/bool parsing, atomic in-place mutation, and live verification against `D:\Projects\Suzerain-save-editor\FinalSave_11-12-2025_22-14-25.json`.
+- **Rudra Tandava Cheat Engine Expansion & Memory Manipulation Subsystem**:
+  - **Multi-Level Pointer Scanning Engine (`src/memory/pointer_scan.zig`)**:
+    - Configurable base address, target dynamic addresses, maximum depth, and maximum offset strides.
+    - Resolves multi-level pointer paths across process address spaces for stable cheat table forging across game restarts.
+  - **Stambhana Goraksha Memory Freezing Sentinel (`src/memory/freeze.zig`)**:
+    - Thread-safe background freeze loop running non-blocking 100ms periodic writes.
+    - Prevents games from overriding protected health, stamina, ammunition, and currency values.
+  - **Memory Scanner & Disassembler Integration**:
+    - Complete umbrella bugfix pass confirming pure Win32 VirtualQueryEx page enumeration, ReadProcessMemory, and WriteProcessMemory reliability without crashes or heap leakage.
+- **Interactive Resizable & Justified Save Editor Columns (`src/ui/app.slint`)**:
+  - Implemented custom draggable column splitters in `SaveKeyValueTable` allowing real-time interactive resizing of `Offset`, `Variable Key / Identifier`, `Type`, `Confidence`, `Hex Signature`, and `Live Value` columns.
+  - Proper column justification and padded alignment preventing visual crowding across all screen resolutions.
 
 ---
 

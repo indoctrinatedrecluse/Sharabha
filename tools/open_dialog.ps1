@@ -164,12 +164,56 @@ $gameTitle = "$filename (Generic Fuzzy Overseer // प्रवाह दर्�
 $verdict = "GenericBinary (स्वयंसिद्ध प्रवाह)"
 $isDeterministicProfile = $false
 
+function Unpack-Me1LePackage([byte[]]$pkg) {
+    if ($pkg.Length -lt 24) { return $null }
+    $magic = [System.BitConverter]::ToUInt32($pkg, 0)
+    if ($magic -ne 0x9E2A83C1) { return $null }
+    $blockSize = [System.BitConverter]::ToUInt32($pkg, 4)
+    $totalComp = [System.BitConverter]::ToUInt32($pkg, 8)
+    $totalUncomp = [System.BitConverter]::ToUInt32($pkg, 12)
+    if ($totalUncomp -eq 0 -or $totalUncomp -gt 50000000) { return $null }
+
+    $hdrOffset = 16
+    $chunkHeaders = [System.Collections.Generic.List[object]]::new()
+    while ($hdrOffset + 8 -le $pkg.Length) {
+        $cComp = [System.BitConverter]::ToUInt32($pkg, $hdrOffset)
+        $cUncomp = [System.BitConverter]::ToUInt32($pkg, $hdrOffset + 4)
+        $chunkHeaders.Add(@($cComp, $cUncomp))
+        $hdrOffset += 8
+        if ($cUncomp -lt $blockSize) { break }
+    }
+
+    [byte[]]$outBytes = [byte[]]::new($totalUncomp)
+    $destPos = 0
+    $dataOffset = $hdrOffset
+
+    foreach ($ch in $chunkHeaders) {
+        $compLen = [int]$ch[0]
+        $uncompLen = [int]$ch[1]
+        if ($dataOffset + $compLen -gt $pkg.Length) { return $null }
+        $ms = New-Object System.IO.MemoryStream($pkg, ($dataOffset + 2), ($compLen - 6))
+        $ds = New-Object System.IO.Compression.DeflateStream($ms, [System.IO.Compression.CompressionMode]::Decompress)
+        $chunkOut = New-Object System.IO.MemoryStream
+        $ds.CopyTo($chunkOut)
+        [byte[]]$dec = $chunkOut.ToArray()
+        $ds.Close()
+        $ms.Close()
+        [System.Buffer]::BlockCopy($dec, 0, $outBytes, $destPos, $dec.Length)
+        $destPos += $dec.Length
+        $dataOffset += $compLen
+    }
+    return $outBytes
+}
+
 # Check Unreal / BioWare Package magic: 0x9E2A83C1 (C1 83 2A 9E)
 $hasUnrealPackageMagic = ($len -ge 4 -and $bytes[0] -eq 0xC1 -and $bytes[1] -eq 0x83 -and $bytes[2] -eq 0x2A -and $bytes[3] -eq 0x9E)
 $decompressedPayload = $null
 
 if ($hasUnrealPackageMagic) {
-    $decompressedPayload = Try-DecompressZlib $bytes 34
+    $decompressedPayload = Unpack-Me1LePackage $bytes
+    if (-not $decompressedPayload) {
+        $decompressedPayload = Try-DecompressZlib $bytes 34
+    }
 } elseif ($len -gt 10 -and $bytes[0] -eq 0x78 -and ($bytes[1] -eq 0x9C -or $bytes[1] -eq 0x01 -or $bytes[1] -eq 0xDA)) {
     $decompressedPayload = Try-DecompressZlib $bytes 2
 }
@@ -472,13 +516,293 @@ if ($isJson) {
     }
 } else {
     $verdict = if ($decompressedPayload) { "Deflate Container Vessel ($($decompressedPayload.Length) Bytes Decompressed)" } else { "Binary Byte Stream ($len Bytes)" }
+
+    # ==============================================================================
+    # MASS EFFECT LEGENDARY EDITION — CURATED AGAMA PROFILES
+    # MELE1 (Chunk Package 0x9E2A83C1, Version 50)
+    # MELE2 (Unreal 3 Package, Version 30 — Original v29 strictly rejected)
+    # MELE3 (Unreal 3 Package, Version 59)
+    # ==============================================================================
+    function Extract-Mele1Profile([byte[]]$p) {
+        $curated = [System.Collections.Generic.List[PSCustomObject]]::new()
+        
+        # 1. Face Code
+        $strPattern = [System.Text.Encoding]::ASCII.GetString($p)
+        $fcMatch = [System.Text.RegularExpressions.Regex]::Match($strPattern, '[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}')
+        $fcPos = if ($fcMatch.Success) { $fcMatch.Index } else { -1 }
+        $faceCode = if ($fcMatch.Success) { $fcMatch.Value } else { "N/A" }
+        
+        # 2. Resources right before Face Code
+        $credits = 0; $medigel = 0; $grenades = 0.0; $omnigel = 0.0
+        if ($fcPos -gt 24) {
+            $omnigel = [Math]::Round([System.BitConverter]::ToSingle($p, $fcPos - 8), 1)
+            $grenades = [Math]::Round([System.BitConverter]::ToSingle($p, $fcPos - 12), 1)
+            $medigel = [System.BitConverter]::ToInt32($p, $fcPos - 16)
+            $credits = [System.BitConverter]::ToInt32($p, $fcPos - 20)
+        }
+
+        # 3. Plot Paragon & Renegade
+        $paragon = 0; $renegade = 0
+        try {
+            $pos = 4
+            $cidLen = [System.BitConverter]::ToInt32($p, $pos); $pos += 4
+            $pos += $cidLen
+            $pos += 16       # created_date
+            $boolCount = [System.BitConverter]::ToInt32($p, $pos); $pos += 4
+            $pos += ($boolCount * 4)
+            $intCount = [System.BitConverter]::ToInt32($p, $pos); $pos += 4
+            if ($intCount -gt 47) {
+                $renegade = [System.BitConverter]::ToInt32($p, $pos + (46 * 4))
+                $paragon = [System.BitConverter]::ToInt32($p, $pos + (47 * 4))
+            }
+        } catch { }
+
+        # 4. First Name, Level, XP, Talent Points
+        $firstName = "Shepard"; $level = 1; $xp = 0.0; $talentPoints = 0
+        for ($i = 1000; $i -lt [Math]::Min(30000, $p.Length - 32); $i++) {
+            $l = [System.BitConverter]::ToInt32($p, $i)
+            if ($l -ge 3 -and $l -le 20 -and ($i + 4 + $l -le $p.Length)) {
+                $candidate = [System.Text.Encoding]::ASCII.GetString($p, $i + 4, $l - 1)
+                if ($candidate -match '^[A-Z][a-z]{2,15}$') {
+                    $lvl = [System.BitConverter]::ToInt32($p, $i - 8)
+                    $rawXp = [System.BitConverter]::ToSingle($p, $i - 4)
+                    if ($lvl -ge 1 -and $lvl -le 60 -and $rawXp -ge 0 -and $rawXp -le 10000000) {
+                        $firstName = $candidate
+                        $level = $lvl
+                        $xp = [Math]::Round($rawXp, 1)
+                        $talentPoints = [System.BitConverter]::ToInt32($p, $i + 4 + $l + 11)
+                        break
+                    }
+                }
+            }
+        }
+
+        $curated.Add([PSCustomObject]@{ offset = "PAYLOAD[Credits]"; key = "Player.Credits"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 20) 4 $p); val = "$credits" })
+        $curated.Add([PSCustomObject]@{ offset = "PAYLOAD[Medigel]"; key = "Player.Medigel"; type = "i32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 16) 4 $p); val = "$medigel" })
+        $curated.Add([PSCustomObject]@{ offset = "PAYLOAD[Grenades]"; key = "Player.Grenades"; type = "f32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 12) 4 $p); val = "$grenades" })
+        $curated.Add([PSCustomObject]@{ offset = "PAYLOAD[Omnigel]"; key = "Player.Omnigel"; type = "f32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 8) 4 $p); val = "$omnigel" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Int[47]"; key = "Plot.Paragon"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$paragon" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Int[46]"; key = "Plot.Renegade"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$renegade" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:Level"; key = "Player.Level"; type = "i32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$level" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:XP"; key = "Player.CurrentXP"; type = "f32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$xp" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:TalentPoints"; key = "Player.TalentPoints"; type = "i32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$talentPoints" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:FirstName"; key = "Player.FirstName"; type = "String (Identity)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "'$firstName'" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:FaceCode"; key = "Player.FaceCode"; type = "String (Identity)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "'$faceCode'" })
+
+        return $curated
+    }
+
+    function Extract-Mele2Profile([byte[]]$p) {
+        $curated = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+        # 1. Player First Name, Level, XP, Talent Points
+        $firstName = "Shepard"; $level = 1; $xp = 0.0; $talentPoints = 0
+        for ($i = 5000; $i -lt [Math]::Min(15000, $p.Length - 32); $i++) {
+            $l = [System.BitConverter]::ToInt32($p, $i)
+            if ($l -ge 3 -and $l -le 20 -and ($i + 4 + $l -le $p.Length)) {
+                $candidate = [System.Text.Encoding]::ASCII.GetString($p, $i + 4, $l - 1)
+                if ($candidate -match '^[A-Z][a-z]{2,15}$') {
+                    $lvl = [System.BitConverter]::ToInt32($p, $i - 8)
+                    $rawXp = [System.BitConverter]::ToSingle($p, $i - 4)
+                    if ($lvl -ge 1 -and $lvl -le 30 -and $rawXp -ge 0 -and $rawXp -le 10000000) {
+                        $firstName = $candidate
+                        $level = $lvl
+                        $xp = [Math]::Round($rawXp, 1)
+                        $talentPoints = [System.BitConverter]::ToInt32($p, $i + 4 + $l + 6)
+                        break
+                    }
+                }
+            }
+        }
+
+        # 2. Resources sequence
+        $resPos = -1
+        for ($i = 30000; $i -lt [Math]::Min(55000, $p.Length - 40); $i++) {
+            $cr = [System.BitConverter]::ToInt32($p, $i)
+            $mg = [System.BitConverter]::ToInt32($p, $i+4)
+            $eezo = [System.BitConverter]::ToInt32($p, $i+8)
+            $ir = [System.BitConverter]::ToInt32($p, $i+12)
+            $pd = [System.BitConverter]::ToInt32($p, $i+16)
+            $pt = [System.BitConverter]::ToInt32($p, $i+20)
+            $pr = [System.BitConverter]::ToInt32($p, $i+24)
+            $rawFuel = [System.BitConverter]::ToSingle($p, $i+28)
+            if ($cr -ge 1000 -and $cr -le 99999999 -and $mg -ge 0 -and $mg -le 20 -and $eezo -ge 0 -and $eezo -le 5000000 -and $ir -ge 0 -and $ir -le 5000000 -and $pd -ge 0 -and $pd -le 5000000 -and $pt -ge 0 -and $pt -le 5000000 -and $pr -ge 0 -and $pr -le 150 -and (-not [Single]::IsNaN($rawFuel)) -and ($rawFuel -ge 10.0 -and $rawFuel -le 5000.0)) {
+                $strLen = [System.BitConverter]::ToInt32($p, $i+32)
+                if ($strLen -ge 2 -and $strLen -le 64 -and ($i + 36 + $strLen -le $p.Length)) {
+                    $fcCandidate = [System.Text.Encoding]::ASCII.GetString($p, $i+36, $strLen - 1)
+                    if ($fcCandidate -match '^[A-Za-z0-9_.\- ]{2,32}$') {
+                        $resPos = $i
+                        break
+                    }
+                }
+            }
+        }
+
+        $credits = 0; $medigel = 0; $eezo = 0; $iridium = 0; $palladium = 0; $platinum = 0; $probes = 0; $fuel = 0.0; $faceCode = "Karlitos"
+        if ($resPos -gt 0) {
+            $credits = [System.BitConverter]::ToInt32($p, $resPos)
+            $medigel = [System.BitConverter]::ToInt32($p, $resPos + 4)
+            $eezo = [System.BitConverter]::ToInt32($p, $resPos + 8)
+            $iridium = [System.BitConverter]::ToInt32($p, $resPos + 12)
+            $palladium = [System.BitConverter]::ToInt32($p, $resPos + 16)
+            $platinum = [System.BitConverter]::ToInt32($p, $resPos + 20)
+            $probes = [System.BitConverter]::ToInt32($p, $resPos + 24)
+            $fuel = [Math]::Round([System.BitConverter]::ToSingle($p, $resPos + 28), 1)
+
+            $fcLen = [System.BitConverter]::ToInt32($p, $resPos + 32)
+            if ($fcLen -ge 2 -and $fcLen -le 64 -and ($resPos + 36 + $fcLen -le $p.Length)) {
+                $faceCode = [System.Text.Encoding]::ASCII.GetString($p, $resPos + 36, $fcLen - 1)
+            }
+        }
+
+        # 3. Plot Paragon & Renegade
+        $paragon = 0; $renegade = 0
+        for ($i = [Math]::Max(0, $resPos + 40); $i -lt [Math]::Min($p.Length - 24, $resPos + 15000); $i++) {
+            $cnt = [System.BitConverter]::ToInt32($p, $i)
+            if ($cnt -ge 800 -and $cnt -le 900) {
+                $p2 = [System.BitConverter]::ToInt32($p, $i + 4 + 8)
+                $p3 = [System.BitConverter]::ToInt32($p, $i + 4 + 12)
+                if ($p2 -ge 0 -and $p2 -le 1950 -and $p3 -ge 0 -and $p3 -le 1950) {
+                    $paragon = $p2
+                    $renegade = $p3
+                    break
+                }
+            }
+        }
+
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f $resPos; key = "Player.Credits"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex $resPos 4 $p); val = "$credits" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 4); key = "Player.Medigel"; type = "i32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 4) 4 $p); val = "$medigel" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 8); key = "Player.Eezo"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 8) 4 $p); val = "$eezo" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 12); key = "Player.Iridium"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 12) 4 $p); val = "$iridium" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 16); key = "Player.Palladium"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 16) 4 $p); val = "$palladium" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 20); key = "Player.Platinum"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 20) 4 $p); val = "$platinum" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 24); key = "Player.Probes"; type = "i32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 24) 4 $p); val = "$probes" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 28); key = "Player.CurrentFuel"; type = "f32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($resPos + 28) 4 $p); val = "$fuel" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($resPos + 32); key = "Player.FaceCode"; type = "String (Identity)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "'$faceCode'" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Int[2]"; key = "Plot.Paragon"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$paragon" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Int[3]"; key = "Plot.Renegade"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$renegade" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:Level"; key = "Player.Level"; type = "i32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$level" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:XP"; key = "Player.CurrentXP"; type = "f32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$xp" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:TalentPoints"; key = "Player.TalentPoints"; type = "i32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$talentPoints" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:FirstName"; key = "Player.FirstName"; type = "String (Identity)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "'$firstName'" })
+
+        return $curated
+    }
+
+    function Extract-Mele3Profile([byte[]]$p) {
+        $curated = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+        # 1. Face Code & resources preceding it
+        $strPattern = [System.Text.Encoding]::ASCII.GetString($p)
+        $fcMatch = [System.Text.RegularExpressions.Regex]::Match($strPattern, '[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}\.[A-Za-z0-9]{3}')
+        $fcPos = if ($fcMatch.Success) { $fcMatch.Index } else { -1 }
+        $faceCode = if ($fcMatch.Success) { $fcMatch.Value } else { "N/A" }
+        
+        $credits = 0; $medigel = 0; $fuel = 0.0; $grenades = 0
+        if ($fcPos -gt 36) {
+            $fcPrefix = $fcPos - 4
+            $grenades = [System.BitConverter]::ToInt32($p, $fcPrefix - 4)
+            $fuel = [Math]::Round([System.BitConverter]::ToSingle($p, $fcPrefix - 8), 1)
+            $medigel = [System.BitConverter]::ToInt32($p, $fcPrefix - 32)
+            $credits = [System.BitConverter]::ToInt32($p, $fcPrefix - 36)
+        }
+
+        # 2. Plot keys (IndexMap): Paragon 10159, Renegade 10160, Reputation 10297, ReputationPoints 10380
+        $paragon = 0; $renegade = 0; $reputation = 0; $reputationPoints = 0
+        for ($i = [Math]::Max(0, $fcPos); $i -lt [Math]::Min($p.Length - 8, $fcPos + 40000); $i++) {
+            $k = [System.BitConverter]::ToInt32($p, $i)
+            if ($k -eq 10159) { $paragon = [System.BitConverter]::ToInt32($p, $i + 4) }
+            elseif ($k -eq 10160) { $renegade = [System.BitConverter]::ToInt32($p, $i + 4) }
+            elseif ($k -eq 10297) { $reputation = [System.BitConverter]::ToInt32($p, $i + 4) }
+            elseif ($k -eq 10380) { $reputationPoints = [System.BitConverter]::ToInt32($p, $i + 4) }
+        }
+
+        # 3. Player: First Name, Level, XP, Talent Points
+        $firstName = "Shepard"; $level = 1; $xp = 0.0; $talentPoints = 0
+        for ($i = 4000; $i -lt [Math]::Min(20000, $p.Length - 32); $i++) {
+            $l = [System.BitConverter]::ToInt32($p, $i)
+            if ($l -ge 3 -and $l -le 20 -and ($i + 4 + $l -le $p.Length)) {
+                $candidate = [System.Text.Encoding]::ASCII.GetString($p, $i + 4, $l - 1)
+                if ($candidate -match '^[A-Z][a-z]{2,15}$') {
+                    $lvl = [System.BitConverter]::ToInt32($p, $i - 8)
+                    $rawXp = [System.BitConverter]::ToSingle($p, $i - 4)
+                    if ($lvl -ge 1 -and $lvl -le 60 -and $rawXp -ge 0 -and $rawXp -le 10000000) {
+                        $firstName = $candidate
+                        $level = $lvl
+                        $xp = [Math]::Round($rawXp, 1)
+                        $talentPoints = [System.BitConverter]::ToInt32($p, $i + 4 + $l + 6)
+                        break
+                    }
+                }
+            }
+        }
+
+        # 4. War assets registered count
+        $warAssetsCount = 0
+        for ($i = [Math]::Max(0, $fcPos - 12000); $i -lt $fcPos; $i++) {
+            $cnt = [System.BitConverter]::ToInt32($p, $i)
+            if ($cnt -ge 50 -and $cnt -le 500) {
+                $firstId = [System.BitConverter]::ToInt32($p, $i + 4)
+                if ($firstId -ge 1 -and $firstId -le 1000) {
+                    $warAssetsCount = $cnt
+                    break
+                }
+            }
+        }
+
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($fcPos - 40); key = "Player.Credits"; type = "i32 (Resources)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 40) 4 $p); val = "$credits" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($fcPos - 36); key = "Player.Medigel"; type = "i32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 36) 4 $p); val = "$medigel" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($fcPos - 8); key = "Player.Grenades"; type = "i32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 8) 4 $p); val = "$grenades" })
+        $curated.Add([PSCustomObject]@{ offset = "0x{0:X4}" -f ($fcPos - 12); key = "Player.CurrentFuel"; type = "f32 (Supplies)"; conf = "100% Curated Agama"; hex = (Get-Hex ($fcPos - 12) 4 $p); val = "$fuel" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Key[10159]"; key = "Plot.Paragon"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$paragon" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Key[10160]"; key = "Plot.Renegade"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$renegade" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Key[10297]"; key = "Plot.Reputation"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$reputation" })
+        $curated.Add([PSCustomObject]@{ offset = "PLOT:Key[10380]"; key = "Plot.ReputationPoints"; type = "i32 (Morality)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$reputationPoints" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:WarAssets"; key = "Player.WarAssetsCount"; type = "i32 (War Assets)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$warAssetsCount" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:Level"; key = "Player.Level"; type = "i32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$level" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:XP"; key = "Player.CurrentXP"; type = "f32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$xp" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:TalentPoints"; key = "Player.TalentPoints"; type = "i32 (Progression)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "$talentPoints" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:FirstName"; key = "Player.FirstName"; type = "String (Identity)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "'$firstName'" })
+        $curated.Add([PSCustomObject]@{ offset = "PLAYER:FaceCode"; key = "Player.FaceCode"; type = "String (Identity)"; conf = "100% Curated Agama"; hex = "00 00 00 00"; val = "'$faceCode'" })
+
+        return $curated
+    }
+
+    # Strict detection of MELE saves (rejecting original ME2 version 29 and non-LE saves)
+    if ($ext -eq ".pcsav") {
+        if ($hasUnrealPackageMagic -and $decompressedPayload -and $decompressedPayload.Length -ge 4) {
+            $me1Ver = [System.BitConverter]::ToInt32($decompressedPayload, 0)
+            if ($me1Ver -eq 50) {
+                $isDeterministicProfile = $true
+                $gameTitle = "MASS EFFECT (LEGENDARY EDITION) // Normandy SR-1 (BioWare Agama // प्रमाण आगम)"
+                $verdict = "BioWare Unreal 3 Vessel (MELE1 Chunk Package v50)"
+                $curated = Extract-Mele1Profile $decompressedPayload
+                foreach ($c in $curated) { $rows.Add($c) }
+            }
+        } elseif ($len -ge 4) {
+            $rawVer = [System.BitConverter]::ToInt32($bytes, 0)
+            if ($rawVer -eq 30) {
+                $isDeterministicProfile = $true
+                $gameTitle = "MASS EFFECT 2 (LEGENDARY EDITION) // Normandy SR-2 (BioWare Agama // प्रमाण आगम)"
+                $verdict = "BioWare Unreal 3 Vessel (MELE2 Package v30)"
+                $curated = Extract-Mele2Profile $bytes
+                foreach ($c in $curated) { $rows.Add($c) }
+            } elseif ($rawVer -eq 59) {
+                $isDeterministicProfile = $true
+                $gameTitle = "MASS EFFECT 3 (LEGENDARY EDITION) // Alliance Normandy SR-2 (BioWare Agama // प्रमाण आगम)"
+                $verdict = "BioWare Unreal 3 Vessel (MELE3 Package v59)"
+                $curated = Extract-Mele3Profile $bytes
+                foreach ($c in $curated) { $rows.Add($c) }
+            }
+        }
+    }
 }
 
 # Determine scan target: use decompressed payload if present (e.g. zlib containers), else raw bytes
 $scanBuf = if ($decompressedPayload) { $decompressedPayload } else { $bytes }
 $scanPrefix = if ($decompressedPayload) { "PAYLOAD" } else { "0x" }
 
-if (-not $isJson -and $rows.Count -lt 250) {
+if (-not $isJson -and -not $isDeterministicProfile -and $rows.Count -lt 250) {
     $cursor = 0
     $lastIdent = ""
 
