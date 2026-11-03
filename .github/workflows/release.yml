@@ -63,7 +63,7 @@ jobs:
 
       - name: Compile Native Release Fast Binaries
         shell: pwsh
-        run: zig build -Doptimize=ReleaseFast
+        run: zig build -Doptimize=ReleaseFast -Dtarget=x86_64-windows
 
       - name: Assemble Release Artifacts (Portable & Setup)
         shell: pwsh

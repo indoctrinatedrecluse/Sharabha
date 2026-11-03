@@ -56,7 +56,7 @@ Push-Location $projectRoot
 zig rc res/installer.rc
 
 Write-Host "  - Linking native Win32 GUI installer executable..." -ForegroundColor Cyan
-zig build-exe src/installer_launcher.zig res/installer.res -O ReleaseFast --subsystem windows -lc "-femit-bin=$setupName"
+zig build-exe src/installer_launcher.zig res/installer.res -O ReleaseFast -target x86_64-windows --subsystem windows -lc "-femit-bin=$setupName"
 
 Remove-Item $payloadZip -Force -ErrorAction SilentlyContinue
 Remove-Item $installerRc -Force -ErrorAction SilentlyContinue

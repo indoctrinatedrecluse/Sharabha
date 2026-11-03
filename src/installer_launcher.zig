@@ -88,7 +88,19 @@ const win = struct {
     pub extern "kernel32" fn LoadResource(hModule: HMODULE, hResInfo: HRSRC) callconv(.winapi) ?HGLOBAL;
     pub extern "kernel32" fn LockResource(hResData: HGLOBAL) callconv(.winapi) ?*anyopaque;
     pub extern "kernel32" fn SizeofResource(hModule: HMODULE, hResInfo: HRSRC) callconv(.winapi) DWORD;
+    pub extern "kernel32" fn GetExitCodeProcess(hProcess: HANDLE, lpExitCode: *DWORD) callconv(.winapi) BOOL;
+
+    pub const MB_OK: DWORD = 0x00000000;
+    pub const MB_ICONERROR: DWORD = 0x00000010;
+    pub extern "user32" fn MessageBoxW(hWnd: ?HANDLE, lpText: LPCWSTR, lpCaption: LPCWSTR, uType: DWORD) callconv(.winapi) i32;
 };
+
+fn showError(allocator: std.mem.Allocator, message: []const u8) void {
+    const msg_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, message) catch return;
+    defer allocator.free(msg_w);
+    const title_w = std.unicode.utf8ToUtf16LeStringLiteral("SHARABHA SETUP // प्रतिष्ठापन त्रुटि");
+    _ = win.MessageBoxW(null, msg_w.ptr, title_w, win.MB_OK | win.MB_ICONERROR);
+}
 
 fn fileExists(allocator: std.mem.Allocator, path: []const u8) bool {
     const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path) catch return false;
@@ -116,9 +128,11 @@ fn executeCommandSync(allocator: std.mem.Allocator, cmd: []const u8, working_dir
     const wd_ptr = if (wd_w) |w| w.ptr else null;
     if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, wd_ptr, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
+        var exit_code: win.DWORD = 0;
+        _ = win.GetExitCodeProcess(pi.hProcess, &exit_code);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);
-        return true;
+        return exit_code == 0;
     }
     return false;
 }
@@ -212,7 +226,7 @@ pub fn main() !void {
         }
     }
 
-    // Assemble Installer Slint Invocation directly launching slint-viewer with hidden background execution
+    // Assemble Installer Slint Invocation launching interactive GUI installer
     const cmd = try std.fmt.allocPrint(allocator,
         "\"{s}\" \"{s}\\src\\ui\\installer.slint\" --auto-reload " ++
         "--on browse_dir \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_browse.ps1\\\"\" " ++
@@ -227,15 +241,17 @@ pub fn main() !void {
 
     var si: win.STARTUPINFOW = .{
         .dwFlags = 0x00000001,
-        .wShowWindow = 0,
+        .wShowWindow = 1, // SW_SHOWNORMAL (1 = Show window visibly)
     };
     var pi: win.PROCESS_INFORMATION = undefined;
 
-    // Launch slint-viewer directly with CREATE_NO_WINDOW and wait for it to close
-    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, staging_w.ptr, &si, &pi) != 0) {
+    // Launch slint-viewer directly as a visible GUI process
+    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, 0, null, staging_w.ptr, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);
+    } else {
+        showError(allocator, "Failed to launch Sharabha Setup GUI window. Please run from the portable archive.");
     }
 
     // Cleanup temporary staging files after installer has completely exited
