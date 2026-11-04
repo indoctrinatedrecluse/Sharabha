@@ -245,8 +245,8 @@ pub fn main() !void {
     };
     var pi: win.PROCESS_INFORMATION = undefined;
 
-    // Launch slint-viewer directly as a visible GUI process
-    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, 0, null, staging_w.ptr, &si, &pi) != 0) {
+    // Launch slint-viewer directly as a visible GUI process without a console window
+    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, staging_w.ptr, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);

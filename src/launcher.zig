@@ -125,6 +125,9 @@ pub fn main() !void {
         "--on inject_dll \"zig-out/bin/SharabhaCli.exe --inject-dll $1\" " ++
         "--on export_agamas \"zig-out/bin/SharabhaCli.exe --export-agamas $1\" " ++
         "--on filter_save_rows \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/filter_save.ps1 \\\"$1\\\"\" " ++
+        "--on check_for_updates \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Check\" " ++
+        "--on start_update_download \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Download\" " ++
+        "--on install_update_and_exit \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Install -TargetSetupPath \\\"$1\\\"\" " ++
         "--on register_agama_profile \"zig-out/bin/SharabhaCli.exe --export-surreal\"",
         .{slint_exe}
     );
@@ -137,8 +140,8 @@ pub fn main() !void {
     };
     var pi: win.PROCESS_INFORMATION = undefined;
 
-    // Launch slint-viewer with visible window
-    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, 0, null, null, &si, &pi) != 0) {
+    // Launch slint-viewer with visible window but cloaked console window
+    if (win.CreateProcessW(null, cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, null, &si, &pi) != 0) {
         _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);

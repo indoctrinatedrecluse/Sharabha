@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           $tag = $env:GITHUB_REF_NAME
-          if (-not $tag) { $tag = "v0.4.0" }
+          if (-not $tag) { $tag = "v0.4.1" }
           powershell -ExecutionPolicy Bypass -File tools/package.ps1 -Tag $tag
           powershell -ExecutionPolicy Bypass -File tools/extract_release_notes.ps1 -Tag $tag -OutputPath release_notes.md
 

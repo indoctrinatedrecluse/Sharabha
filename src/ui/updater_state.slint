@@ -1,0 +1,16 @@
+// Sharabha Dynamic Auto-Updater State Codex
+// Reactively updated by tools/updater.ps1
+export global UpdaterState {
+    in property <bool> has_update: false;
+    in property <bool> is_checking: false;
+    in property <bool> is_downloading: false;
+    in property <bool> is_ready: false;
+    in property <string> current_version: "v0.4.1";
+    in property <string> latest_version: "v0.4.1";
+    in property <string> release_title: "Consecration of the Auto-Updater & Silent Process Cloaking";
+    in property <string> release_date: "2026-11-04";
+    in property <string> release_notes: "### Added\n- Built-in GitHub Auto-Updater with interactive modal and markdown changelog\n- Zero-console process cloaking (eliminated all terminal flashes during startup and setup)\n- Interactive download progress bar with dual-aspect Shaivite aesthetics\n- Automated seamless handover to self-extracting GUI installer";
+    in property <float> download_progress: 0.0;
+    in property <string> status_text: "Temple is up to date (v0.4.1).";
+    in property <string> setup_path: "";
+}

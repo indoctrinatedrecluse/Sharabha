@@ -1,20 +1,37 @@
-# 🦁🐦 Sharabha
+# 🦁🐦 Sharabha (शरभेश्वर)
 
 > **Sharabha** (शरभ) is the dual form of the Hindu god **Shiva** — part lion, part bird, eight-legged — manifested to subdue **Narasimha**, the ferocious lion avatar of Vishnu, and ultimately restore peace. It embodies the union of calm wisdom and devastating power: a serene aspect that resolves, and a violent aspect that overwhelms.
 >
-> This project carries that duality. **Save Forge** is the calm aspect — carefully parsing, understanding, and surgically editing save files with precision and safety. **Memory Engine** is the violent aspect — attaching to live processes, ripping through gigabytes of memory, injecting code, and bending a running game to your will. Together, they are Sharabha: an all-in-one game tool that is as gentle as it is destructive.
+> This project carries that duality. **Save Forge (कल्याण स्थिति)** is the calm aspect — carefully parsing, understanding, and surgically editing save files with precision and safety. **Memory Engine (रुद्र ताण्डव)** is the violent aspect — attaching to live processes, ripping through gigabytes of memory, injecting code, resolving Cheat Engine `.CT` pointer trees, and bending a running game to your will. Together, they are Sharabha: an all-in-one game tool that is as gentle as it is destructive.
+
+[![Release](https://img.shields.io/github/v/release/indoctrinatedrecluse/Sharabha?color=ff4d2e&label=Sanctified%20Release)](https://github.com/indoctrinatedrecluse/Sharabha/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20x64%20(Baseline)-38bdf8)](https://github.com/indoctrinatedrecluse/Sharabha)
+[![License](https://img.shields.io/badge/License-Apache%202.0-eab308)](LICENSE)
 
 ---
 
 ## What Is Sharabha?
 
-Sharabha is a **native Windows desktop application** built on an entirely unconventional stack — **Zig**, **Slint**, and **SurrealDB** — designed as a unified game modding and cheating toolkit with two core pillars:
+Sharabha is a **native Windows desktop application** built on an entirely unconventional stack — **Zig**, **Slint**, **LuaJIT**, and **SurrealDB** — designed as a unified game modding, memory inquest, and save engineering toolkit with core pillars:
 
-### 🧊 Save Forge — Universal Save Game Editor
-A save game editor that doesn't need to know your game's save format ahead of time. It uses a **fuzzy heuristic parsing engine** to infer structure from raw binary data, presenting an editable key-value interface that lets you modify and safely rewrite save files for *any* game.
+### 🧊 Save Forge (कल्याण स्थिति // Kalyana Sthiti) — Universal Save Editor
+- **Agama Deterministic Overrides**: Direct structural support for known game containers:
+  - **Capcom RE Engine**: `DSSS` container structure, header deserialization, and MurmurHash3 (32-bit) verification for *Dragon's Dogma 2*, *Resident Evil*, and other RE Engine titles.
+  - **Mass Effect Legendary Edition**: Complete save model support for MELE1, MELE2, and MELE3 with UE3 bitstreams, chunked decompression, and CRC-32/BZIP2 integrity seals.
+  - **Suzerain**: Raw JSON / `.suave` container parsing with multi-field search and instant balance manipulation.
+- **Pravaha Fuzzy Heuristic Parsing**: When facing unknown binary save formats, Sharabha computes **Shannon entropy**, byte sparsity, and Chi-Square goodness-of-fit distributions to extract candidate string and numeric key-value tables without prior knowledge.
+- **Atomic Consecration (कर्म कवच संकल्प)**: Guaranteed zero-corruption writes via pre-write `.bak` snapshots, shadow buffer serialization, structural validation, and Win32 `MoveFileEx` atomic swapping.
 
-### 🔥 Memory Engine — Process Memory Scanner & Injector
-A Cheat Engine–style memory manipulation suite with process attachment, value/AOB scanning, pointer chain resolution, memory freezing, DLL injection, and an embedded **Lua (LuaJIT)** scripting runtime for automation.
+### 🔥 Memory Engine (रुद्र ताण्डव // Rudra Tandava) — Process Inquest & Cheat Engine Altar
+- **Cheat Engine Table (`.CT`) Inquest**: High-throughput zero-dependency XML streaming parser (`src/memory/ct_parser.zig`) handling nested entries, variable types, bottom-up `<Offsets>` pointer chains, user-defined symbols, and embedded scripts. Tested on massive 12,000+ entry tables (*Elden Ring*, *Baldur's Gate 3*, *Assassin's Creed Valhalla*).
+- **Embedded Lua Altar & CE Emulation (`ce_compat.zig`)**: Full LuaJIT 2.1 compatibility layer implementing Cheat Engine runtime APIs (`openProcess`, `getAddress`, `readInteger`, `writeInteger`, `readPointer`, `writePointer`, `executeCodeEx` remote thread execution, `sleep`, `messageDialog`, and GUI stubs).
+- **Stambhana Sentinel (स्तम्भन सिद्धि)**: 100ms background memory freeze daemon locking target memory offsets.
+- **SIMD Memory Scanner**: Scans committed pages via `VirtualQueryEx` with initial and iterative rescan filtering (Exact, Changed, Unchanged, Increased, Decreased).
+- **Multi-Level Pointer Scanner**: Resolves bottom-up and top-down pointer paths through dynamic entity structures.
+
+### ⚡ Ashtamurti Auto-Updater (अद्यतन संशुद्धि) & Silent Process Cloaking
+- **Built-in Auto-Updater**: Checks GitHub Releases API for new releases, displays an interactive thematic modal with rendered Markdown changelog and dual-aspect gradient progress bar, streams the setup package, and cleanly delegates handover to the self-extracting installer.
+- **Zero-Console Process Cloaking**: Both `Sharabha.exe` and `SharabhaSetup.exe` utilize `CREATE_NO_WINDOW` and PE Subsystem 2 (Windows GUI) patching to completely eliminate black terminal window flashing during application and installer startup.
 
 ---
 
@@ -238,44 +255,18 @@ MemoryEntry {
 
 ---
 
-## Build Phases
+## Development Status & Architecture Phases
 
-### Phase 1 — Foundation
-- Zig project scaffold with Slint UI integration
-- SurrealDB embedded setup
-- App shell with tab navigation (Memory Engine │ Save Forge │ Knowledge Base)
-- Basic theming and window management
-
-### Phase 2 — Memory Engine MVP
-- Process enumeration and attachment
-- Memory read/write primitives
-- Value scanner (exact match, first scan + rescan filtering)
-- Results table with live value refresh
-- Simple value freeze (write-on-timer)
-
-### Phase 3 — Save Forge MVP
-- File open dialog + raw hex view
-- Deterministic parser layer (JSON, XML, INI auto-detection)
-- Fuzzy binary parser v1 (string + integer + float detection with confidence scoring)
-- Editable KV tree view with type override
-- Safe rewrite engine with backup + atomic rename
-
-### Phase 4 — Scripting & Knowledge Base
-- Embedded LuaJIT runtime integration
-- Script editor panel with Lua syntax highlighting
-- Lua API bindings to Memory Engine functions
-- Game profile CRUD in SurrealDB
-- Manual field definition and annotation UI
-- Knowledge base search
-
-### Phase 5 — Advanced Features
-- AOB (array-of-bytes) pattern scanning with wildcard support
-- Multi-level pointer scanner
-- DLL injection via `CreateRemoteThread`
-- Code cave / inline hook injection
-- Fuzzy parser v2 (struct-of-array detection, repeating pattern inference, confidence tuning)
-- Knowledge base import/export (JSON format for community sharing)
-- Memory table save/load (`.sharabha` files, analogous to Cheat Engine `.CT` files)
+- [x] **Phase 1 — Foundation**: Zig 0.14+ scaffold with Slint 1.18+ UI integration, embedded SurrealDB, 24 FPS hardware splash cinema (Chitrapata), and ambient video loop canvas.
+- [x] **Phase 2 — Memory Engine MVP**: Win32 process inquest, page traversal (`VirtualQueryEx`), SIMD value scanner (exact, range, increased, decreased), live results refresh, and Stambhana freeze daemon.
+- [x] **Phase 3 — Save Forge MVP**: Dual-mode save editor, deterministic container parsers (JSON, XML, INI), Shannon entropy & Chi-Square heuristic binary inference, interactive KV editor, and MoveFileEx atomic write engine.
+- [x] **Phase 4 — Scripting & Knowledge Base**: Embedded LuaJIT 2.1 C API integration, live script altar with Ashtamurti memory hooks, SurrealDB cosmic Agama graph profiles, and DPAPI-encrypted Gupta Kosha hardware vault.
+- [x] **Phase 5 — Advanced Inquest & Game Overrides**: AOB wildcard pattern scanning, multi-level pointer resolution, Capcom RE Engine (`DSSS` / MurmurHash3), Mass Effect Legendary Edition, and Suzerain deterministic override containers.
+- [x] **Phase 6 — Cheat Engine `.CT` & Auto-Updater (v0.4.0 - v0.4.1)**:
+  - Streaming XML Cheat Engine table parser (`ct_parser.zig`) for complex nested entries, `<Offsets>`, and `<UserdefinedSymbols>`.
+  - Embedded Cheat Engine Lua runtime emulation (`ce_compat.zig`).
+  - Ashtamurti Built-in GitHub Auto-Updater (`tools/updater.ps1`) with interactive Markdown changelog modal, live progress stream, and seamless installer handover.
+  - Zero-console process cloaking eliminating terminal window flashing during application and installer startup.
 
 ---
 

@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] - 2026-11-04
+
+### Added
+- **Ashtamurti Auto-Updater Engine ("अद्यतन संशुद्धि // Ashtamurti Auto-Updater")**:
+  - Implemented GitHub release synchronization engine (`tools/updater.ps1`) querying official temple releases via GitHub Releases REST API with automated version comparison.
+  - Added interactive thematic modal dialog in `src/ui/app.slint` featuring a full Markdown changelog reader, version comparison badges, release metadata, and dual-aspect Shaivite gradient progress bar (`#ff4d2e` crimson to `#ca8a04` gold to `#38bdf8` cyan).
+  - Streamed chunked binary download directly into user temporary staging (`%TEMP%\Sharabha-Update\Sharabha-vX.Y.Z-windows-x64-setup.exe`) with real-time byte count and percentage tracking.
+  - Automated seamless handover: spawns the new self-extracting installer detached and gracefully closes the running application to avoid DLL or file-lock collisions.
+  - Integrated `UPDATE` (`अद्यतन चक्र`) quick-trigger button in the main application header and registered `Check for Updates` in the Universal Command Palette (`Ctrl + P`).
+
+### Fixed
+- **Post-Install "Launch Now" Action Handover ("प्रतिष्ठापनोपरान्त उद्बोधन // Pratishthanoparanta Udbodhana")**:
+  - Resolved an issue where selecting "Launch Sharabha now upon exit" on the post-install completion screen failed to launch the application.
+  - Eliminated premature background process spawning in `tools/installer_logic.ps1` during file copying, transferring launch responsibility strictly to the post-installation completion hook in `tools/installer_finish.ps1`.
+  - Implemented process parent PID detection so closing the installer terminates only the installer's viewer process, preventing collateral termination of the newly launched application window.
+  - Added `tools/installer_cancel.ps1` for clean, isolated exit when cancelling the installer.
+
+### Changed
+- **Zero-Console Process Cloaking ("निराकार प्रक्रिया आवरण // Nirakara Prakriya Avarana")**:
+  - Suppressed all black terminal/console windows and command prompt flashes during application startup and setup wizard launch.
+  - Configured `win.CREATE_NO_WINDOW` (`0x08000000`) across `src/launcher.zig` and `src/installer_launcher.zig` when launching the Slint runtime.
+  - Automated binary PE header patching in `tools/package.ps1` converting `slint-viewer.exe` from Subsystem 3 (Console / CUI) to Subsystem 2 (Windows GUI / `IMAGE_SUBSYSTEM_WINDOWS_GUI`), permanently preventing the Windows kernel from allocating a console window.
+
+---
+
 ## [0.4.0] - 2026-11-04
 
 ### Added

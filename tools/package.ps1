@@ -1,5 +1,5 @@
 param(
-    [string]$Tag = "v0.4.0"
+    [string]$Tag = "v0.4.1"
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -20,7 +20,15 @@ Copy-Item (Join-Path $projectRoot "zig-out\bin\lua51.dll") -Destination (Join-Pa
 $cargoSlint = (Get-Command slint-viewer -ErrorAction SilentlyContinue).Source
 if (-not $cargoSlint) { $cargoSlint = Join-Path $env:USERPROFILE ".cargo\bin\slint-viewer.exe" }
 if (Test-Path $cargoSlint) {
-    Copy-Item $cargoSlint -Destination (Join-Path $portableDir "bin\slint-viewer.exe") -Force
+    $destSlint = Join-Path $portableDir "bin\slint-viewer.exe"
+    Copy-Item $cargoSlint -Destination $destSlint -Force
+    # Patch PE Subsystem from 3 (Console) to 2 (Windows GUI) to eliminate any terminal window
+    $bytes = [System.IO.File]::ReadAllBytes($destSlint)
+    $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+    $subsysOffset = $peOffset + 24 + 68
+    $bytes[$subsysOffset] = 2
+    $bytes[$subsysOffset + 1] = 0
+    [System.IO.File]::WriteAllBytes($destSlint, $bytes)
 }
 
 Copy-Item -Path (Join-Path $projectRoot "assets") -Destination (Join-Path $portableDir "assets") -Recurse -Force

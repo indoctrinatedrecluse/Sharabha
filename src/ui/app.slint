@@ -3,6 +3,7 @@ import { LiveProcesses } from "live_processes.slint";
 import { LiveSave, SaveKeyValueRowData } from "live_save.slint";
 import { LiveScan, ScanRowData } from "live_scan.slint";
 import { LiveTable, CheatTableRowData } from "live_table.slint";
+import { UpdaterState } from "updater_state.slint";
 
 /* ==========================================================================
    SHARABHA THEME — Shaivite Mysticism & Systems Duality
@@ -1059,6 +1060,10 @@ export component MainWindow inherits Window {
                 return accept;
             }
             if event.text == Key.Escape {
+                if root.show_update_modal {
+                    root.show_update_modal = false;
+                    return accept;
+                }
                 if root.show_process_modal {
                     root.show_process_modal = false;
                     return accept;
@@ -1081,6 +1086,7 @@ export component MainWindow inherits Window {
     }
 
     // Universal Command Palette & Documentation Knowledge Base State
+    in-out property <bool> show_update_modal: false;
     in-out property <bool> show_command_palette: false;
     in-out property <string> command_palette_search: "";
     in-out property <bool> show_docs_modal: false;
@@ -1875,6 +1881,9 @@ export component MainWindow inherits Window {
     callback toggle_save_view_mode();
     callback run_lua_script(string);
     callback register_agama_profile();
+    callback check_for_updates();
+    callback start_update_download();
+    callback install_update_and_exit(string);
 
     // =========================================================================
     // LAYER 1: AMBIENT CANVAS BACKGROUND (SACRED ALTAR STILL / ANIMATED LOOP)
@@ -2123,6 +2132,25 @@ export component MainWindow inherits Window {
                         feature_name: "Feature: Searchable Documentation Manual";
                         explanation: "Interactive documentation codex covering Rudra memory inquest, Shannon entropy formulas, Chi-Square, and Lua bindings.";
                         clicked => { root.show_docs_modal = !root.show_docs_modal; }
+                    }
+
+                    // Auto-Updater Quick Trigger
+                    ThematicActionButton {
+                        text: "UPDATE";
+                        devanagari: "अद्यतन चक्र";
+                        btn_width: 105px;
+                        btn_height: 42px;
+                        bg_color: #065f46;
+                        hover_color: #047857;
+                        tooltip_down: true;
+                        tooltip_right_align: true;
+                        sanskrit_title: "अद्यतन संशुद्धि // AUTO-UPDATER";
+                        feature_name: "Feature: Sacred Temple Release Synchronizer";
+                        explanation: "Checks GitHub repository for latest sanctified release, renders markdown changelog, downloads setup, and performs seamless upgrade.";
+                        clicked => {
+                            root.show_update_modal = true;
+                            root.check_for_updates();
+                        }
                     }
                 }
             }
@@ -4645,6 +4673,20 @@ export component MainWindow inherits Window {
                         }
 
                         PaletteItemRow {
+                            icon_text: "⚡";
+                            title: "Check for Updates // Ashtamurti Synchronizer";
+                            devanagari: "अद्यतन संशुद्धि (Auto-Updater)";
+                            category: "SYSTEM";
+                            tag_color: #10b981;
+                            shortcut_hint: "Update";
+                            clicked => {
+                                root.show_command_palette = false;
+                                root.show_update_modal = true;
+                                root.check_for_updates();
+                            }
+                        }
+
+                        PaletteItemRow {
                             icon_text: "🎯";
                             title: "Execute Initial Memory Scan";
                             devanagari: "प्रथम अन्वेषण (First Scan)";
@@ -5787,6 +5829,404 @@ export component MainWindow inherits Window {
                                     root.rudra_status_text = "Target Hooked: " + root.active_process_name + " • VM Ready";
                                     root.attach_process(root.active_process_pid);
                                     root.show_process_modal = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 8: ASHTAMURTI AUTO-UPDATER & CONSECRATION MODAL (अद्यतन संशुद्धि)
+    // =========================================================================
+    if root.show_update_modal: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000e6;
+        z: 999999;
+
+        TouchArea {
+            clicked => {
+                if !UpdaterState.is_downloading {
+                    root.show_update_modal = false;
+                }
+            }
+        }
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 860px;
+            height: 600px;
+            background: #080d16fa;
+            border-radius: 12px;
+            border-width: 2px;
+            border-color: #ca8a04;
+            drop-shadow-blur: 36px;
+            drop-shadow-color: #000000;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+
+                // Header
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        alignment: center;
+
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 22px;
+                            background: #ca8a0422;
+                            border-width: 1px;
+                            border-color: #ca8a0466;
+
+                            Text {
+                                text: "⚡";
+                                font-size: 20px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 2px;
+                            alignment: center;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "ASHTAMURTI AUTO-UPDATER // Sacred Release Synchronizer";
+                                    font-size: 15px;
+                                    font-weight: 800;
+                                    color: #f8fafc;
+                                }
+                                Text {
+                                    text: "अद्यतन संशुद्धि";
+                                    font-size: 15px;
+                                    font-weight: 800;
+                                    color: #eab308;
+                                }
+                            }
+
+                            Text {
+                                text: "Sanctified Release Inquest • GitHub Release Telemetry • Seamless Hot Upgrade Handover";
+                                font-size: 10px;
+                                color: #94a3b8;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        background: #1e293b;
+                        border-radius: 16px;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                if !UpdaterState.is_downloading {
+                                    root.show_update_modal = false;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "✕";
+                            font-size: 13px;
+                            font-weight: 800;
+                            color: #f8fafc;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Version Comparison Strip
+                Rectangle {
+                    height: 52px;
+                    background: #0d1524a8;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #1e293b;
+
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        alignment: space-between;
+
+                        HorizontalLayout {
+                            spacing: 12px;
+                            alignment: center;
+
+                            Rectangle {
+                                height: 26px;
+                                background: #0284c726;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: #0284c766;
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    Text {
+                                        text: "CURRENT VESSEL (वर्तमान): " + UpdaterState.current_version;
+                                        font-size: 11px;
+                                        font-weight: 800;
+                                        color: #38bdf8;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: "➔";
+                                font-size: 14px;
+                                font-weight: 800;
+                                color: #64748b;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                height: 26px;
+                                background: #10b98126;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: #10b98166;
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    Text {
+                                        text: "TEMPLE RELEASE (नवीन): " + UpdaterState.latest_version;
+                                        font-size: 11px;
+                                        font-weight: 800;
+                                        color: #34d399;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: center;
+                            Text {
+                                text: "PUBLISHED: " + UpdaterState.release_date;
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: #94a3b8;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Release Title
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    Text {
+                        text: "RELEASE:";
+                        font-size: 11px;
+                        font-weight: 800;
+                        color: #eab308;
+                    }
+                    Text {
+                        text: UpdaterState.release_title;
+                        font-size: 12px;
+                        font-weight: 800;
+                        color: #f8fafc;
+                        overflow: elide;
+                    }
+                }
+
+                // Changelog Markdown Reader Box
+                Rectangle {
+                    vertical-stretch: 1;
+                    background: #06090fa8;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #1e293b;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 8px;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: "SACRED CHANGELOG // परिवर्तन विवरण (Keep a Changelog)";
+                                font-size: 10px;
+                                font-weight: 800;
+                                letter-spacing: 0.5px;
+                                color: #ca8a04;
+                            }
+                            Text {
+                                text: "Markdown Format";
+                                font-size: 9px;
+                                color: #64748b;
+                            }
+                        }
+
+                        ScrollView {
+                            height: 220px;
+                            VerticalLayout {
+                                padding-right: 12px;
+                                Text {
+                                    text: UpdaterState.release_notes;
+                                    font-size: 11px;
+                                    color: #cbd5e1;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Thematic Progress Bar
+                VerticalLayout {
+                    spacing: 6px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: UpdaterState.status_text;
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: #f1f5f9;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            text: (Math.round(UpdaterState.download_progress * 100)) + "%";
+                            font-size: 12px;
+                            font-weight: 900;
+                            color: #38bdf8;
+                        }
+                    }
+
+                    Rectangle {
+                        height: 18px;
+                        background: #0f172a;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: #334155;
+
+                        HorizontalLayout {
+                            alignment: start;
+                            Rectangle {
+                                width: parent.width * Math.max(0.01, Math.min(1.0, UpdaterState.download_progress));
+                                height: 100%;
+                                border-radius: 3px;
+                                background: @linear-gradient(90deg, #ff4d2e 0%, #ca8a04 50%, #38bdf8 100%);
+                            }
+                        }
+                    }
+                }
+
+                // Action Bar
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    // Close/Later Button
+                    Rectangle {
+                        width: 120px;
+                        height: 42px;
+                        background: #1e293b88;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: #334155;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                if !UpdaterState.is_downloading {
+                                    root.show_update_modal = false;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "LATER // पश्चात्";
+                            font-size: 11px;
+                            font-weight: 800;
+                            color: #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Primary Action Button
+                    HorizontalLayout {
+                        spacing: 12px;
+
+                        if !UpdaterState.is_downloading && !UpdaterState.is_ready: Rectangle {
+                            width: 270px;
+                            height: 42px;
+                            background: #ca8a04;
+                            border-radius: 6px;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.start_update_download(); }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: center;
+                                Text { text: "⚡"; font-size: 14px; vertical-alignment: center; }
+                                Text {
+                                    text: "CONSECRATE UPDATE // अद्यतन डाउनलोड";
+                                    font-size: 11px;
+                                    font-weight: 900;
+                                    letter-spacing: 0.5px;
+                                    color: #07090d;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        if UpdaterState.is_downloading: Rectangle {
+                            width: 270px;
+                            height: 42px;
+                            background: #334155;
+                            border-radius: 6px;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: center;
+                                Text { text: "⏳"; font-size: 14px; vertical-alignment: center; }
+                                Text {
+                                    text: "DOWNLOADING SANCTIFIED VESSEL...";
+                                    font-size: 11px;
+                                    font-weight: 900;
+                                    letter-spacing: 0.5px;
+                                    color: #94a3b8;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        if UpdaterState.is_ready: Rectangle {
+                            width: 270px;
+                            height: 42px;
+                            background: #10b981;
+                            border-radius: 6px;
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.install_update_and_exit(UpdaterState.setup_path); }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: center;
+                                Text { text: "🔱"; font-size: 14px; vertical-alignment: center; }
+                                Text {
+                                    text: "INSTALL & RESTART // प्रतिष्ठापन";
+                                    font-size: 11px;
+                                    font-weight: 900;
+                                    letter-spacing: 0.5px;
+                                    color: #ffffff;
+                                    vertical-alignment: center;
                                 }
                             }
                         }

@@ -30,7 +30,7 @@ if ($res -eq [System.Windows.Forms.DialogResult]::OK -and $f.SelectedPath) {
         "// Automatically updated by installer_browse.ps1",
         "export global InstallerState {",
         "    in property <bool> is_already_installed: $($isInstalled.ToString().ToLower());",
-        "    in property <string> installed_version: `"0.4.0`";",
+        "    in property <string> installed_version: `"0.4.1`";",
         "    in property <string> detected_install_path: `"$escapedPath`";",
         "}"
     )
