@@ -346,7 +346,28 @@ pub const SharabhaTable = struct {
             return error.FileReadFailed;
         }
 
+        if (std.mem.endsWith(u8, file_path, ".ct") or std.mem.endsWith(u8, file_path, ".CT") or
+            std.mem.indexOf(u8, buf, "<CheatTable") != null)
+        {
+            return importCt(allocator, buf, file_path);
+        }
+
         return importJson(allocator, buf);
+    }
+
+    /// Parses a Cheat Engine .CT XML buffer into a `SharabhaTable`
+    pub fn importCt(allocator: std.mem.Allocator, ct_xml: []const u8, file_path: []const u8) !SharabhaTable {
+        const ct_parser = @import("ct_parser.zig");
+        var parser = ct_parser.CtParser.init(allocator, ct_xml);
+        var ct_tbl = try parser.parse();
+        defer ct_tbl.deinit();
+
+        var basename = std.fs.path.basename(file_path);
+        if (std.mem.endsWith(u8, basename, ".ct") or std.mem.endsWith(u8, basename, ".CT")) {
+            basename = basename[0 .. basename.len - 3];
+        }
+
+        return ct_tbl.toSharabhaTable(allocator, basename, basename);
     }
 
     /// Parses a JSON buffer into a `SharabhaTable`

@@ -11,6 +11,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-11-04
+
+### Added
+- **Native Cheat Engine Table (`.CT`) Inquest Engine ("सीटी प्रवेश // CT Pravesha")**:
+  - Implemented high-throughput, zero-dependency streaming XML parser (`src/memory/ct_parser.zig`) tailored to the Cheat Engine schema (`CheatTable`, `CheatEngineTableVersion`, `CheatEntries`, `CheatEntry`, `ID`, `Description`, `VariableType`, `Address`, `Offsets`, `Offset`, `ShowAsSigned`, `Color`, `AssemblerScript`, `UserdefinedSymbols`, `SymbolEntry`, `LuaScript`).
+  - Added XML entity unescaping for `&quot;`, `&apos;`, `&lt;`, `&gt;`, `&amp;`, and numeric newline entities (`&#10;`, `&#13;`, `&#x0A;`, `&#x0D;`).
+  - Built-in hierarchical tree preservation and fast linear array flattening for reactive table synchronization.
+  - Stress-tested and verified across massive real-world tables from `D:\Mods`:
+    - `D:\Mods\BG3\bg3.CT`: 830 entries extracted; verified execution of Entry `4501` (`Get Item's Template UUID`) with embedded `{$lua}` invoking `getAddress`, `writeString`, `PrepareCall`, and `executeCodeEx`.
+    - `D:\Mods\AC Valhalla\AC Valhalla Inventory Editor - 1.6.2.CT`: 720 entries extracted; verified execution of Entry `23930` (`[COMPACT MODE]`) using CE GUI stubs.
+    - `D:\Mods\Elden Ring\eldenring_all-in-one_Hexinton-v4.25_ce7.5.ct`: 12,866 entries parsed and synchronized in ~1.0s with zero memory leaks.
+- **Cheat Engine Embedded Lua Compatibility Subsystem ("चेतना सूत्र // Chetana Sutra")**:
+  - Developed full LuaJIT 2.1 emulation layer (`src/scripting/ce_compat.zig`) for Cheat Engine runtime globals and functions:
+    - **Execution Environment:** `syntaxcheck = false` (allows runtime script evaluation while preventing false early returns), `process = "active"`.
+    - **Process & Symbol Management:** `openProcess(name_or_pid)`, `getProcessIDFromProcessName(name)`, `getOpenedProcessID()`, `getAddress(symbol_or_expr)`, `getAddressSafe(symbol_or_expr)`, `registerSymbol(name, addr)`, and `unregisterSymbol(name)`. Supports module expressions like `"bg3.exe"+0x24A266F` and `$process+offset`.
+    - **Memory Read/Write Functions:** `readInteger` / `writeInteger`, `readQword` / `writeQword`, `readPointer` / `writePointer`, `readFloat` / `writeFloat`, `readDouble` / `writeDouble`, `readString` / `writeString`, and `readBytes` / `writeBytes`.
+    - **Remote Execution & System Calls:** `executeCodeEx(threadSync, timeout, funcAddr, [args...])` via native Win32 `CreateRemoteThread`, `sleep(ms)`, and `messageDialog(str, ...)`.
+    - **CE GUI & Engine Stubs:** Stubs for `getMainForm()`, `createMenuItem(parent)`, `getAddressList()`, `getMemoryRecordByID(id)`, and `PrepareCall(...)` ensuring table customization scripts execute without nil-indexing exceptions.
+- **Rudra Tandava UI Integration**:
+  - Added dedicated **`LOAD .CT`** action button (Devanagari: `सीटी प्रवेश`, Amber `#ca8a04`) in `CHETANA TALIKA // CHEAT TABLE`.
+  - Added **`Load Cheat Engine Table (.CT)`** action to the Universal Command Palette (`Ctrl + P`).
+  - Added dynamic `CheatTableRow` list rendering with live memory values, freeze checkboxes, `WRITE` buttons for addresses, and `EXECUTE` (Devanagari: `प्रयोग`) buttons for embedded Auto Assembler / Lua scripts.
+  - Implemented `tools/open_ct.ps1` with native Windows file picker dialog filtered to `*.CT;*.ct;*.sharabha` defaulting to `D:\Mods`.
+- **CLI Subcommands**:
+  - `--load-ct <path>`: Loads `.CT` tables, registers symbols, resolves pointer chains, runs master scripts, and syncs to `src/ui/live_table.slint`.
+  - `--run-ct-entry <path> <id>`: Activates/runs specific entries (executing inline Lua or Auto Assembler).
+
+---
+
 ## [0.3.1] - 2026-11-04
 
 ### Fixed

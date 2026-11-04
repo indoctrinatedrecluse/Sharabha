@@ -28,7 +28,7 @@ pub const ScriptEngine = struct {
     output_log: std.ArrayList(u8),
 
     // Sentinel to reference the active engine for Lua C-callbacks
-    var active_instance: ?*ScriptEngine = null;
+    pub var active_instance: ?*ScriptEngine = null;
 
     pub fn init(allocator: std.mem.Allocator, freeze_mgr: ?*freeze.FreezeManager) !ScriptEngine {
         const L = c.luaL_newstate() orelse return error.LuaStateInitFailed;
@@ -45,10 +45,14 @@ pub const ScriptEngine = struct {
 
         active_instance = &self;
         self.registerBindings();
+        const ce_compat = @import("ce_compat.zig");
+        ce_compat.registerCeCompatibility(&self);
         return self;
     }
 
     pub fn deinit(self: *ScriptEngine) void {
+        const ce_compat = @import("ce_compat.zig");
+        ce_compat.deinitSymbols();
         self.output_log.deinit(self.allocator);
         if (self.process_handle) |h| {
             _ = win.CloseHandle(h);

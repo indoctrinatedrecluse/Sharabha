@@ -15,12 +15,14 @@ zig-out/
 *.dll
 *.pdb
 *.zip
+release_notes*.md
 Thumbs.db
 
 # Vault and temporary backup files
 .sharabha_vault.bin
 *.bak
 assets/saves/active_save_path.txt
+assets/tables/*.txt
 assets/memory/*.txt
 assets/memory/*.bin
 

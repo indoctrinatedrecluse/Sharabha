@@ -301,6 +301,40 @@ pub fn main() !void {
         return;
     }
 
+    if (std.mem.indexOf(u8, cmd_utf8, "--load-ct")) |idx| {
+        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--load-ct".len..], " \"'");
+        const path = if (path_raw.len > 0) path_raw else "D:\\Mods\\BG3\\bg3.CT";
+        Sharabha.engine_service.handleLoadCt(allocator, path) catch |err| {
+            std.debug.print("  ❌ [Load .CT Table Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--run-ct-entry")) |idx| {
+        var args_raw = std.mem.trim(u8, cmd_utf8[idx + "--run-ct-entry".len..], " \t\r\n");
+        var path: []const u8 = "D:\\Mods\\BG3\\bg3.CT";
+        var entry_id: []const u8 = "1";
+
+        if (args_raw.len > 0 and args_raw[0] == '"') {
+            const close_q = std.mem.indexOfPos(u8, args_raw, 1, "\"") orelse args_raw.len;
+            path = args_raw[1..close_q];
+            if (close_q + 1 < args_raw.len) {
+                entry_id = std.mem.trim(u8, args_raw[close_q + 1 ..], " \"'\t\r\n");
+            }
+        } else {
+            var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+            if (parts.next()) |p| path = p;
+            if (parts.next()) |e| entry_id = e;
+        }
+
+        Sharabha.engine_service.handleRunCtEntry(allocator, path, entry_id) catch |err| {
+            std.debug.print("  ❌ [Run .CT Entry Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
     if (std.mem.indexOf(u8, cmd_utf8, "--export-agamas")) |idx| {
         const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--export-agamas".len..], " \"'");
         var kosha = Sharabha.jnanakosha.JnanaKosha.init(allocator);

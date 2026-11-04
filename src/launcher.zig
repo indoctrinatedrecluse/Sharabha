@@ -120,6 +120,8 @@ pub fn main() !void {
         "--on save_vault \"zig-out/bin/SharabhaCli.exe --seal-vault\" " ++
         "--on save_memory_table \"zig-out/bin/SharabhaCli.exe --save-table $1\" " ++
         "--on load_memory_table \"zig-out/bin/SharabhaCli.exe --load-table $1\" " ++
+        "--on load_ct_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_ct.ps1\" " ++
+        "--on run_table_entry \"zig-out/bin/SharabhaCli.exe --run-ct-entry \\\"$1\\\" $2\" " ++
         "--on inject_dll \"zig-out/bin/SharabhaCli.exe --inject-dll $1\" " ++
         "--on export_agamas \"zig-out/bin/SharabhaCli.exe --export-agamas $1\" " ++
         "--on filter_save_rows \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/filter_save.ps1 \\\"$1\\\"\" " ++

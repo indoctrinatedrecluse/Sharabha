@@ -1338,6 +1338,305 @@ pub fn handleLoadTable(allocator: std.mem.Allocator, file_path: []const u8) !voi
     }
 }
 
+pub fn handleLoadCt(allocator: std.mem.Allocator, file_path: []const u8) !void {
+    const ct_parser = @import("ct_parser.zig");
+    const ce_compat = @import("../scripting/ce_compat.zig");
+    const scripting = @import("../scripting/engine.zig");
+
+    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.CT";
+    const bytes = try ct_parser.readCtFile(allocator, final_path);
+    defer allocator.free(bytes);
+
+    var parser = ct_parser.CtParser.init(allocator, bytes);
+    var ct_tbl = try parser.parse();
+    defer ct_tbl.deinit();
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // CHEAT ENGINE TABLE INQUEST (.CT / चेतना तालिका)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Vessel Path : {s}\n", .{final_path});
+    std.debug.print("  CE Version  : {d}\n", .{ct_tbl.version});
+    std.debug.print("  Symbols ({d}):\n", .{ct_tbl.symbols.items.len});
+
+    // Register symbols
+    for (ct_tbl.symbols.items) |sym| {
+        try ce_compat.registerSymbol(sym.name, sym.address, allocator);
+        std.debug.print("    • [Symbol] {s} => 0x{X}\n", .{ sym.name, sym.address });
+    }
+
+    const flat_entries = try ct_tbl.flattenEntries(allocator);
+    defer allocator.free(flat_entries);
+    std.debug.print("  Total Entries Discovered: {d}\n", .{flat_entries.len});
+
+    // Target process detection & pointer resolution
+    const target_pid = getOrDetectTargetPid() catch 0;
+    var ph: ?process.ProcessHandle = null;
+    if (target_pid != 0) {
+        ph = process.ProcessHandle.open(target_pid) catch null;
+    }
+    defer if (ph) |*p| p.close();
+
+    // Check for Master Lua Script
+    if (ct_tbl.lua_script) |ls| {
+        std.debug.print("  🔱 Master LuaScript Detected ({d} bytes). Executing...\n", .{ls.len});
+        var engine = try scripting.ScriptEngine.init(allocator, null);
+        defer engine.deinit();
+
+        if (target_pid != 0) {
+            engine.attach(target_pid) catch {};
+        }
+
+        const ls_z = try allocator.allocSentinel(u8, ls.len, 0);
+        @memcpy(ls_z, ls);
+        defer allocator.free(ls_z);
+
+        const res = engine.executeWithOutput(ls_z);
+        if (res.output.len > 0) {
+            std.debug.print("  [Master Lua Output]:\n{s}\n", .{res.output});
+        }
+        if (!res.success) {
+            std.debug.print("  ⚠️ [Lua Warning]: {s}\n", .{res.error_msg orelse "Unknown"});
+        } else {
+            std.debug.print("  [✓] Master Lua script initialized.\n", .{});
+        }
+    }
+
+    // Write src/ui/live_table.slint
+    try exportLiveTableSlint(allocator, final_path, flat_entries, ph);
+
+    // Persist active table path
+    const act_tbl_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, "assets\\tables\\active_table_path.txt") catch null;
+    if (act_tbl_w) |pw| {
+        defer allocator.free(pw);
+        const h = win.CreateFileW(pw.ptr, win.GENERIC_WRITE, 0, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
+        if (h != win.INVALID_HANDLE_VALUE) {
+            defer _ = win.CloseHandle(h);
+            var wr: u32 = 0;
+            _ = win.WriteFile(h, final_path.ptr, @intCast(final_path.len), &wr, null);
+        }
+    }
+
+    std.debug.print("  [✓] Synchronized {d} entries to src/ui/live_table.slint\n", .{flat_entries.len});
+}
+
+pub fn handleRunCtEntry(allocator: std.mem.Allocator, file_path: []const u8, entry_id_str: []const u8) !void {
+    const ct_parser = @import("ct_parser.zig");
+    const scripting = @import("../scripting/engine.zig");
+
+    const entry_id = std.fmt.parseInt(u32, entry_id_str, 10) catch {
+        std.debug.print("  ❌ [Invalid Entry ID]: {s}\n", .{entry_id_str});
+        return;
+    };
+
+    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.CT";
+    const bytes = try ct_parser.readCtFile(allocator, final_path);
+    defer allocator.free(bytes);
+
+    var parser = ct_parser.CtParser.init(allocator, bytes);
+    var ct_tbl = try parser.parse();
+    defer ct_tbl.deinit();
+
+    const entry = ct_tbl.findEntryById(entry_id) orelse {
+        std.debug.print("  ❌ [Entry Not Found]: ID {d}\n", .{entry_id});
+        return;
+    };
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // CHEAT ENTRY ACTIVATION (ID {d})\n", .{entry.id});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Description : {s}\n", .{entry.description});
+    std.debug.print("  Type        : {s}\n", .{entry.variable_type});
+
+    if (entry.isScript()) {
+        const sec = entry.extractScriptSections();
+        const script_to_run = sec.enable orelse entry.assembler_script orelse "";
+
+        var lua_code: []const u8 = script_to_run;
+        if (std.mem.indexOf(u8, script_to_run, "{$lua}")) |l_start| {
+            const after_lua = script_to_run[l_start + "{$lua}".len ..];
+            if (std.mem.indexOf(u8, after_lua, "{$asm}")) |l_end| {
+                lua_code = after_lua[0..l_end];
+            } else {
+                lua_code = after_lua;
+            }
+        }
+
+        var engine = try scripting.ScriptEngine.init(allocator, null);
+        defer engine.deinit();
+
+        const target_pid = getOrDetectTargetPid() catch 0;
+        if (target_pid != 0) {
+            engine.attach(target_pid) catch {};
+        }
+
+        const trimmed_lua = std.mem.trim(u8, lua_code, " \r\n\t");
+        const script_z = try allocator.allocSentinel(u8, trimmed_lua.len, 0);
+        @memcpy(script_z, trimmed_lua);
+        defer allocator.free(script_z);
+
+        const res = engine.executeWithOutput(script_z);
+        if (res.output.len > 0) {
+            std.debug.print("  [Script Output]:\n{s}\n", .{res.output});
+        }
+        if (!res.success) {
+            std.debug.print("  ❌ [Script Error]: {s}\n", .{res.error_msg orelse "Unknown"});
+        } else {
+            std.debug.print("  [✓] Entry script evaluated successfully.\n", .{});
+        }
+    } else {
+        std.debug.print("  [Address Record]: {s}\n", .{entry.address});
+    }
+}
+
+fn readProcessVal(proc: *const process.ProcessHandle, comptime T: type, address: usize) ?T {
+    var buf: [@sizeOf(T)]u8 = undefined;
+    const br = proc.readMemory(address, &buf) catch return null;
+    if (br != @sizeOf(T)) return null;
+    return @as(*const T, @ptrCast(@alignCast(&buf))).*;
+}
+
+fn exportLiveTableSlint(
+    allocator: std.mem.Allocator,
+    file_path: []const u8,
+    entries: []const @import("ct_parser.zig").CtEntry,
+    ph: ?process.ProcessHandle,
+) !void {
+    var list: std.ArrayList(u8) = .empty;
+    defer list.deinit(allocator);
+
+    try list.appendSlice(allocator, "// Auto-generated by Sharabha Rudra Tandava Memory Inquest Engine\n");
+    try list.appendSlice(allocator, "export struct CheatTableRowData {\n");
+    try list.appendSlice(allocator, "    id: int,\n    description: string,\n    address: string,\n    val_type: string,\n    val: string,\n    is_frozen: bool,\n    is_script: bool,\n    script_active: bool,\n}\n\n");
+
+    var basename = std.fs.path.basename(file_path);
+    if (std.mem.endsWith(u8, basename, ".ct") or std.mem.endsWith(u8, basename, ".CT")) {
+        basename = basename[0 .. basename.len - 3];
+    }
+
+    var hdr_buf: [512]u8 = undefined;
+    const hdr1 = try std.fmt.bufPrint(&hdr_buf, "export global LiveTable {{\n    in property <string> table_title: \"{s}\";\n    in property <string> file_path: \"", .{
+        basename,
+    });
+    try list.appendSlice(allocator, hdr1);
+    try appendEscapedSlint(&list, allocator, file_path);
+    const hdr2 = try std.fmt.bufPrint(&hdr_buf, "\";\n    in property <string> status_feedback: \"Loaded: {s} ({d} Entries)\";\n    in property <int> total_entries: {d};\n    in property <bool> is_ct_table: true;\n\n    in property <[CheatTableRowData]> rows: [\n", .{
+        basename,
+        entries.len,
+        entries.len,
+    });
+    try list.appendSlice(allocator, hdr2);
+
+    const max_rows = @min(entries.len, 50);
+    for (entries[0..max_rows], 0..) |entry, i| {
+        var val_str: []const u8 = "???";
+        var addr_buf: [128]u8 = undefined;
+        var addr_display: []const u8 = entry.address;
+        if (entry.offsets.len > 0) {
+            addr_display = std.fmt.bufPrint(&addr_buf, "{s} -> +0x{X}", .{ entry.address, entry.offsets[0] }) catch entry.address;
+        }
+
+        if (entry.isScript()) {
+            val_str = if (entry.has_lua) "[Lua Altar]" else "[Auto Assembler]";
+        } else if (ph) |proc| {
+            var resolved_addr: usize = 0;
+            if (std.mem.indexOf(u8, entry.address, "+")) |p_idx| {
+                const mod_name = std.mem.trim(u8, entry.address[0..p_idx], " \"'");
+                const off_val = @import("ct_parser.zig").parseHexOrDec(entry.address[p_idx + 1 ..]);
+                var iter = process.ModuleIterator.init(proc.pid) catch null;
+                if (iter) |*it| {
+                    defer it.deinit();
+                    while (it.next()) |me| {
+                        if (std.ascii.eqlIgnoreCase(me.getName(), mod_name) or std.mem.eql(u8, mod_name, "$process")) {
+                            resolved_addr = me.base_address + off_val;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                resolved_addr = @import("ct_parser.zig").parseHexOrDec(entry.address);
+            }
+
+            if (resolved_addr != 0 and entry.offsets.len > 0) {
+                var cur = resolved_addr;
+                var o_idx = entry.offsets.len;
+                while (o_idx > 1) {
+                    o_idx -= 1;
+                    const next_val = readProcessVal(&proc, usize, cur + entry.offsets[o_idx]);
+                    if (next_val == null or next_val.? == 0) break;
+                    cur = next_val.?;
+                }
+                resolved_addr = cur + entry.offsets[0];
+            }
+
+            if (resolved_addr != 0) {
+                var v_buf: [64]u8 = undefined;
+                if (std.mem.indexOf(u8, entry.variable_type, "Float") != null) {
+                    if (readProcessVal(&proc, f32, resolved_addr)) |fv| {
+                        val_str = std.fmt.bufPrint(&v_buf, "{d:.2}", .{fv}) catch "???";
+                    }
+                } else if (std.mem.indexOf(u8, entry.variable_type, "Double") != null) {
+                    if (readProcessVal(&proc, f64, resolved_addr)) |dv| {
+                        val_str = std.fmt.bufPrint(&v_buf, "{d:.4}", .{dv}) catch "???";
+                    }
+                } else {
+                    if (readProcessVal(&proc, i32, resolved_addr)) |iv| {
+                        val_str = std.fmt.bufPrint(&v_buf, "{d}", .{iv}) catch "???";
+                    }
+                }
+            }
+        }
+
+        try list.appendSlice(allocator, "        { id: ");
+        var num_buf: [32]u8 = undefined;
+        try list.appendSlice(allocator, try std.fmt.bufPrint(&num_buf, "{d}", .{entry.id}));
+        try list.appendSlice(allocator, ", description: \"");
+        try appendEscapedSlint(&list, allocator, entry.description);
+        try list.appendSlice(allocator, "\", address: \"");
+        try appendEscapedSlint(&list, allocator, addr_display);
+        try list.appendSlice(allocator, "\", val_type: \"");
+        try appendEscapedSlint(&list, allocator, entry.variable_type);
+        try list.appendSlice(allocator, "\", val: \"");
+        try appendEscapedSlint(&list, allocator, val_str);
+        try list.appendSlice(allocator, "\", is_frozen: false, is_script: ");
+        try list.appendSlice(allocator, if (entry.isScript()) "true" else "false");
+        try list.appendSlice(allocator, ", script_active: false }");
+        if (i + 1 < max_rows) {
+            try list.appendSlice(allocator, ",\n");
+        } else {
+            try list.appendSlice(allocator, "\n");
+        }
+    }
+
+    try list.appendSlice(allocator, "    ];\n}\n");
+
+    const target_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, "src\\ui\\live_table.slint");
+    defer allocator.free(target_w);
+
+    const h = win.CreateFileW(target_w.ptr, win.GENERIC_WRITE, 0, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
+    if (h != win.INVALID_HANDLE_VALUE) {
+        defer _ = win.CloseHandle(h);
+        var wr: u32 = 0;
+        _ = win.WriteFile(h, list.items.ptr, @intCast(list.items.len), &wr, null);
+    }
+}
+
+fn appendEscapedSlint(list: *std.ArrayList(u8), allocator: std.mem.Allocator, str: []const u8) !void {
+    for (str) |b| {
+        if (b == '"') {
+            try list.appendSlice(allocator, "\\\"");
+        } else if (b == '\\') {
+            try list.appendSlice(allocator, "\\\\");
+        } else if (b == '\n') {
+            try list.appendSlice(allocator, " ");
+        } else if (b == '\r') {
+            // skip
+        } else {
+            const ch = [_]u8{b};
+            try list.appendSlice(allocator, &ch);
+        }
+    }
+}
+
 test "engine_service self process scan, filter, and write" {
     const allocator = std.testing.allocator;
 

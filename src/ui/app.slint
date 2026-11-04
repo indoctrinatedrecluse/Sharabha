@@ -2,6 +2,7 @@ import { Button, VerticalBox, HorizontalBox, LineEdit, ScrollView, ListView } fr
 import { LiveProcesses } from "live_processes.slint";
 import { LiveSave, SaveKeyValueRowData } from "live_save.slint";
 import { LiveScan, ScanRowData } from "live_scan.slint";
+import { LiveTable, CheatTableRowData } from "live_table.slint";
 
 /* ==========================================================================
    SHARABHA THEME — Shaivite Mysticism & Systems Duality
@@ -981,6 +982,65 @@ export component ScanResultRow inherits Rectangle {
     }
 }
 
+export component CheatTableRow inherits Rectangle {
+    in property <int> row_id;
+    in property <string> desc;
+    in property <string> addr;
+    in property <string> val_type;
+    in-out property <string> val;
+    in-out property <bool> is_frozen;
+    in property <bool> is_script;
+    in property <bool> is_even;
+
+    callback toggle_active();
+    callback write_or_run(string);
+
+    height: 34px;
+    background: root.is_even ? #141e2ecc : transparent;
+    border-radius: 4px;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        Rectangle {
+            width: 55px;
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.toggle_active(); }
+            }
+            Text {
+                text: root.is_script ? "⚡" : (root.is_frozen ? "☑" : "☐");
+                font-size: 15px;
+                font-weight: 700;
+                color: root.is_script ? #a855f7 : (root.is_frozen ? #22c55e : #94a3b8);
+                vertical-alignment: center;
+            }
+        }
+
+        Text { text: root.desc; width: 140px; font-size: 11px; color: #f8fafc; vertical-alignment: center; overflow: elide; }
+        Text { text: root.addr; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; overflow: elide; }
+        Text { text: root.val_type; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; overflow: elide; }
+        LineEdit { text <=> root.val; width: 110px; font-size: 11px; height: 26px; enabled: !root.is_script; }
+
+        HorizontalLayout {
+            spacing: 6px;
+            horizontal-stretch: 1;
+            alignment: start;
+            ThematicActionButton {
+                text: root.is_script ? "EXECUTE" : "WRITE";
+                devanagari: root.is_script ? "प्रयोग" : "लेखन";
+                btn_width: root.is_script ? 75px : 55px;
+                btn_height: 26px;
+                bg_color: root.is_script ? #7c3aed : #0369a1;
+                hover_color: root.is_script ? #8b5cf6 : #0284c7;
+                clicked => { root.write_or_run(root.val); }
+            }
+        }
+    }
+}
+
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
     preferred-width: 1360px;
@@ -1610,6 +1670,10 @@ export component MainWindow inherits Window {
     in-out property <string> table_val_2: "100";
 
     in-out property <int> table_row_count: 3;
+    in-out property <[CheatTableRowData]> ct_rows: LiveTable.rows;
+    in-out property <int> ct_total_entries: LiveTable.total_entries;
+    in-out property <string> ct_file_path: LiveTable.file_path;
+    in-out property <bool> is_ct_loaded: LiveTable.is_ct_table;
 
     // Kalyana Sthiti Interactive State
     in-out property <int> current_save_idx: 0;
@@ -1791,6 +1855,8 @@ export component MainWindow inherits Window {
     callback watch_address_writes(string);
     callback save_memory_table(string);
     callback load_memory_table(string);
+    callback load_ct_file();
+    callback run_table_entry(string, string);
     callback inject_dll(string);
     callback export_agamas(string);
     callback open_save_file();
@@ -2661,7 +2727,7 @@ export component MainWindow inherits Window {
                                             vertical-alignment: center;
                                         }
                                         Text {
-                                            text: "• " + root.table_row_count + " Tracked Entries";
+                                            text: "• " + (root.is_ct_loaded ? (root.ct_total_entries + " Table Entries (" + root.ct_file_path + ")") : (root.table_row_count + " Tracked Entries"));
                                             font-size: 10px;
                                             color: #64748b;
                                             vertical-alignment: center;
@@ -2721,6 +2787,17 @@ export component MainWindow inherits Window {
                                             }
                                         }
                                         ThematicActionButton {
+                                            text: "LOAD .CT"; devanagari: "सीटी प्रवेश"; btn_width: 95px; btn_height: 26px;
+                                            bg_color: #ca8a04; hover_color: #eab308;
+                                            sanskrit_title: "सीटी प्रवेश // LOAD CHEAT TABLE (.CT)";
+                                            feature_name: "Feature: Seamless Cheat Engine Table (.CT) Inquest";
+                                            explanation: "Opens Cheat Engine .CT file, resolves multi-level pointer chains, registers symbols, and executes embedded Lua scripts.";
+                                            clicked => {
+                                                root.rudra_status_text = "🔱 Selecting Cheat Engine (.CT) Table (सीटी प्रवेश)...";
+                                                root.load_ct_file();
+                                            }
+                                        }
+                                        ThematicActionButton {
                                             text: "INJECT DLL"; devanagari: "पाश बन्धन"; btn_width: 85px; btn_height: 26px;
                                             bg_color: #9333ea; hover_color: #a855f7;
                                             sanskrit_title: "पाश बन्धन // DLL INJECTION";
@@ -2756,140 +2833,175 @@ export component MainWindow inherits Window {
                                     VerticalLayout {
                                         spacing: 4px;
 
-                                        // Table Row 0
-                                        Rectangle {
-                                            height: 34px;
-                                            background: #141e2ecc;
-                                            border-radius: 4px;
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                spacing: 8px;
-                                                Rectangle {
-                                                    width: 55px;
-                                                    TouchArea {
-                                                        mouse-cursor: pointer;
-                                                        clicked => {
-                                                            root.table_active_0 = !root.table_active_0;
-                                                            root.rudra_status_text = root.table_active_0 ?
-                                                                "STAMBHANA: " + root.table_desc_0 + " frozen at " + root.table_val_0 :
-                                                                root.table_desc_0 + " unfrozen";
-                                                            root.toggle_freeze_address(root.table_addr_0, root.table_active_0);
-                                                        }
-                                                    }
-                                                    Text {
-                                                        text: root.table_active_0 ? "☑" : "☐";
-                                                        font-size: 16px;
-                                                        font-weight: 700;
-                                                        color: root.table_active_0 ? #22c55e : #94a3b8;
-                                                        vertical-alignment: center;
+                                        if (root.is_ct_loaded) : VerticalLayout {
+                                            spacing: 4px;
+                                            for row[idx] in root.ct_rows: CheatTableRow {
+                                                row_id: row.id;
+                                                desc: row.description;
+                                                addr: row.address;
+                                                val_type: row.val_type;
+                                                val: row.val;
+                                                is_frozen: row.is_frozen;
+                                                is_script: row.is_script;
+                                                is_even: Math.mod(idx, 2) == 0;
+                                                toggle_active => {
+                                                    if (row.is_script) {
+                                                        root.rudra_status_text = "🔱 Triggering Altar Script: " + row.description;
+                                                        root.run_table_entry(root.ct_file_path, row.id);
+                                                    } else {
+                                                        root.toggle_freeze_address(row.address, !row.is_frozen);
                                                     }
                                                 }
-                                                LineEdit { text <=> root.table_desc_0; width: 140px; font-size: 11px; height: 26px; }
-                                                Text { text: root.table_addr_0; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                Text { text: root.table_type_0; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                LineEdit { text <=> root.table_val_0; width: 110px; font-size: 11px; height: 26px; }
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    horizontal-stretch: 1;
-                                                    alignment: start;
-                                                    ThematicActionButton {
-                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #0369a1; hover_color: #0284c7;
-                                                        clicked => {
-                                                            root.rudra_status_text = "RAM Written: " + root.table_addr_0 + " set to " + root.table_val_0;
-                                                            root.write_memory_address(root.table_addr_0, root.table_val_0);
-                                                        }
+                                                write_or_run(new_val) => {
+                                                    if (row.is_script) {
+                                                        root.rudra_status_text = "🔱 Executing Altar Script [ID " + row.id + "]: " + row.description;
+                                                        root.run_table_entry(root.ct_file_path, row.id);
+                                                    } else {
+                                                        root.rudra_status_text = "RAM Written: " + row.address + " set to " + new_val;
+                                                        root.write_memory_address(row.address, new_val);
                                                     }
                                                 }
                                             }
                                         }
 
-                                        // Table Row 1
-                                        Rectangle {
-                                            height: 34px;
-                                            background: transparent;
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                spacing: 8px;
-                                                Rectangle {
-                                                    width: 55px;
-                                                    TouchArea {
-                                                        mouse-cursor: pointer;
-                                                        clicked => {
-                                                            root.table_active_1 = !root.table_active_1;
-                                                            root.toggle_freeze_address(root.table_addr_1, root.table_active_1);
+                                        if (!root.is_ct_loaded) : VerticalLayout {
+                                            spacing: 4px;
+
+                                            // Table Row 0
+                                            Rectangle {
+                                                height: 34px;
+                                                background: #141e2ecc;
+                                                border-radius: 4px;
+                                                HorizontalLayout {
+                                                    padding-left: 10px;
+                                                    padding-right: 10px;
+                                                    spacing: 8px;
+                                                    Rectangle {
+                                                        width: 55px;
+                                                        TouchArea {
+                                                            mouse-cursor: pointer;
+                                                            clicked => {
+                                                                root.table_active_0 = !root.table_active_0;
+                                                                root.rudra_status_text = root.table_active_0 ?
+                                                                    "STAMBHANA: " + root.table_desc_0 + " frozen at " + root.table_val_0 :
+                                                                    root.table_desc_0 + " unfrozen";
+                                                                root.toggle_freeze_address(root.table_addr_0, root.table_active_0);
+                                                            }
+                                                        }
+                                                        Text {
+                                                            text: root.table_active_0 ? "☑" : "☐";
+                                                            font-size: 16px;
+                                                            font-weight: 700;
+                                                            color: root.table_active_0 ? #22c55e : #94a3b8;
+                                                            vertical-alignment: center;
                                                         }
                                                     }
-                                                    Text {
-                                                        text: root.table_active_1 ? "☑" : "☐";
-                                                        font-size: 16px;
-                                                        font-weight: 700;
-                                                        color: root.table_active_1 ? #22c55e : #94a3b8;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                                LineEdit { text <=> root.table_desc_1; width: 140px; font-size: 11px; height: 26px; }
-                                                Text { text: root.table_addr_1; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                Text { text: root.table_type_1; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                LineEdit { text <=> root.table_val_1; width: 110px; font-size: 11px; height: 26px; }
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    horizontal-stretch: 1;
-                                                    alignment: start;
-                                                    ThematicActionButton {
-                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #0369a1; hover_color: #0284c7;
-                                                        clicked => {
-                                                            root.rudra_status_text = "RAM Written: " + root.table_addr_1 + " set to " + root.table_val_1;
-                                                            root.write_memory_address(root.table_addr_1, root.table_val_1);
+                                                    LineEdit { text <=> root.table_desc_0; width: 140px; font-size: 11px; height: 26px; }
+                                                    Text { text: root.table_addr_0; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                    Text { text: root.table_type_0; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                    LineEdit { text <=> root.table_val_0; width: 110px; font-size: 11px; height: 26px; }
+                                                    HorizontalLayout {
+                                                        spacing: 6px;
+                                                        horizontal-stretch: 1;
+                                                        alignment: start;
+                                                        ThematicActionButton {
+                                                            text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                            bg_color: #0369a1; hover_color: #0284c7;
+                                                            clicked => {
+                                                                root.rudra_status_text = "RAM Written: " + root.table_addr_0 + " set to " + root.table_val_0;
+                                                                root.write_memory_address(root.table_addr_0, root.table_val_0);
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
-                                        }
 
-                                        // Table Row 2
-                                        Rectangle {
-                                            height: 34px;
-                                            background: #141e2ecc;
-                                            border-radius: 4px;
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                spacing: 8px;
-                                                Rectangle {
-                                                    width: 55px;
-                                                    TouchArea {
-                                                        mouse-cursor: pointer;
-                                                        clicked => {
-                                                            root.table_active_2 = !root.table_active_2;
-                                                            root.toggle_freeze_address(root.table_addr_2, root.table_active_2);
+                                            // Table Row 1
+                                            Rectangle {
+                                                height: 34px;
+                                                background: transparent;
+                                                HorizontalLayout {
+                                                    padding-left: 10px;
+                                                    padding-right: 10px;
+                                                    spacing: 8px;
+                                                    Rectangle {
+                                                        width: 55px;
+                                                        TouchArea {
+                                                            mouse-cursor: pointer;
+                                                            clicked => {
+                                                                root.table_active_1 = !root.table_active_1;
+                                                                root.toggle_freeze_address(root.table_addr_1, root.table_active_1);
+                                                            }
+                                                        }
+                                                        Text {
+                                                            text: root.table_active_1 ? "☑" : "☐";
+                                                            font-size: 16px;
+                                                            font-weight: 700;
+                                                            color: root.table_active_1 ? #22c55e : #94a3b8;
+                                                            vertical-alignment: center;
                                                         }
                                                     }
-                                                    Text {
-                                                        text: root.table_active_2 ? "☑" : "☐";
-                                                        font-size: 16px;
-                                                        font-weight: 700;
-                                                        color: root.table_active_2 ? #22c55e : #94a3b8;
-                                                        vertical-alignment: center;
+                                                    LineEdit { text <=> root.table_desc_1; width: 140px; font-size: 11px; height: 26px; }
+                                                    Text { text: root.table_addr_1; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                    Text { text: root.table_type_1; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                    LineEdit { text <=> root.table_val_1; width: 110px; font-size: 11px; height: 26px; }
+                                                    HorizontalLayout {
+                                                        spacing: 6px;
+                                                        horizontal-stretch: 1;
+                                                        alignment: start;
+                                                        ThematicActionButton {
+                                                            text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                            bg_color: #0369a1; hover_color: #0284c7;
+                                                            clicked => {
+                                                                root.rudra_status_text = "RAM Written: " + root.table_addr_1 + " set to " + root.table_val_1;
+                                                                root.write_memory_address(root.table_addr_1, root.table_val_1);
+                                                            }
+                                                        }
                                                     }
                                                 }
-                                                LineEdit { text <=> root.table_desc_2; width: 140px; font-size: 11px; height: 26px; }
-                                                Text { text: root.table_addr_2; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                Text { text: root.table_type_2; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                LineEdit { text <=> root.table_val_2; width: 110px; font-size: 11px; height: 26px; }
+                                            }
+
+                                            // Table Row 2
+                                            Rectangle {
+                                                height: 34px;
+                                                background: #141e2ecc;
+                                                border-radius: 4px;
                                                 HorizontalLayout {
-                                                    spacing: 6px;
-                                                    horizontal-stretch: 1;
-                                                    alignment: start;
-                                                    ThematicActionButton {
-                                                        text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                        bg_color: #0369a1; hover_color: #0284c7;
-                                                        clicked => {
-                                                            root.rudra_status_text = "RAM Written: " + root.table_addr_2 + " set to " + root.table_val_2;
-                                                            root.write_memory_address(root.table_addr_2, root.table_val_2);
+                                                    padding-left: 10px;
+                                                    padding-right: 10px;
+                                                    spacing: 8px;
+                                                    Rectangle {
+                                                        width: 55px;
+                                                        TouchArea {
+                                                            mouse-cursor: pointer;
+                                                            clicked => {
+                                                                root.table_active_2 = !root.table_active_2;
+                                                                root.toggle_freeze_address(root.table_addr_2, root.table_active_2);
+                                                            }
+                                                        }
+                                                        Text {
+                                                            text: root.table_active_2 ? "☑" : "☐";
+                                                            font-size: 16px;
+                                                            font-weight: 700;
+                                                            color: root.table_active_2 ? #22c55e : #94a3b8;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+                                                    LineEdit { text <=> root.table_desc_2; width: 140px; font-size: 11px; height: 26px; }
+                                                    Text { text: root.table_addr_2; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
+                                                    Text { text: root.table_type_2; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
+                                                    LineEdit { text <=> root.table_val_2; width: 110px; font-size: 11px; height: 26px; }
+                                                    HorizontalLayout {
+                                                        spacing: 6px;
+                                                        horizontal-stretch: 1;
+                                                        alignment: start;
+                                                        ThematicActionButton {
+                                                            text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
+                                                            bg_color: #0369a1; hover_color: #0284c7;
+                                                            clicked => {
+                                                                root.rudra_status_text = "RAM Written: " + root.table_addr_2 + " set to " + root.table_val_2;
+                                                                root.write_memory_address(root.table_addr_2, root.table_val_2);
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -4768,6 +4880,21 @@ export component MainWindow inherits Window {
                                 root.active_tab = 0;
                                 root.table_row_count = min(3, root.table_row_count + 1);
                                 root.rudra_status_text = "Manual Address Row Added to Cheat Table";
+                                root.show_command_palette = false;
+                            }
+                        }
+
+                        PaletteItemRow {
+                            icon_text: "📜";
+                            title: "Load Cheat Engine Table (.CT)";
+                            devanagari: "सीटी प्रवेश (Load .CT Table)";
+                            category: "CHEAT TABLE";
+                            tag_color: #ca8a04;
+                            shortcut_hint: "Load CT";
+                            clicked => {
+                                root.active_tab = 0;
+                                root.rudra_status_text = "🔱 Selecting Cheat Engine (.CT) Table (सीटी प्रवेश)...";
+                                root.load_ct_file();
                                 root.show_command_palette = false;
                             }
                         }

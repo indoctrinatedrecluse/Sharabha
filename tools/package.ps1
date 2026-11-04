@@ -1,5 +1,5 @@
 param(
-    [string]$Tag = "v0.3.1"
+    [string]$Tag = "v0.4.0"
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
