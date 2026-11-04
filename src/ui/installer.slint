@@ -64,7 +64,7 @@ export component InstallerWindow inherits Window {
     // Callbacks to Native Windows Backend
     callback browse_dir();
     callback start_install(string, bool, bool, bool);
-    callback finish_install(bool);
+    callback finish_install(string, bool);
     callback cancel();
 
     // LAYER 1: 24 FPS SPLASH VIDEO CINEMA IN BACKGROUND
@@ -675,7 +675,7 @@ export component InstallerWindow inherits Window {
                     border-radius: 6px;
                     TouchArea {
                         clicked => {
-                            root.finish_install(root.launch_after_install);
+                            root.finish_install(root.install_path, root.launch_after_install);
                         }
                     }
                     HorizontalLayout {

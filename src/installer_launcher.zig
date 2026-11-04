@@ -231,9 +231,9 @@ pub fn main() !void {
         "\"{s}\" \"{s}\\src\\ui\\installer.slint\" --auto-reload " ++
         "--on browse_dir \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_browse.ps1\\\"\" " ++
         "--on start_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_logic.ps1\\\" -SourcePath \\\"{s}\\\" -TargetPath \\\"$1\\\" -DesktopFlag \\\"$2\\\" -StartMenuFlag \\\"$3\\\" -LaunchFlag \\\"$4\\\"\" " ++
-        "--on finish_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_finish.ps1\\\" -LaunchFlag \\\"$1\\\"\" " ++
-        "--on cancel \"taskkill.exe /f /im slint-viewer.exe\"",
-        .{ slint_exe, staging_dir, staging_dir, staging_dir, staging_dir, staging_dir }
+        "--on finish_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_finish.ps1\\\" -InstallPath \\\"$1\\\" -LaunchFlag \\\"$2\\\"\" " ++
+        "--on cancel \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_cancel.ps1\\\"\"",
+        .{ slint_exe, staging_dir, staging_dir, staging_dir, staging_dir, staging_dir, staging_dir }
     );
 
     const cmd_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, cmd);

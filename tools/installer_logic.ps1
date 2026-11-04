@@ -145,8 +145,8 @@ Write-Host "====================================================================
 Write-Host "  [OK] CONSECRATION COMPLETE // SHARABHA READY FOR TEMPLE LAUNCH!" -ForegroundColor Green
 Write-Host "========================================================================"
 
-# 7. Launch Sharabha if Requested
-if ($doLaunch) {
+# 7. Complete Consecration
+if ($LaunchAfter) {
     Write-Host "  - Awakening Sharabha Native Engine in Background..." -ForegroundColor Yellow
     Start-Process -FilePath $mainExe -WorkingDirectory $TargetPath
 }
