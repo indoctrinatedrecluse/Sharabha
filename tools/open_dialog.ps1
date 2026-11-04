@@ -943,6 +943,220 @@ if ($isJson) {
             Write-Warning "GVAS parsing error: $_"
         }
     }
+
+    # ==============================================================================
+    # UNITY ENGINE DETERMINISTIC VESSEL PARSER (ऐक्य सूत्र // AIKYA SUTRA)
+    # Supports:
+    # 1. Unity BinaryFormatter (NRBF)
+    # 2. Unity Easy Save 2 & 3 (ES3 JSON)
+    # 3. Unity PlayerPrefs XML
+    # ==============================================================================
+    $fileText = ""
+    try {
+        $fileText = [System.Text.Encoding]::UTF8.GetString($bytes, 0, [Math]::Min($bytes.Length, 65536))
+    } catch { }
+
+    $isUnityNrbf = ($len -ge 17 -and $bytes[0] -eq 0x00 -and $bytes[1] -eq 0x01 -and $bytes[2] -eq 0x00 -and $bytes[3] -eq 0x00 -and $bytes[4] -eq 0x00 -and $bytes[5] -eq 0xFF -and $bytes[6] -eq 0xFF -and $bytes[7] -eq 0xFF -and $bytes[8] -eq 0xFF)
+    $isUnityEs3 = ($fileText -and $fileText.Contains('"__type"') -and $fileText.Contains('"value"'))
+    $isUnityPrefs = ($fileText -and ($fileText.Contains('<unity_prefs') -or $fileText.Contains('<pref name=')))
+
+    if ($isUnityNrbf) {
+        $isDeterministicProfile = $true
+        $gameTitle = "UNITY ENGINE // Aikya Sutra (ऐक्य सूत्र // NRBF Binary Vessel)"
+        $verdict = "Unity Engine BinaryFormatter (.NET NRBF Serialization)"
+
+        function Read-7BitInt([ref]$pos, [byte[]]$b) {
+            $count = 0; $shift = 0
+            while ($pos.Value -lt $b.Length) {
+                $byteVal = $b[$pos.Value]; $pos.Value++
+                $count = $count -bor (($byteVal -band 0x7F) -shl $shift)
+                $shift += 7
+                if (($byteVal -band 0x80) -eq 0) { return $count }
+                if ($shift -ge 35) { return 0 }
+            }
+            return 0
+        }
+
+        try {
+            $uPos = 17
+            $className = "UnitySaveData"
+            while ($uPos -lt $bytes.Length) {
+                $recType = $bytes[$uPos]; $uPos++
+                if ($recType -eq 0x0B) { break }
+                if ($recType -eq 0x0C) { # BinaryLibrary
+                    $uPos += 4
+                    $libLen = Read-7BitInt ([ref]$uPos) $bytes
+                    $uPos += $libLen
+                } elseif ($recType -eq 0x04 -or $recType -eq 0x05) { # ClassWithMembers
+                    $uPos += 4 # ObjectId
+                    $cLen = Read-7BitInt ([ref]$uPos) $bytes
+                    if ($uPos + $cLen -le $bytes.Length) {
+                        $className = [System.Text.Encoding]::UTF8.GetString($bytes, $uPos, $cLen)
+                        $uPos += $cLen
+                    }
+                    $memberCount = [System.BitConverter]::ToInt32($bytes, $uPos); $uPos += 4
+                    if ($memberCount -le 0 -or $memberCount -gt 500) { break }
+
+                    $memberNames = @()
+                    for ($i = 0; $i -lt $memberCount; $i++) {
+                        $mLen = Read-7BitInt ([ref]$uPos) $bytes
+                        $mName = [System.Text.Encoding]::UTF8.GetString($bytes, $uPos, $mLen)
+                        $uPos += $mLen
+                        $memberNames += $mName
+                    }
+
+                    $binaryTypes = $bytes[$uPos..($uPos + $memberCount - 1)]; $uPos += $memberCount
+                    $primitiveTypes = [byte[]]::new($memberCount)
+
+                    for ($i = 0; $i -lt $memberCount; $i++) {
+                        $bt = $binaryTypes[$i]
+                        if ($bt -eq 0) { # Primitive
+                            $primitiveTypes[$i] = $bytes[$uPos]; $uPos++
+                        } elseif ($bt -eq 3) {
+                            $scLen = Read-7BitInt ([ref]$uPos) $bytes; $uPos += $scLen
+                        } elseif ($bt -eq 4) {
+                            $clLen = Read-7BitInt ([ref]$uPos) $bytes; $uPos += ($clLen + 4)
+                        } elseif ($bt -eq 7) {
+                            $uPos++
+                        }
+                    }
+
+                    if ($recType -eq 0x05) { $uPos += 4 } # LibraryId
+
+                    # Read Member Values
+                    for ($i = 0; $i -lt $memberCount; $i++) {
+                        $mName = $memberNames[$i]
+                        $bt = $binaryTypes[$i]
+                        $pt = $primitiveTypes[$i]
+                        $valOffset = $uPos
+
+                        $valStr = ""
+                        $typeLabel = "Unknown"
+                        $hexStr = "00 00 00 00"
+
+                        if ($bt -eq 0) {
+                            if ($pt -eq 1) { # Boolean
+                                $bv = ($bytes[$uPos] -ne 0); $uPos++
+                                $valStr = if ($bv) { "true" } else { "false" }
+                                $typeLabel = "bool (Boolean)"
+                                $hexStr = if ($bv) { "01 00 00 00" } else { "00 00 00 00" }
+                            } elseif ($pt -eq 8) { # Int32
+                                $iv = [System.BitConverter]::ToInt32($bytes, $uPos); $uPos += 4
+                                $valStr = "$iv"
+                                $typeLabel = "i32 (Int32)"
+                                $hexStr = (Get-Hex ($uPos - 4) 4 $bytes)
+                            } elseif ($pt -eq 9) { # Int64
+                                $i64v = [System.BitConverter]::ToInt64($bytes, $uPos); $uPos += 8
+                                $valStr = "$i64v"
+                                $typeLabel = "i64 (Int64)"
+                                $hexStr = (Get-Hex ($uPos - 8) 4 $bytes)
+                            } elseif ($pt -eq 11) { # Single
+                                $fv = [System.BitConverter]::ToSingle($bytes, $uPos); $uPos += 4
+                                $valStr = "$([Math]::Round($fv, 2))"
+                                $typeLabel = "f32 (Single)"
+                                $hexStr = (Get-Hex ($uPos - 4) 4 $bytes)
+                            } elseif ($pt -eq 6) { # Double
+                                $dv = [System.BitConverter]::ToDouble($bytes, $uPos); $uPos += 8
+                                $valStr = "$([Math]::Round($dv, 4))"
+                                $typeLabel = "f64 (Double)"
+                                $hexStr = (Get-Hex ($uPos - 8) 4 $bytes)
+                            } else {
+                                $uPos += 4
+                            }
+                        } elseif ($bt -eq 1) { # String
+                            if ($uPos -lt $bytes.Length -and $bytes[$uPos] -eq 0x06) {
+                                $uPos += 5
+                                $sLen = Read-7BitInt ([ref]$uPos) $bytes
+                                $valStr = [System.Text.Encoding]::UTF8.GetString($bytes, $uPos, $sLen)
+                                $uPos += $sLen
+                            } else {
+                                $sLen = Read-7BitInt ([ref]$uPos) $bytes
+                                $valStr = [System.Text.Encoding]::UTF8.GetString($bytes, $uPos, $sLen)
+                                $uPos += $sLen
+                            }
+                            $typeLabel = "String"
+                            $hexStr = "22 53 54 52"
+                        }
+
+                        $rows.Add([PSCustomObject]@{
+                            offset = "UNITY: $mName"
+                            key = $mName
+                            type = $typeLabel
+                            conf = "100% Curated Aikya Sutra"
+                            hex = $hexStr
+                            val = $valStr
+                        })
+                    }
+                } else {
+                    $uPos++
+                }
+            }
+        } catch {
+            Write-Warning "Unity NRBF parsing error: $_"
+        }
+    } elseif ($isUnityEs3) {
+        $isDeterministicProfile = $true
+        $gameTitle = "UNITY ENGINE // Aikya Sutra (ऐक्य सूत्र // EasySave3 Vessel)"
+        $verdict = "Unity Engine EasySave 3 Format (ES3 JSON Typed Dictionary)"
+
+        try {
+            $parsedJson = $fileText | ConvertFrom-Json -ErrorAction Stop
+            foreach ($prop in $parsedJson.PSObject.Properties) {
+                $propName = $prop.Name
+                $valObj = $prop.Value
+                $valStr = ""
+                $typeLabel = "ES3 Property"
+                $hexStr = "45 53 33 00"
+
+                $v = if ($valObj.PSObject.Properties.Match('value').Count -gt 0) { $valObj.value } else { $valObj }
+                $t = if ($valObj.PSObject.Properties.Match('__type').Count -gt 0) { $valObj.__type } else { "Value" }
+                $valStr = "$v"
+                $typeLabel = "$t (ES3)"
+                if ($t -match "int") {
+                    $intVal = 0
+                    if ([int]::TryParse("$v", [ref]$intVal)) {
+                        $hexStr = (Get-Hex 0 4 ([System.BitConverter]::GetBytes($intVal)))
+                    }
+                }
+
+                $rows.Add([PSCustomObject]@{
+                    offset = "ES3: $propName"
+                    key = $propName
+                    type = $typeLabel
+                    conf = "100% Curated Aikya Sutra"
+                    hex = $hexStr
+                    val = $valStr
+                })
+            }
+        } catch {
+            Write-Warning "Unity ES3 parsing error: $_"
+        }
+    } elseif ($isUnityPrefs) {
+        $isDeterministicProfile = $true
+        $gameTitle = "UNITY ENGINE // Aikya Sutra (ऐक्य सूत्र // PlayerPrefs XML)"
+        $verdict = "Unity Engine PlayerPrefs Storage Format"
+
+        try {
+            [xml]$xml = $fileText
+            $prefNodes = $xml.SelectNodes("//pref")
+            foreach ($pref in $prefNodes) {
+                $pName = $pref.GetAttribute("name")
+                $pType = $pref.GetAttribute("type")
+                $pVal = $pref.InnerText
+
+                $rows.Add([PSCustomObject]@{
+                    offset = "PREF: $pName"
+                    key = $pName
+                    type = "$pType (PlayerPrefs)"
+                    conf = "100% Curated Aikya Sutra"
+                    hex = "50 52 45 46"
+                    val = $pVal
+                })
+            }
+        } catch {
+            Write-Warning "Unity PlayerPrefs XML parsing error: $_"
+        }
+    }
 }
 
 # Determine scan target: use decompressed payload if present (e.g. zlib containers), else raw bytes

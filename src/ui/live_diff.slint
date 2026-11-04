@@ -11,12 +11,13 @@ export struct DiffRowData {
 
 export global LiveDiff {
     in property <bool> is_active: true;
-    in property <string> file_a: "SampleUe5.sav.sharabha.bak";
-    in property <string> file_b: "SampleUe5.sav";
-    in property <int> total_mutations: 1;
-    in property <string> status_text: "Kala Chakra: 1 mutation(s) isolated between SampleUe5.sav.sharabha.bak and SampleUe5.sav";
+    in property <string> file_a: "SampleUnity.es3.sharabha.bak";
+    in property <string> file_b: "SampleUnity.es3";
+    in property <int> total_mutations: 2;
+    in property <string> status_text: "Kala Chakra: 2 mutation(s) isolated between SampleUnity.es3.sharabha.bak and SampleUnity.es3";
 
     in property <[DiffRowData]> rows: [
-        { offset: "GVAS: PlayerGold", field: "PlayerGold", type_name: "IntProperty", before: "99999", after: "777777", delta: "+677778", conf: "100% Curated Maya Sutra" }
+        { offset: "UNITY: PlayerGold", field: "PlayerGold", type_name: "ES3 Property", before: "50000", after: "123456", delta: "+73456", conf: "100% Curated Aikya Sutra" },
+        { offset: "UNITY: PlayerHealth", field: "PlayerHealth", type_name: "ES3 Property", before: "100.0", after: "100.00", delta: "Mutated", conf: "100% Curated Aikya Sutra" }
     ];
 }

@@ -1,0 +1,22 @@
+{
+  "PlayerGold": {
+    "__type": "int",
+    "value": 123456
+  },
+  "PlayerHealth": {
+    "__type": "float",
+    "value": 100.00
+  },
+  "PlayerName": {
+    "__type": "string",
+    "value": "Arjuna"
+  },
+  "IsHardcore": {
+    "__type": "bool",
+    "value": false
+  },
+  "PlayerMana": {
+    "__type": "int",
+    "value": 250
+  }
+}

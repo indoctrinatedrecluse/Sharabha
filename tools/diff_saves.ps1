@@ -82,6 +82,111 @@ $mutations = [System.Collections.Generic.List[PSCustomObject]]::new()
 $isGvasA = ($bytesA.Length -ge 4 -and $bytesA[0] -eq 0x47 -and $bytesA[1] -eq 0x56 -and $bytesA[2] -eq 0x41 -and $bytesA[3] -eq 0x53)
 $isGvasB = ($bytesB.Length -ge 4 -and $bytesB[0] -eq 0x47 -and $bytesB[1] -eq 0x56 -and $bytesB[2] -eq 0x41 -and $bytesB[3] -eq 0x53)
 
+$textA = [System.Text.Encoding]::UTF8.GetString($bytesA, 0, [Math]::Min($bytesA.Length, 1024))
+$textB = [System.Text.Encoding]::UTF8.GetString($bytesB, 0, [Math]::Min($bytesB.Length, 1024))
+
+$isUnityA = ($bytesA.Length -ge 17 -and $bytesA[0] -eq 0 -and $bytesA[1] -eq 1 -and $bytesA[5] -eq 0xFF) -or ($textA -and ($textA.Contains('"__type"') -or $textA.Contains('<pref name=')))
+$isUnityB = ($bytesB.Length -ge 17 -and $bytesB[0] -eq 0 -and $bytesB[1] -eq 1 -and $bytesB[5] -eq 0xFF) -or ($textB -and ($textB.Contains('"__type"') -or $textB.Contains('<pref name=')))
+
+function Parse-UnityProps([byte[]]$b, [string]$t) {
+    $props = @{}
+    if ($t -and $t.Contains('"__type"') -and $t.Contains('"value"')) {
+        try {
+            $fullText = [System.Text.Encoding]::UTF8.GetString($b)
+            $parsed = $fullText | ConvertFrom-Json
+            foreach ($p in $parsed.PSObject.Properties) {
+                $valObj = $p.Value
+                $vStr = if ($valObj -is [PSCustomObject] -and $valObj.PSObject.Properties['value']) { "$($valObj.value)" } else { "$valObj" }
+                $tStr = if ($valObj -is [PSCustomObject] -and $valObj.PSObject.Properties['__type']) { "$($valObj.__type)" } else { "ES3 Property" }
+                $props[$p.Name] = @{ Type = $tStr; Val = $vStr }
+            }
+        } catch { }
+    } elseif ($t -and ($t.Contains('<unity_prefs') -or $t.Contains('<pref name='))) {
+        try {
+            $fullText = [System.Text.Encoding]::UTF8.GetString($b)
+            [xml]$xml = $fullText
+            foreach ($pref in $xml.SelectNodes("//pref")) {
+                $pName = $pref.GetAttribute("name")
+                $pType = $pref.GetAttribute("type")
+                $props[$pName] = @{ Type = "$pType (PlayerPrefs)"; Val = $pref.InnerText }
+            }
+        } catch { }
+    } elseif ($b.Length -ge 17 -and $b[0] -eq 0x00 -and $b[1] -eq 0x01 -and $b[5] -eq 0xFF) {
+        try {
+            function Read-7b([ref]$pos) {
+                $count = 0; $shift = 0
+                while ($pos.Value -lt $b.Length) {
+                    $bv = $b[$pos.Value]; $pos.Value++
+                    $count = $count -bor (($bv -band 0x7F) -shl $shift)
+                    $shift += 7
+                    if (($bv -band 0x80) -eq 0) { return $count }
+                    if ($shift -ge 35) { return 0 }
+                }
+                return 0
+            }
+            $uPos = 17
+            while ($uPos -lt $b.Length) {
+                $recType = $b[$uPos]; $uPos++
+                if ($recType -eq 0x0B) { break }
+                if ($recType -eq 0x0C) {
+                    $uPos += 4
+                    $ll = Read-7b ([ref]$uPos)
+                    $uPos += $ll
+                } elseif ($recType -eq 0x04 -or $recType -eq 0x05) {
+                    $uPos += 4
+                    $cl = Read-7b ([ref]$uPos); $uPos += $cl
+                    $mc = [System.BitConverter]::ToInt32($b, $uPos); $uPos += 4
+                    if ($mc -le 0 -or $mc -gt 500) { break }
+                    $names = @()
+                    for ($i = 0; $i -lt $mc; $i++) {
+                        $ml = Read-7b ([ref]$uPos)
+                        $names += [System.Text.Encoding]::UTF8.GetString($b, $uPos, $ml)
+                        $uPos += $ml
+                    }
+                    $bts = $b[$uPos..($uPos + $mc - 1)]; $uPos += $mc
+                    $pts = [byte[]]::new($mc)
+                    for ($i = 0; $i -lt $mc; $i++) {
+                        if ($bts[$i] -eq 0) { $pts[$i] = $b[$uPos]; $uPos++ }
+                        elseif ($bts[$i] -eq 3) { $uPos += (Read-7b ([ref]$uPos)) }
+                        elseif ($bts[$i] -eq 4) { $uPos += ((Read-7b ([ref]$uPos)) + 4) }
+                        elseif ($bts[$i] -eq 7) { $uPos++ }
+                    }
+                    if ($recType -eq 0x05) { $uPos += 4 }
+                    for ($i = 0; $i -lt $mc; $i++) {
+                        $mName = $names[$i]
+                        $bt = $bts[$i]
+                        $pt = $pts[$i]
+                        $vStr = ""
+                        $tStr = "Unknown"
+                        if ($bt -eq 0) {
+                            if ($pt -eq 1) {
+                                $vStr = if ($b[$uPos] -ne 0) { "true" } else { "false" }; $uPos++
+                                $tStr = "bool (Boolean)"
+                            } elseif ($pt -eq 8) {
+                                $vStr = "$([System.BitConverter]::ToInt32($b, $uPos))"; $uPos += 4
+                                $tStr = "i32 (Int32)"
+                            } elseif ($pt -eq 9) {
+                                $vStr = "$([System.BitConverter]::ToInt64($b, $uPos))"; $uPos += 8
+                                $tStr = "i64 (Int64)"
+                            } elseif ($pt -eq 11) {
+                                $vStr = "$([Math]::Round([System.BitConverter]::ToSingle($b, $uPos), 2))"; $uPos += 4
+                                $tStr = "f32 (Single)"
+                            } elseif ($pt -eq 6) {
+                                $vStr = "$([Math]::Round([System.BitConverter]::ToDouble($b, $uPos), 4))"; $uPos += 8
+                                $tStr = "f64 (Double)"
+                            }
+                        }
+                        $props[$mName] = @{ Type = $tStr; Val = $vStr }
+                    }
+                } else {
+                    $uPos++
+                }
+            }
+        } catch { }
+    }
+    return $props
+}
+
 function Parse-GvasProps([byte[]]$b) {
     $props = @{}
     if ($b.Length -lt 24) { return $props }
@@ -164,6 +269,42 @@ if ($isGvasA -and $isGvasB) {
                 After = $itemB.Val
                 Delta = "+New Property"
                 Conf = "100% Curated Maya Sutra"
+            })
+        }
+    }
+} elseif ($isUnityA -and $isUnityB) {
+    $pMapA = Parse-UnityProps $bytesA $textA
+    $pMapB = Parse-UnityProps $bytesB $textB
+
+    foreach ($k in $pMapB.Keys) {
+        $itemB = $pMapB[$k]
+        if ($pMapA.ContainsKey($k)) {
+            $itemA = $pMapA[$k]
+            if ($itemA.Val -ne $itemB.Val) {
+                $deltaStr = "Mutated"
+                if ($itemA.Val -match '^-?\d+$' -and $itemB.Val -match '^-?\d+$') {
+                    $diffNum = [long]$itemB.Val - [long]$itemA.Val
+                    $deltaStr = if ($diffNum -ge 0) { "+$diffNum" } else { "$diffNum" }
+                }
+                $mutations.Add([PSCustomObject]@{
+                    Offset = "UNITY: $k"
+                    Field = $k
+                    Type = $itemB.Type
+                    Before = $itemA.Val
+                    After = $itemB.Val
+                    Delta = $deltaStr
+                    Conf = "100% Curated Aikya Sutra"
+                })
+            }
+        } else {
+            $mutations.Add([PSCustomObject]@{
+                Offset = "UNITY: $k"
+                Field = $k
+                Type = $itemB.Type
+                Before = "(unset)"
+                After = $itemB.Val
+                Delta = "+New Property"
+                Conf = "100% Curated Aikya Sutra"
             })
         }
     }

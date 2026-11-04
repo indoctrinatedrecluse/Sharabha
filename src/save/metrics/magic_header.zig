@@ -56,7 +56,25 @@ pub fn detectMagicHeader(buffer: []const u8) ContainerType {
         return .ZlibCompressed;
     }
 
-    // Unity
+    // Unity Engine Containers (ऐक्य सूत्र // Aikya Sutra)
+    // 1. Unity BinaryFormatter NRBF
+    if (buffer.len >= 17 and buffer[0] == 0x00 and buffer[1] == 0x01 and buffer[2] == 0x00 and buffer[3] == 0x00 and buffer[4] == 0x00 and buffer[5] == 0xFF and buffer[6] == 0xFF and buffer[7] == 0xFF and buffer[8] == 0xFF) {
+        return .UnitySerialized;
+    }
+
+    // 2. Unity PlayerPrefs XML
+    const unity_xml_check = @min(buffer.len, 128);
+    if (std.mem.indexOf(u8, buffer[0..unity_xml_check], "<unity_prefs") != null or std.mem.indexOf(u8, buffer[0..unity_xml_check], "<pref name=") != null) {
+        return .UnitySerialized;
+    }
+
+    // 3. Unity Easy Save 3 (ES3 JSON)
+    const es3_check = @min(buffer.len, 256);
+    if (std.mem.indexOf(u8, buffer[0..es3_check], "\"__type\"") != null) {
+        return .UnitySerialized;
+    }
+
+    // 4. UnityFS / UnityRaw
     if (buffer.len >= 7 and (std.mem.eql(u8, buffer[0..7], "UnityFS") or std.mem.eql(u8, buffer[0..7], "UnityRa"))) {
         return .UnitySerialized;
     }

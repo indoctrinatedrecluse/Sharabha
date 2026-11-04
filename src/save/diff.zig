@@ -8,6 +8,7 @@
 const std = @import("std");
 const fuzzy = @import("fuzzy.zig");
 const gvas = @import("gvas.zig");
+const unity = @import("unity.zig");
 
 pub const MutationKind = enum {
     Modified,
@@ -355,6 +356,163 @@ pub fn diffGvasSaves(
     return report;
 }
 
+/// Compares two Unity saves (NRBF, ES3, PlayerPrefs XML) by structured property keys
+pub fn diffUnitySaves(
+    child_allocator: std.mem.Allocator,
+    unity_a: *const unity.UnitySave,
+    unity_b: *const unity.UnitySave,
+    file_a_name: []const u8,
+    file_b_name: []const u8,
+) !*SaveDiffReport {
+    const arena = try child_allocator.create(std.heap.ArenaAllocator);
+    arena.* = std.heap.ArenaAllocator.init(child_allocator);
+    errdefer {
+        arena.deinit();
+        child_allocator.destroy(arena);
+    }
+    const alloc = arena.allocator();
+
+    var mutation_list: std.ArrayList(DiffMutation) = .empty;
+
+    // Check all properties in B against A
+    for (unity_b.properties.items) |prop_b| {
+        var found_a: ?unity.UnityProperty = null;
+        for (unity_a.properties.items) |pa| {
+            if (std.mem.eql(u8, pa.name, prop_b.name)) {
+                found_a = pa;
+                break;
+            }
+        }
+
+        if (found_a) |prop_a| {
+            var old_str: []const u8 = "";
+            var new_str: []const u8 = "";
+            var delta_str: []const u8 = "";
+            var changed = false;
+
+            switch (prop_b.value) {
+                .Int => |iv_b| {
+                    if (prop_a.value == .Int) {
+                        const iv_a = prop_a.value.Int;
+                        if (iv_a != iv_b) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "{d}", .{iv_a});
+                            new_str = try std.fmt.allocPrint(alloc, "{d}", .{iv_b});
+                            const diff = @as(i64, iv_b) - @as(i64, iv_a);
+                            delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff });
+                        }
+                    }
+                },
+                .Int64 => |iv_b| {
+                    if (prop_a.value == .Int64) {
+                        const iv_a = prop_a.value.Int64;
+                        if (iv_a != iv_b) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "{d}", .{iv_a});
+                            new_str = try std.fmt.allocPrint(alloc, "{d}", .{iv_b});
+                            const diff = iv_b - iv_a;
+                            delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff });
+                        }
+                    }
+                },
+                .Float => |fv_b| {
+                    if (prop_a.value == .Float) {
+                        const fv_a = prop_a.value.Float;
+                        if (fv_a != fv_b) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "{d:.2}", .{fv_a});
+                            new_str = try std.fmt.allocPrint(alloc, "{d:.2}", .{fv_b});
+                            const diff = fv_b - fv_a;
+                            delta_str = try std.fmt.allocPrint(alloc, "{s}{d:.2}", .{ if (diff >= 0) "+" else "", diff });
+                        }
+                    }
+                },
+                .Double => |dv_b| {
+                    if (prop_a.value == .Double) {
+                        const dv_a = prop_a.value.Double;
+                        if (dv_a != dv_b) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "{d:.4}", .{dv_a});
+                            new_str = try std.fmt.allocPrint(alloc, "{d:.4}", .{dv_b});
+                            const diff = dv_b - dv_a;
+                            delta_str = try std.fmt.allocPrint(alloc, "{s}{d:.4}", .{ if (diff >= 0) "+" else "", diff });
+                        }
+                    }
+                },
+                .Bool => |bv_b| {
+                    if (prop_a.value == .Bool) {
+                        const bv_a = prop_a.value.Bool;
+                        if (bv_a != bv_b) {
+                            changed = true;
+                            old_str = if (bv_a) "true" else "false";
+                            new_str = if (bv_b) "true" else "false";
+                            delta_str = if (bv_b) "Toggled TRUE" else "Toggled FALSE";
+                        }
+                    }
+                },
+                .Str => |sv_b| {
+                    if (prop_a.value == .Str) {
+                        const sv_a = prop_a.value.Str;
+                        if (!std.mem.eql(u8, sv_a, sv_b)) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "'{s}'", .{sv_a});
+                            new_str = try std.fmt.allocPrint(alloc, "'{s}'", .{sv_b});
+                            delta_str = "String Mutated";
+                        }
+                    }
+                },
+                else => {},
+            }
+
+            if (changed) {
+                try mutation_list.append(alloc, .{
+                    .offset = prop_b.offset,
+                    .length = prop_b.size,
+                    .key_name = try alloc.dupe(u8, prop_b.name),
+                    .kind = .Modified,
+                    .inferred_type = switch (prop_b.prop_type) {
+                        .Int32 => .Int32LE,
+                        .Int64 => .Int64LE,
+                        .Single => .Float32LE,
+                        .Double => .Float64LE,
+                        .String => .StringAscii,
+                        else => .RawBinary,
+                    },
+                    .old_val_str = old_str,
+                    .new_val_str = new_str,
+                    .delta_str = delta_str,
+                    .confidence = 100,
+                    .hex_preview = try alloc.dupe(u8, "UNITY_PROPERTY"),
+                });
+            }
+        } else {
+            // Added property in B
+            try mutation_list.append(alloc, .{
+                .offset = prop_b.offset,
+                .length = prop_b.size,
+                .key_name = try alloc.dupe(u8, prop_b.name),
+                .kind = .Added,
+                .inferred_type = .RawBinary,
+                .old_val_str = "<absent>",
+                .new_val_str = "<present>",
+                .delta_str = "+New Property",
+                .confidence = 100,
+                .hex_preview = try alloc.dupe(u8, "UNITY_NEW"),
+            });
+        }
+    }
+
+    const report = try alloc.create(SaveDiffReport);
+    report.* = .{
+        .arena = arena,
+        .file_a_name = try alloc.dupe(u8, file_a_name),
+        .file_b_name = try alloc.dupe(u8, file_b_name),
+        .total_mutations = mutation_list.items.len,
+        .mutations = mutation_list.items,
+    };
+    return report;
+}
+
 test "Kala Chakra: Binary Save Diff Detects Mutations and Deltas" {
     const alloc = std.testing.allocator;
 
@@ -422,4 +580,53 @@ test "Kala Chakra: GVAS Structured Property Diff" {
     try std.testing.expectEqual(@as(usize, 2), report.total_mutations);
     try std.testing.expectEqualStrings("+677778", report.mutations[0].delta_str);
     try std.testing.expectEqualStrings("Toggled FALSE", report.mutations[1].delta_str);
+}
+
+test "Kala Chakra: Unity Save Diff Detects Mutations and Deltas" {
+    const alloc = std.testing.allocator;
+
+    const mock_es3_a =
+        \\{
+        \\  "PlayerGold": {
+        \\    "__type": "int",
+        \\    "value": 50000
+        \\  },
+        \\  "PlayerHealth": {
+        \\    "__type": "float",
+        \\    "value": 100.0
+        \\  }
+        \\}
+    ;
+
+    const mock_es3_b =
+        \\{
+        \\  "PlayerGold": {
+        \\    "__type": "int",
+        \\    "value": 999999
+        \\  },
+        \\  "PlayerHealth": {
+        \\    "__type": "float",
+        \\    "value": 250.5
+        \\  }
+        \\}
+    ;
+
+    var unity_a = try unity.parseUnitySave(alloc, mock_es3_a);
+    defer {
+        unity_a.deinit();
+        alloc.destroy(unity_a);
+    }
+
+    var unity_b = try unity.parseUnitySave(alloc, mock_es3_b);
+    defer {
+        unity_b.deinit();
+        alloc.destroy(unity_b);
+    }
+
+    const report = try diffUnitySaves(alloc, unity_a, unity_b, "SaveA.es3", "SaveB.es3");
+    defer report.deinit(alloc);
+
+    try std.testing.expectEqual(@as(usize, 2), report.total_mutations);
+    try std.testing.expectEqualStrings("+949999", report.mutations[0].delta_str);
+    try std.testing.expectEqualStrings("+150.50", report.mutations[1].delta_str);
 }

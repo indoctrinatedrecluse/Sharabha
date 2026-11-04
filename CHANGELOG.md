@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.1] - 2026-11-04
+
+### Added
+- **Universal Unity Engine Save Parser ("ऐक्य सूत्र // Aikya Sutra")**:
+  - Implemented universal Unity save container parser and typed serializer (`src/save/unity.zig`) supporting the three predominant save architectures across thousands of Unity games:
+    1. **Unity BinaryFormatter (.NET NRBF)**: Binary deserializer for `SerializationHeaderRecord`, `SystemClassWithMembersAndTypes`, and `ClassWithMembersAndTypes`. Extracts class name, member names, types (`Boolean`, `Byte`, `Int16`, `Int32`, `Int64`, `Single`, `Double`, `String`), and values with in-place byte mutation.
+    2. **Unity Easy Save 2 & 3 (ES3 JSON)**: Parser and serializer for the industry-standard Easy Save format, extracting typed property dictionaries (`__type`, `value`).
+    3. **Unity PlayerPrefs XML**: Native parser and serializer for `<unity_prefs>` XML storage containing typed `<pref name="..." type="...">` elements.
+  - Type-safe mutation helpers: `setInt`, `setFloat`, `setBool`, and `setString` with deterministic serialization.
+  - Multi-metric container detection (`src/save/metrics/magic_header.zig`) auto-identifying Unity NRBF headers, Easy Save JSON dictionaries, and PlayerPrefs XML tags.
+  - CLI in-place mutation: `--write-save-kv` automatically detects Unity containers, applies typed mutations, generates `.sharabha.bak` backups, and atomically swaps via Win32 `MoveFileExW`.
+  - UI integration: `tools/open_dialog.ps1` dynamically parses Unity saves into Kalyana Sthiti (`src/ui/live_save.slint`) with 100% Curated Aikya Sutra confidence.
+  - Added visual save diff support (`diffUnitySaves` in `src/save/diff.zig` and `tools/diff_saves.ps1`) providing 1-click delta comparison against backups for Unity saves.
+  - Added sample test fixtures and mock generator `tools/create_mock_unity.ps1` producing `SampleUnity.dat` (NRBF) and `SampleUnity.es3` (Easy Save 3).
+
+---
+
 ## [0.5.0] - 2026-11-04
 
 ### Added

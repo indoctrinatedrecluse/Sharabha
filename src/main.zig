@@ -458,6 +458,66 @@ pub fn main() !void {
             }
         }
 
+        // Check if vessel is a Unity Engine container (Aikya Sutra: NRBF, ES3, PlayerPrefs XML)
+        if (Sharabha.unity.isUnitySave(file_buf)) {
+            var unity_save = Sharabha.unity.parseUnitySave(allocator, file_buf) catch |err| {
+                std.debug.print("  ❌ [Unity Parse Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+            defer {
+                unity_save.deinit();
+                allocator.destroy(unity_save);
+            }
+
+            var modified = false;
+            if (std.fmt.parseInt(i32, val_str, 10)) |iv| {
+                if (unity_save.setInt(key_str, iv)) modified = true;
+            } else |_| {}
+            if (!modified) {
+                if (std.fmt.parseFloat(f32, val_str)) |fv| {
+                    if (unity_save.setFloat(key_str, fv)) modified = true;
+                } else |_| {}
+            }
+            if (!modified) {
+                if (std.mem.eql(u8, val_str, "true") or std.mem.eql(u8, val_str, "1")) {
+                    if (unity_save.setBool(key_str, true)) modified = true;
+                } else if (std.mem.eql(u8, val_str, "false") or std.mem.eql(u8, val_str, "0")) {
+                    if (unity_save.setBool(key_str, false)) modified = true;
+                }
+            }
+            if (!modified) {
+                if (unity_save.setString(key_str, val_str)) modified = true;
+            }
+
+            if (modified) {
+                const repacked = unity_save.serialize(allocator) catch |err| {
+                    std.debug.print("  ❌ [Unity Serialize Error]: {s}\n", .{@errorName(err)});
+                    return;
+                };
+                defer allocator.free(repacked);
+
+                // Create Sthiti Kavacha backup (.sharabha.bak)
+                var bak_buf: [1024]u8 = undefined;
+                const bak_path = std.fmt.bufPrint(&bak_buf, "{s}.sharabha.bak", .{path}) catch return;
+                const bak_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, bak_path);
+                defer allocator.free(bak_w);
+                _ = Sharabha.rewrite.win.CopyFileW(target_w.ptr, bak_w.ptr, 0);
+
+                const wh = Sharabha.rewrite.win.CreateFileW(target_w.ptr, Sharabha.rewrite.win.GENERIC_WRITE, 0, null, Sharabha.rewrite.win.CREATE_ALWAYS, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+                if (wh != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                    defer _ = Sharabha.rewrite.win.CloseHandle(wh);
+                    var bw: u32 = 0;
+                    _ = Sharabha.rewrite.win.WriteFile(wh, repacked.ptr, @intCast(repacked.len), &bw, null);
+                }
+                std.debug.print("  [✓] Modified Unity '{s}' = '{s}' safely in {s}\n", .{ key_str, val_str, path });
+                std.debug.print("  [✓] Sthiti Kavacha backup created: '{s}.sharabha.bak'\n", .{path});
+                return;
+            } else {
+                std.debug.print("  ⚠️ [Unity Warning]: Property '{s}' not found or type mismatch.\n", .{key_str});
+                return;
+            }
+        }
+
         var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, file_buf);
         defer state.deinit();
 

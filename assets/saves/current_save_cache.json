@@ -1,59 +1,51 @@
 {
-    "filename":  "SampleUe5.sav",
-    "gameTitle":  "UNREAL ENGINE 4/5 // Maya Sutra (à¤®à¤¾à¤¯à¤¾ à¤¸à¥‚à¤¤à¥à¤° // GVAS Vessel)",
-    "md5Str":  "BCDD9D218F905DCD",
-    "verdict":  "Unreal Engine Save Vessel (UE 5.2 - /Script/SharabhaGame.HeroSave)",
-    "len":  289,
+    "filename":  "SampleUnity.es3",
+    "gameTitle":  "UNITY ENGINE // Aikya Sutra (à¤à¤•à¥à¤¯ à¤¸à¥‚à¤¤à¥à¤° // EasySave3 Vessel)",
+    "md5Str":  "8C822D38B2E042B8",
+    "verdict":  "Unity Engine EasySave 3 Format (ES3 JSON Typed Dictionary)",
+    "len":  329,
     "isDeterministicProfile":  true,
-    "totalExtracted":  6,
+    "totalExtracted":  5,
     "rows":  [
                  {
-                     "offset":  "HEADER:SaveGameClass",
-                     "key":  "Engine.SaveGameClass",
-                     "type":  "Class Identifier",
-                     "conf":  "100% Curated Maya Sutra",
-                     "hex":  "00 00 00 00",
-                     "val":  "\u0027/Script/SharabhaGame.HeroSave\u0027"
-                 },
-                 {
-                     "offset":  "HEADER:EngineVersion",
-                     "key":  "Engine.Version",
-                     "type":  "Version String",
-                     "conf":  "100% Curated Maya Sutra",
-                     "hex":  "47 56 41 53",
-                     "val":  "UE 5.2.1 (++UE5+Release-5.2)"
-                 },
-                 {
-                     "offset":  "GVAS: PlayerName",
+                     "offset":  "ES3: PlayerName",
                      "key":  "PlayerName",
-                     "type":  "String (StrProperty)",
-                     "conf":  "100% Curated Maya Sutra",
-                     "hex":  "22 53 54 52",
-                     "val":  "\u0027Sharabheshwara\u0027"
+                     "type":  "Value (ES3)",
+                     "conf":  "100% Curated Aikya Sutra",
+                     "hex":  "45 53 33 00",
+                     "val":  "Arjuna"
                  },
                  {
-                     "offset":  "GVAS: PlayerGold",
+                     "offset":  "ES3: PlayerMana",
+                     "key":  "PlayerMana",
+                     "type":  "Value (ES3)",
+                     "conf":  "100% Curated Aikya Sutra",
+                     "hex":  "45 53 33 00",
+                     "val":  "250"
+                 },
+                 {
+                     "offset":  "ES3: PlayerHealth",
+                     "key":  "PlayerHealth",
+                     "type":  "Value (ES3)",
+                     "conf":  "100% Curated Aikya Sutra",
+                     "hex":  "45 53 33 00",
+                     "val":  "100.00"
+                 },
+                 {
+                     "offset":  "ES3: PlayerGold",
                      "key":  "PlayerGold",
-                     "type":  "i32 (IntProperty)",
-                     "conf":  "100% Curated Maya Sutra",
-                     "hex":  "31 DE 0B 00",
-                     "val":  "777777"
+                     "type":  "Value (ES3)",
+                     "conf":  "100% Curated Aikya Sutra",
+                     "hex":  "45 53 33 00",
+                     "val":  "123456"
                  },
                  {
-                     "offset":  "GVAS: MovementSpeed",
-                     "key":  "MovementSpeed",
-                     "type":  "f32 (FloatProperty)",
-                     "conf":  "100% Curated Maya Sutra",
-                     "hex":  "00 40 E1 43",
-                     "val":  "450.5"
-                 },
-                 {
-                     "offset":  "GVAS: IsHardcore",
+                     "offset":  "ES3: IsHardcore",
                      "key":  "IsHardcore",
-                     "type":  "bool (BoolProperty)",
-                     "conf":  "100% Curated Maya Sutra",
-                     "hex":  "01 00 00 00",
-                     "val":  "true"
+                     "type":  "Value (ES3)",
+                     "conf":  "100% Curated Aikya Sutra",
+                     "hex":  "45 53 33 00",
+                     "val":  "False"
                  }
              ]
 }
