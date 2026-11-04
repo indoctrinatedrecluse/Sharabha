@@ -796,6 +796,153 @@ if ($isJson) {
             }
         }
     }
+
+    # ==============================================================================
+    # UNREAL ENGINE 4/5 GVAS DETERMINISTIC VESSEL PARSER (माया सूत्र // MAYA SUTRA)
+    # Magic: 'GVAS' (0x47, 0x56, 0x41, 0x53)
+    # Full typed FProperty parsing (Int, Int64, Float, Double, Bool, Str, Name, Enum, etc.)
+    # ==============================================================================
+    $isGvas = ($len -ge 4 -and $bytes[0] -eq 0x47 -and $bytes[1] -eq 0x56 -and $bytes[2] -eq 0x41 -and $bytes[3] -eq 0x53)
+    if ($isGvas) {
+        $isDeterministicProfile = $true
+        
+        function Read-FStr([ref]$curPos, [byte[]]$b) {
+            if ($curPos.Value + 4 -gt $b.Length) { return "" }
+            $strLen = [System.BitConverter]::ToInt32($b, $curPos.Value)
+            $curPos.Value += 4
+            if ($strLen -eq 0) { return "" }
+            if ($strLen -gt 0) {
+                if ($curPos.Value + $strLen -gt $b.Length) { return "" }
+                $s = [System.Text.Encoding]::ASCII.GetString($b, $curPos.Value, [Math]::Max(0, $strLen - 1))
+                $curPos.Value += $strLen
+                return $s
+            } else {
+                $charCount = -$strLen
+                $bLen = $charCount * 2
+                if ($curPos.Value + $bLen -gt $b.Length) { return "" }
+                $s = [System.Text.Encoding]::Unicode.GetString($b, $curPos.Value, [Math]::Max(0, $bLen - 2))
+                $curPos.Value += $bLen
+                return $s
+            }
+        }
+
+        try {
+            $gPos = 4
+            $saveVer = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+            $pkgVer = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+            $engMaj = [System.BitConverter]::ToUInt16($bytes, $gPos); $gPos += 2
+            $engMin = [System.BitConverter]::ToUInt16($bytes, $gPos); $gPos += 2
+            $engPatch = [System.BitConverter]::ToUInt16($bytes, $gPos); $gPos += 2
+            $engBuild = [System.BitConverter]::ToUInt32($bytes, $gPos); $gPos += 4
+            $engBranch = Read-FStr ([ref]$gPos) $bytes
+            $customVerFormat = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+            $customVerCount = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+            if ($customVerCount -gt 0 -and $customVerCount -lt 500) {
+                $gPos += ($customVerCount * 20)
+            }
+            $saveClass = Read-FStr ([ref]$gPos) $bytes
+
+            $gameTitle = "UNREAL ENGINE 4/5 // Maya Sutra (माया सूत्र // GVAS Vessel)"
+            $verdict = "Unreal Engine Save Vessel (UE $engMaj.$engMin - $saveClass)"
+
+            $rows.Add([PSCustomObject]@{
+                offset = "HEADER:EngineVersion"
+                key = "Engine.Version"
+                type = "Version String"
+                conf = "100% Curated Maya Sutra"
+                hex = "47 56 41 53"
+                val = "UE $engMaj.$engMin.$engPatch ($engBranch)"
+            })
+            $rows.Add([PSCustomObject]@{
+                offset = "HEADER:SaveGameClass"
+                key = "Engine.SaveGameClass"
+                type = "Class Identifier"
+                conf = "100% Curated Maya Sutra"
+                hex = "00 00 00 00"
+                val = "'$saveClass'"
+            })
+
+            # Traverse FProperty list until "None" terminator
+            while ($gPos + 4 -le $bytes.Length -and $rows.Count -lt 300) {
+                $propName = Read-FStr ([ref]$gPos) $bytes
+                if (-not $propName -or $propName -eq "None") { break }
+                $propType = Read-FStr ([ref]$gPos) $bytes
+                if (-not $propType) { break }
+
+                $propSize = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+                $arrayIdx = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+
+                $valStart = $gPos
+                $propValStr = ""
+                $typeLabel = $propType
+                $hexStr = "00 00 00 00"
+
+                if ($propType -eq "IntProperty") {
+                    $gPos += 1 # null terminator byte
+                    $iv = [System.BitConverter]::ToInt32($bytes, $gPos); $gPos += 4
+                    $propValStr = "$iv"
+                    $typeLabel = "i32 (IntProperty)"
+                    $hexStr = (Get-Hex ($gPos - 4) 4 $bytes)
+                } elseif ($propType -eq "Int64Property") {
+                    $gPos += 1
+                    $i64v = [System.BitConverter]::ToInt64($bytes, $gPos); $gPos += 8
+                    $propValStr = "$i64v"
+                    $typeLabel = "i64 (Int64Property)"
+                    $hexStr = (Get-Hex ($gPos - 8) 4 $bytes)
+                } elseif ($propType -eq "FloatProperty") {
+                    $gPos += 1
+                    $fv = [System.BitConverter]::ToSingle($bytes, $gPos); $gPos += 4
+                    $propValStr = "$([Math]::Round($fv, 2))"
+                    $typeLabel = "f32 (FloatProperty)"
+                    $hexStr = (Get-Hex ($gPos - 4) 4 $bytes)
+                } elseif ($propType -eq "DoubleProperty") {
+                    $gPos += 1
+                    $dv = [System.BitConverter]::ToDouble($bytes, $gPos); $gPos += 8
+                    $propValStr = "$([Math]::Round($dv, 4))"
+                    $typeLabel = "f64 (DoubleProperty)"
+                    $hexStr = (Get-Hex ($gPos - 8) 4 $bytes)
+                } elseif ($propType -eq "BoolProperty") {
+                    $bv = ($bytes[$gPos] -ne 0); $gPos += 1
+                    $gPos += 1 # terminator
+                    $propValStr = if ($bv) { "true" } else { "false" }
+                    $typeLabel = "bool (BoolProperty)"
+                    $hexStr = if ($bv) { "01 00 00 00" } else { "00 00 00 00" }
+                } elseif ($propType -eq "StrProperty" -or $propType -eq "NameProperty" -or $propType -eq "TextProperty") {
+                    $gPos += 1
+                    $sv = Read-FStr ([ref]$gPos) $bytes
+                    $propValStr = "'$sv'"
+                    $typeLabel = "String ($propType)"
+                    $hexStr = "22 53 54 52"
+                } elseif ($propType -eq "ByteProperty" -or $propType -eq "EnumProperty") {
+                    $enumName = Read-FStr ([ref]$gPos) $bytes
+                    $gPos += 1
+                    $enumVal = Read-FStr ([ref]$gPos) $bytes
+                    $propValStr = if ($enumVal) { "$enumName::$enumVal" } else { "0x{0:X2}" -f $bytes[$gPos - 1] }
+                    $typeLabel = "Enum ($propType)"
+                    $hexStr = "45 4E 55 4D"
+                } else {
+                    # Skip generic payload using propSize
+                    if ($propSize -gt 0 -and ($valStart + $propSize -le $bytes.Length)) {
+                        $gPos = $valStart + $propSize + 1
+                    }
+                    $propValStr = "[Structure / $propSize Bytes]"
+                    $typeLabel = "$propType"
+                    $hexStr = "53 54 52 55"
+                }
+
+                $rows.Add([PSCustomObject]@{
+                    offset = "GVAS: $propName"
+                    key = $propName
+                    type = $typeLabel
+                    conf = "100% Curated Maya Sutra"
+                    hex = $hexStr
+                    val = $propValStr
+                })
+            }
+        } catch {
+            Write-Warning "GVAS parsing error: $_"
+        }
+    }
 }
 
 # Determine scan target: use decompressed payload if present (e.g. zlib containers), else raw bytes

@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-11-04
+
+### Added
+- **Universal Unreal Engine 4/5 Save Parser ("माया सूत्र // Maya Sutra")**:
+  - High-performance, zero-allocation binary parser and typed serializer (`src/save/gvas.zig`) for Unreal Engine 4 and 5 `.sav` files based on the `GVAS` container format.
+  - Implemented complete GVAS header extraction: `save_game_version`, `package_version`, `engine_version` (major/minor/patch/build/branch), `custom_version_format`, `custom_versions` GUID table, and `save_game_class`.
+  - Built-in type-safe property tree parser supporting `IntProperty`, `Int64Property`, `FloatProperty`, `DoubleProperty`, `BoolProperty`, `StrProperty`, `NameProperty`, `EnumProperty`, `StructProperty`, and typed `ArrayProperty`.
+  - Type-safe mutation helpers (`setInt`, `setFloat`, `setBool`, `setString`) and binary repacker (`serializeGvas`) preserving metadata integrity and package hashes.
+  - Atomic CLI mutation: `--write-save-kv` dynamically auto-detects `GVAS` magic headers and performs in-place mutation, automatic `.sharabha.bak` prana backup creation, and shadow temp-file swap.
+  - Interactive UI integration: `tools/open_dialog.ps1` extracts all GVAS properties into Kalyana Sthiti (`src/ui/live_save.slint`) with 100% Curated Maya Sutra confidence and reactive mutation controls.
+- **Visual Save Diff & Evolution Inspector ("काल चक्र // Kala Chakra")**:
+  - High-throughput differential comparison engine (`src/save/diff.zig`) with 4-byte aligned scalar clustering for raw binary saves and recursive property trees for GVAS container saves.
+  - Added `tools/diff_saves.ps1` supporting 1-click comparison of active save against automatic `.sharabha.bak` prana backup or an arbitrary historical save via OpenFileDialog.
+  - Dynamic UI view in Kalyana Sthiti (`[KALA CHAKRA SAVE DIFF]` sub-tab):
+    - Displays mutated offset/key, before/after values, signed delta (`+` / `-`), hex previews, and mutation status badges.
+    - 1-click promotion to active editor (`PROMOTE TO FORGE`).
+- **Hardware Breakpoints & "Find What Writes" Watcher ("नेत्र दृष्टान्त // Netra Drishtanta")**:
+  - Implemented CPU hardware debug register interception (`src/memory/breakpoint.zig`) utilizing x86_64 Win32 debug registers `DR0`–`DR3` and control register `DR7` for non-invasive write watchpoints.
+  - Captured full 64-bit CPU architectural register dump (`RAX, RBX, RCX, RDX, RSI, RDI, RSP, RBP, R8-R15`, `EFLAGS`) alongside instruction pointer (`RIP`), opcode disassembly, and real-time hit counts.
+  - Added CLI command `--watch-writes <addr> [timeout_ms]` for live memory write interception and debugging.
+  - Added interactive Layer 9 modal in `src/ui/app.slint` (`LiveNetra` global) featuring split-pane instruction hit list, disassembly, opcode view, and 16-register CPU state grid.
+  - Connected `FIND WHAT WRITES` (`नेत्र`) buttons across memory scanner rows in Rudra Tandava to immediately open Netra Drishtanta on candidate addresses.
+
+---
+
 ## [0.4.1] - 2026-11-04
 
 ### Added

@@ -267,6 +267,10 @@ MemoryEntry {
   - Embedded Cheat Engine Lua runtime emulation (`ce_compat.zig`).
   - Ashtamurti Built-in GitHub Auto-Updater (`tools/updater.ps1`) with interactive Markdown changelog modal, live progress stream, and seamless installer handover.
   - Zero-console process cloaking eliminating terminal window flashing during application and installer startup.
+- [x] **Phase 7 — Unreal Engine 5 GVAS, Save Diff & Hardware Breakpoints (v0.5.0)**:
+  - **Universal Unreal Engine 4/5 Save Parser (`माया सूत्र // Maya Sutra`)**: Zero-allocation binary parser and typed serializer (`gvas.zig`) decoding GVAS container headers, custom version GUID tables, and nested `FProperty` trees with atomic CLI mutation and 100% Curated confidence.
+  - **Visual Save Diff & Evolution Inspector (`काल चक्र // Kala Chakra`)**: 4-byte aligned scalar clustering and GVAS property diffing (`diff.zig`) with side-by-side comparison against automatic `.sharabha.bak` backups and 1-click forge promotion.
+  - **Hardware Breakpoints & "Find What Writes" Watcher (`नेत्र दृष्टान्त // Netra Drishtanta`)**: CPU debug register (`DR0`–`DR3`, `DR7`) non-invasive write interception (`breakpoint.zig`) capturing RIP, instruction disassembly, opcodes, hit counts, and full 64-bit register dumps (`RAX..R15`, `EFLAGS`) in a split-pane modal UI.
 
 ---
 

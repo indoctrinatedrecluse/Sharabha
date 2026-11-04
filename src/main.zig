@@ -401,6 +401,63 @@ pub fn main() !void {
         _ = Sharabha.rewrite.win.ReadFile(h, file_buf.ptr, @intCast(file_buf.len), &br, null);
         _ = Sharabha.rewrite.win.CloseHandle(h);
 
+        // Check if vessel is an Unreal Engine 4/5 GVAS container
+        if (file_buf.len >= 4 and std.mem.eql(u8, file_buf[0..4], "GVAS")) {
+            var gvas_save = Sharabha.gvas.parseGvas(allocator, file_buf) catch |err| {
+                std.debug.print("  ❌ [GVAS Parse Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+            defer gvas_save.deinit();
+
+            var modified = false;
+            if (std.fmt.parseInt(i32, val_str, 10)) |iv| {
+                if (gvas_save.setInt(key_str, iv)) modified = true;
+            } else |_| {}
+            if (!modified) {
+                if (std.fmt.parseFloat(f32, val_str)) |fv| {
+                    if (gvas_save.setFloat(key_str, fv)) modified = true;
+                } else |_| {}
+            }
+            if (!modified) {
+                if (std.mem.eql(u8, val_str, "true") or std.mem.eql(u8, val_str, "1")) {
+                    if (gvas_save.setBool(key_str, true)) modified = true;
+                } else if (std.mem.eql(u8, val_str, "false") or std.mem.eql(u8, val_str, "0")) {
+                    if (gvas_save.setBool(key_str, false)) modified = true;
+                }
+            }
+            if (!modified) {
+                if (gvas_save.setString(key_str, val_str)) modified = true;
+            }
+
+            if (modified) {
+                const repacked = Sharabha.gvas.serializeGvas(allocator, gvas_save) catch |err| {
+                    std.debug.print("  ❌ [GVAS Serialize Error]: {s}\n", .{@errorName(err)});
+                    return;
+                };
+                defer allocator.free(repacked);
+
+                // Create Sthiti Kavacha backup (.sharabha.bak)
+                var bak_buf: [1024]u8 = undefined;
+                const bak_path = std.fmt.bufPrint(&bak_buf, "{s}.sharabha.bak", .{path}) catch return;
+                const bak_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, bak_path);
+                defer allocator.free(bak_w);
+                _ = Sharabha.rewrite.win.CopyFileW(target_w.ptr, bak_w.ptr, 0);
+
+                const wh = Sharabha.rewrite.win.CreateFileW(target_w.ptr, Sharabha.rewrite.win.GENERIC_WRITE, 0, null, Sharabha.rewrite.win.CREATE_ALWAYS, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+                if (wh != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                    defer _ = Sharabha.rewrite.win.CloseHandle(wh);
+                    var bw: u32 = 0;
+                    _ = Sharabha.rewrite.win.WriteFile(wh, repacked.ptr, @intCast(repacked.len), &bw, null);
+                }
+                std.debug.print("  [✓] Modified GVAS '{s}' = '{s}' safely in {s}\n", .{ key_str, val_str, path });
+                std.debug.print("  [✓] Sthiti Kavacha backup created: '{s}.sharabha.bak'\n", .{path});
+                return;
+            } else {
+                std.debug.print("  ⚠️ [GVAS Warning]: Property '{s}' not found or type mismatch.\n", .{key_str});
+                return;
+            }
+        }
+
         var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, file_buf);
         defer state.deinit();
 

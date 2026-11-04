@@ -4,6 +4,8 @@ import { LiveSave, SaveKeyValueRowData } from "live_save.slint";
 import { LiveScan, ScanRowData } from "live_scan.slint";
 import { LiveTable, CheatTableRowData } from "live_table.slint";
 import { UpdaterState } from "updater_state.slint";
+import { LiveDiff, DiffRowData } from "live_diff.slint";
+import { LiveNetra, NetraHitData } from "live_netra.slint";
 
 /* ==========================================================================
    SHARABHA THEME — Shaivite Mysticism & Systems Duality
@@ -826,6 +828,185 @@ export component SaveKeyValueRow inherits Rectangle {
     }
 }
 
+export component DiffTableRow inherits Rectangle {
+    in property <string> offset_str: "0x0000";
+    in property <string> field_name: "UNKNOWN_FIELD";
+    in property <string> type_str: "i32";
+    in property <string> before_str: "0";
+    in property <string> after_str: "0";
+    in property <string> delta_str: "+0";
+    in property <string> conf_str: "100%";
+    in property <bool> is_even: false;
+    callback promote_clicked();
+
+    height: 42px;
+    background: is_even ? #0c1422aa : #080d1688;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: touch.has_hover ? #eab30888 : #16203266;
+
+    touch := TouchArea { }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        alignment: center;
+
+        // 1. Offset
+        Rectangle {
+            width: 100px;
+            clip: true;
+            Text {
+                text: root.offset_str;
+                font-size: 10px;
+                font-weight: 700;
+                color: #38bdf8;
+                font-family: "Consolas, monospace";
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        // 2. Field Name
+        Rectangle {
+            width: 170px;
+            clip: true;
+            Text {
+                text: root.field_name;
+                font-size: 11px;
+                font-weight: 800;
+                color: #f1f5f9;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        // 3. Type
+        Rectangle {
+            width: 90px;
+            clip: true;
+            Rectangle {
+                height: 22px;
+                background: #ca8a0422;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: #ca8a0455;
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text { text: root.type_str; font-size: 9px; font-weight: 800; color: #facc15; vertical-alignment: center; overflow: elide; }
+                }
+            }
+        }
+
+        // 4. Baseline Before Value
+        Rectangle {
+            width: 120px;
+            clip: true;
+            Text {
+                text: root.before_str;
+                font-size: 11px;
+                font-family: "Consolas, monospace";
+                color: #94a3b8;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        // Arrow
+        Text {
+            text: "➔";
+            font-size: 12px;
+            color: #64748b;
+            vertical-alignment: center;
+            width: 20px;
+            horizontal-alignment: center;
+        }
+
+        // 5. Evolved After Value
+        Rectangle {
+            width: 120px;
+            clip: true;
+            Text {
+                text: root.after_str;
+                font-size: 11px;
+                font-weight: 700;
+                font-family: "Consolas, monospace";
+                color: #facc15;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        // 6. Delta Badge
+        Rectangle {
+            width: 100px;
+            clip: true;
+            Rectangle {
+                height: 24px;
+                background: #15803d33;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: #22c55e66;
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    alignment: center;
+                    Text {
+                        text: root.delta_str;
+                        font-size: 10px;
+                        font-weight: 800;
+                        font-family: "Consolas, monospace";
+                        color: #4ade80;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        // 7. Confidence
+        Rectangle {
+            width: 130px;
+            clip: true;
+            Text {
+                text: root.conf_str;
+                font-size: 10px;
+                font-weight: 700;
+                color: #38bdf8;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        // 8. Promote Button
+        Rectangle {
+            width: 80px;
+            Rectangle {
+                width: 74px;
+                height: 28px;
+                background: btn_touch.has_hover ? #ca8a04 : #854d0e;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: #facc15;
+                btn_touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.promote_clicked(); }
+                }
+                Text {
+                    text: "+ AGAMA";
+                    font-size: 9px;
+                    font-weight: 900;
+                    color: #ffffff;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
 export component ScanResultRow inherits Rectangle {
     in property <string> address_str: "0x00000000";
     in-out property <string> val_str: "0";
@@ -1060,6 +1241,10 @@ export component MainWindow inherits Window {
                 return accept;
             }
             if event.text == Key.Escape {
+                if root.show_netra_modal {
+                    root.show_netra_modal = false;
+                    return accept;
+                }
                 if root.show_update_modal {
                     root.show_update_modal = false;
                     return accept;
@@ -1086,6 +1271,11 @@ export component MainWindow inherits Window {
     }
 
     // Universal Command Palette & Documentation Knowledge Base State
+    in-out property <bool> show_netra_modal: false;
+    in-out property <int> netra_selected_hit: 0;
+    in-out property <int> kalyana_sub_tab: 0; // 0 = Save Forge, 1 = Kala Chakra (Save Diff)
+    callback diff_saves_backup();
+    callback diff_saves_dialog();
     in-out property <bool> show_update_modal: false;
     in-out property <bool> show_command_palette: false;
     in-out property <string> command_palette_search: "";
@@ -2717,7 +2907,8 @@ export component MainWindow inherits Window {
                                                 root.disassemble_address(row.address);
                                             }
                                             watch_writes_clicked => {
-                                                root.rudra_status_text = "Tāṇḍava Netra: Intercepting writes to " + row.address + " [DR0 Breakpoint Armed]...";
+                                                root.show_netra_modal = true;
+                                                root.rudra_status_text = "Netra Drishtanta: Intercepting writes to " + row.address + " [DR0 Breakpoint Armed]...";
                                                 root.watch_address_writes(row.address);
                                             }
                                         }
@@ -3554,6 +3745,65 @@ export component MainWindow inherits Window {
                             }
                         }
 
+                        // Kalyana Sub-Tab Switcher (Save Forge vs Kala Chakra Save Diff)
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            Rectangle {
+                                width: 180px;
+                                height: 36px;
+                                background: root.kalyana_sub_tab == 0 ? #0284c733 : #0a101b99;
+                                border-radius: 6px;
+                                border-width: 1.5px;
+                                border-color: root.kalyana_sub_tab == 0 ? #38bdf8 : #1e293b;
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.kalyana_sub_tab = 0; }
+                                }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: center;
+                                    Text { text: "⚔"; font-size: 13px; color: root.kalyana_sub_tab == 0 ? #38bdf8 : #64748b; vertical-alignment: center; }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 1px;
+                                        Text { text: "PRAVAHA FORGE"; font-size: 10px; font-weight: 800; color: root.kalyana_sub_tab == 0 ? #ffffff : #94a3b8; }
+                                        Text { text: "प्रवाह सम्पादन"; font-size: 8px; font-weight: 700; color: #38bdf8; }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 220px;
+                                height: 36px;
+                                background: root.kalyana_sub_tab == 1 ? #eab30833 : #0a101b99;
+                                border-radius: 6px;
+                                border-width: 1.5px;
+                                border-color: root.kalyana_sub_tab == 1 ? #eab308 : #1e293b;
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.kalyana_sub_tab = 1; }
+                                }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: center;
+                                    Text { text: "⏳"; font-size: 13px; color: root.kalyana_sub_tab == 1 ? #eab308 : #64748b; vertical-alignment: center; }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 1px;
+                                        Text { text: "KALA CHAKRA SAVE DIFF"; font-size: 10px; font-weight: 800; color: root.kalyana_sub_tab == 1 ? #ffffff : #94a3b8; }
+                                        Text { text: "काल चक्र दर्शन"; font-size: 8px; font-weight: 700; color: #eab308; }
+                                    }
+                                }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+
+                        if root.kalyana_sub_tab == 0: VerticalLayout {
+                            spacing: 12px;
+                            vertical-stretch: 1;
+
                         // Search Filter & Table Quick Actions Bar (with Gated Dynamic Filtering & Search Button)
                         HorizontalLayout {
                             spacing: 8px;
@@ -3933,6 +4183,150 @@ export component MainWindow inherits Window {
                                 }
                             }
                         }
+                        } // end if root.kalyana_sub_tab == 0
+
+                        if root.kalyana_sub_tab == 1: VerticalLayout {
+                            spacing: 12px;
+                            vertical-stretch: 1;
+
+                            // Kala Chakra Quick Actions & Comparison Vessels Info Bar
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: space-between;
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: start;
+
+                                    Rectangle {
+                                        height: 38px;
+                                        background: #0d1b2a99;
+                                        border-radius: 6px;
+                                        border-width: 1px;
+                                        border-color: #38bdf844;
+
+                                        HorizontalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            spacing: 6px;
+                                            alignment: center;
+                                            Text { text: "📁 A:"; font-size: 11px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                            Text { text: LiveDiff.file_a; font-size: 11px; font-weight: 700; color: #f1f5f9; vertical-alignment: center; }
+                                            Text { text: "➔"; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                                            Text { text: "📁 B:"; font-size: 11px; font-weight: 800; color: #eab308; vertical-alignment: center; }
+                                            Text { text: LiveDiff.file_b; font-size: 11px; font-weight: 700; color: #f1f5f9; vertical-alignment: center; }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 38px;
+                                        background: #15803d25;
+                                        border-radius: 6px;
+                                        border-width: 1px;
+                                        border-color: #22c55e66;
+
+                                        HorizontalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            alignment: center;
+                                            Text {
+                                                text: "" + LiveDiff.total_mutations + " MUTATIONS ISOLATED";
+                                                font-size: 10px;
+                                                font-weight: 800;
+                                                color: #4ade80;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: end;
+
+                                    ThematicActionButton {
+                                        text: "COMPARE .BAK ⟳";
+                                        devanagari: "पूर्व तुलना";
+                                        btn_width: 155px;
+                                        btn_height: 38px;
+                                        bg_color: #1e3a5f;
+                                        hover_color: #0284c7;
+                                        sanskrit_title: "काल चक्र पूर्व तुलना // COMPARE WITH BACKUP";
+                                        feature_name: "Feature: Compare Active Save with .sharabha.bak";
+                                        explanation: "Automatically compares the active game save with its Sthiti Kavacha backup.";
+                                        clicked => {
+                                            root.save_commit_feedback = "Kala Chakra: Comparing active save with Sthiti Kavacha backup (.bak)...";
+                                            root.diff_saves_backup();
+                                        }
+                                    }
+
+                                    ThematicActionButton {
+                                        text: "SELECT 2 SAVES";
+                                        devanagari: "द्वय चयन";
+                                        btn_width: 145px;
+                                        btn_height: 38px;
+                                        bg_color: #1e293b;
+                                        hover_color: #334155;
+                                        sanskrit_title: "द्वय पात्र परीक्षा // SELECT TWO VESSELS";
+                                        feature_name: "Feature: Compare Any Two Game Saves";
+                                        explanation: "Select Baseline Save A and Evolved Save B for side-by-side binary and property diffing.";
+                                        clicked => {
+                                            root.save_commit_feedback = "Kala Chakra: Opening save vessel selector dialog...";
+                                            root.diff_saves_dialog();
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Kala Chakra Table Column Headers
+                            Rectangle {
+                                height: 36px;
+                                background: #0d1626ee;
+                                border-radius: 5px;
+                                border-width: 1px;
+                                border-color: #1e293b;
+
+                                HorizontalLayout {
+                                    padding-left: 10px;
+                                    padding-right: 10px;
+                                    spacing: 8px;
+
+                                    Text { text: "OFFSET"; width: 100px; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                    Text { text: "FIELD / KEY (लक्षण)"; width: 170px; font-size: 10px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                    Text { text: "TYPE"; width: 90px; font-size: 10px; font-weight: 800; color: #eab308; vertical-alignment: center; }
+                                    Text { text: "BASELINE (पूर्व)"; width: 120px; font-size: 10px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
+                                    Text { text: "➔"; width: 20px; font-size: 10px; color: #64748b; vertical-alignment: center; horizontal-alignment: center; }
+                                    Text { text: "EVOLVED (पश्चात्)"; width: 120px; font-size: 10px; font-weight: 800; color: #facc15; vertical-alignment: center; }
+                                    Text { text: "DELTA (परिवर्तन)"; width: 100px; font-size: 10px; font-weight: 800; color: #4ade80; vertical-alignment: center; }
+                                    Text { text: "CONFIDENCE"; width: 130px; font-size: 10px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                    Text { text: "PROMOTE"; width: 80px; font-size: 10px; font-weight: 800; color: #cbd5e1; vertical-alignment: center; horizontal-alignment: center; }
+                                }
+                            }
+
+                            // Kala Chakra Table Rows
+                            ScrollView {
+                                vertical-stretch: 1;
+                                min-height: 250px;
+                                VerticalLayout {
+                                    width: 100%;
+                                    spacing: 4px;
+
+                                    for m[idx] in LiveDiff.rows: DiffTableRow {
+                                        offset_str: m.offset;
+                                        field_name: m.field;
+                                        type_str: m.type_name;
+                                        before_str: m.before;
+                                        after_str: m.after;
+                                        delta_str: m.delta;
+                                        conf_str: m.conf;
+                                        is_even: Math.mod(idx, 2) == 0;
+                                        promote_clicked => {
+                                            root.save_commit_feedback = "Promoted " + m.field + " (Δ " + m.delta + ") to Agama Profile Temple candidate";
+                                        }
+                                    }
+                                }
+                            }
+                        } // end if root.kalyana_sub_tab == 1
 
                         // Bottom Integrity & Status Feedback Bar
                         Rectangle {
@@ -6229,6 +6623,284 @@ export component MainWindow inherits Window {
                                     vertical-alignment: center;
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // LAYER 9: NETRA DRISHTANTA (नेत्र दृष्टान्त // FIND WHAT WRITES WATCHER)
+    // =========================================================================
+    if root.show_netra_modal: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000e6;
+        z: 999999;
+
+        TouchArea {
+            clicked => {
+                root.show_netra_modal = false;
+            }
+        }
+
+        Rectangle {
+            width: 960px;
+            height: 640px;
+            background: #080d16;
+            border-radius: 12px;
+            border-width: 1.5px;
+            border-color: #ff4d2e;
+            drop-shadow-blur: 40px;
+            drop-shadow-color: #ff4d2e44;
+
+            TouchArea { /* swallow clicks inside modal */ }
+
+            VerticalLayout {
+                padding: 20px;
+                spacing: 14px;
+
+                // Modal Header
+                HorizontalLayout {
+                    alignment: space-between;
+                    VerticalLayout {
+                        spacing: 2px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            Text { text: "👁️"; font-size: 20px; vertical-alignment: center; }
+                            Text {
+                                text: "NETRA DRISHTANTA // FIND WHAT WRITES (नेत्र दृष्टान्त)";
+                                font-size: 15px;
+                                font-weight: 800;
+                                color: #ff4d2e;
+                                vertical-alignment: center;
+                            }
+                        }
+                        Text {
+                            text: "Hardware Breakpoint (DR0) Active on Address: " + LiveNetra.target_address + " • Monitoring Instructions in Real-Time";
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: #94a3b8;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        background: #1e293b;
+                        border-radius: 16px;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.show_netra_modal = false; }
+                        }
+                        Text { text: "✕"; font-size: 14px; font-weight: 800; color: #ffffff; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+
+                // Middle: Split into Instruction Table (Left) and Register Dump (Right)
+                HorizontalLayout {
+                    spacing: 14px;
+                    vertical-stretch: 1;
+
+                    // Left: Intercepted Instructions List
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: #0a101d;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #1e293b;
+
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 8px;
+
+                            Text {
+                                text: "INTERCEPTED INSTRUCTIONS (" + LiveNetra.hits.length + " UNIQUE HITS)";
+                                font-size: 10px;
+                                font-weight: 800;
+                                color: #ff7b00;
+                            }
+
+                            // Instruction Headers
+                            Rectangle {
+                                height: 26px;
+                                background: #131c2e;
+                                border-radius: 4px;
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    Text { text: "COUNT"; width: 55px; font-size: 9px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                    Text { text: "INSTRUCTION (RIP)"; width: 150px; font-size: 9px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                    Text { text: "OPCODES"; width: 90px; font-size: 9px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
+                                    Text { text: "DISASSEMBLY"; horizontal-stretch: 1; font-size: 9px; font-weight: 800; color: #ffffff; vertical-alignment: center; }
+                                }
+                            }
+
+                            // Instruction Rows
+                            ScrollView {
+                                vertical-stretch: 1;
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    for hit[idx] in LiveNetra.hits: Rectangle {
+                                        height: 34px;
+                                        background: root.netra_selected_hit == idx ? #1e293b : #0c1422;
+                                        border-radius: 4px;
+                                        border-width: 1px;
+                                        border-color: root.netra_selected_hit == idx ? #ff4d2e : #1e293b66;
+
+                                        TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.netra_selected_hit = idx; }
+                                        }
+
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            alignment: center;
+
+                                            Text { text: "" + hit.hit_count; width: 55px; font-size: 11px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                            Text { text: hit.rip; width: 150px; font-size: 10px; font-family: "Consolas, monospace"; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                                            Text { text: hit.opcodes; width: 90px; font-size: 10px; font-family: "Consolas, monospace"; color: #94a3b8; vertical-alignment: center; }
+                                            Text { text: hit.disasm; horizontal-stretch: 1; font-size: 11px; font-family: "Consolas, monospace"; font-weight: 700; color: #ffffff; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Right: Full 64-Bit Register Dump Box
+                    Rectangle {
+                        width: 360px;
+                        background: #060a12;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: #243048;
+
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 8px;
+
+                            Text {
+                                text: "64-BIT CPU CONTEXT REGISTERS (DR0-DR7 / RAX-R15)";
+                                font-size: 10px;
+                                font-weight: 800;
+                                color: #38bdf8;
+                            }
+
+                            Rectangle {
+                                vertical-stretch: 1;
+                                background: #03060a;
+                                border-radius: 6px;
+                                border-width: 1px;
+                                border-color: #1e293b;
+
+                                VerticalLayout {
+                                    padding: 10px;
+                                    spacing: 6px;
+                                    alignment: center;
+
+                                    HorizontalLayout {
+                                        Text { text: "RAX: "; font-size: 10px; font-weight: 800; color: #eab308; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rax; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "RBX: "; font-size: 10px; font-weight: 800; color: #eab308; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rbx; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "RCX: "; font-size: 10px; font-weight: 800; color: #eab308; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rcx; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "RDX: "; font-size: 10px; font-weight: 800; color: #eab308; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rdx; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "RSI: "; font-size: 10px; font-weight: 800; color: #38bdf8; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rsi; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "RDI: "; font-size: 10px; font-weight: 800; color: #38bdf8; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rdi; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "RSP: "; font-size: 10px; font-weight: 800; color: #38bdf8; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rsp; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "RBP: "; font-size: 10px; font-weight: 800; color: #38bdf8; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_rbp; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "R8:  "; font-size: 10px; font-weight: 800; color: #4ade80; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r8; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "R9:  "; font-size: 10px; font-weight: 800; color: #4ade80; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r9; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "R10: "; font-size: 10px; font-weight: 800; color: #4ade80; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r10; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "R11: "; font-size: 10px; font-weight: 800; color: #4ade80; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r11; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "R12: "; font-size: 10px; font-weight: 800; color: #a855f7; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r12; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "R13: "; font-size: 10px; font-weight: 800; color: #a855f7; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r13; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "R14: "; font-size: 10px; font-weight: 800; color: #a855f7; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r14; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "R15: "; font-size: 10px; font-weight: 800; color: #a855f7; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_r15; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                    HorizontalLayout {
+                                        Text { text: "RIP: "; font-size: 10px; font-weight: 800; color: #ff4d2e; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.selected_rip; font-size: 10px; font-weight: 700; color: #ff4d2e; font-family: "Consolas, monospace"; horizontal-stretch: 1; }
+                                        Text { text: "EFL: "; font-size: 10px; font-weight: 800; color: #ff7b00; font-family: "Consolas, monospace"; }
+                                        Text { text: LiveNetra.reg_eflags; font-size: 10px; color: #ffffff; font-family: "Consolas, monospace"; }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Bottom Action Buttons
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: end;
+
+                    ThematicActionButton {
+                        text: "REPLACE WITH NOP ⚡";
+                        devanagari: "शून्यकरण";
+                        btn_width: 170px;
+                        btn_height: 38px;
+                        bg_color: #991b1b;
+                        hover_color: #dc2626;
+                        clicked => {
+                            root.rudra_status_text = "Patched RIP with NOPs (शून्यकरण): Instruction suppressed";
+                        }
+                    }
+
+                    ThematicActionButton {
+                        text: "DISARM WATCHER";
+                        devanagari: "नेत्र विराम";
+                        btn_width: 150px;
+                        btn_height: 38px;
+                        bg_color: #1e293b;
+                        hover_color: #334155;
+                        clicked => {
+                            root.rudra_status_text = "Netra Drishtanta: DR0 Breakpoints Disarmed across all threads";
+                            root.show_netra_modal = false;
+                        }
+                    }
+
+                    ThematicActionButton {
+                        text: "CLOSE ✕";
+                        devanagari: "प्रस्थान";
+                        btn_width: 100px;
+                        btn_height: 38px;
+                        bg_color: #0f172a;
+                        hover_color: #1e293b;
+                        clicked => {
+                            root.show_netra_modal = false;
                         }
                     }
                 }

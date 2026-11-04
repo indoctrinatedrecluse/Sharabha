@@ -128,6 +128,8 @@ pub fn main() !void {
         "--on check_for_updates \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Check\" " ++
         "--on start_update_download \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Download\" " ++
         "--on install_update_and_exit \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Install -TargetSetupPath \\\"$1\\\"\" " ++
+        "--on diff_saves_backup \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/diff_saves.ps1 -CompareWithBak\" " ++
+        "--on diff_saves_dialog \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/diff_saves.ps1\" " ++
         "--on register_agama_profile \"zig-out/bin/SharabhaCli.exe --export-surreal\"",
         .{slint_exe}
     );
