@@ -125,8 +125,9 @@ pub fn main() !void {
         "--on inject_dll \"zig-out/bin/SharabhaCli.exe --inject-dll $1\" " ++
         "--on export_agamas \"zig-out/bin/SharabhaCli.exe --export-agamas $1\" " ++
         "--on filter_save_rows \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/filter_save.ps1 \\\"$1\\\"\" " ++
-        "--on check_for_updates \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Check\" " ++
-        "--on start_update_download \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Download\" " ++
+        "--on check_for_updates \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Check -ActiveTab $1\" " ++
+        "--on start_update_download \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Download -ActiveTab $1\" " ++
+        "--on dismiss_update_modal \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Dismiss -ActiveTab $1\" " ++
         "--on install_update_and_exit \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/updater.ps1 -Install -TargetSetupPath \\\"$1\\\"\" " ++
         "--on diff_saves_backup \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/diff_saves.ps1 -CompareWithBak\" " ++
         "--on diff_saves_dialog \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/diff_saves.ps1\" " ++

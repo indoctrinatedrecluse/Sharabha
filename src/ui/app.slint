@@ -1247,6 +1247,7 @@ export component MainWindow inherits Window {
                 }
                 if root.show_update_modal {
                     root.show_update_modal = false;
+                    root.dismiss_update_modal(root.active_tab);
                     return accept;
                 }
                 if root.show_process_modal {
@@ -1276,7 +1277,7 @@ export component MainWindow inherits Window {
     in-out property <int> kalyana_sub_tab: 0; // 0 = Save Forge, 1 = Kala Chakra (Save Diff)
     callback diff_saves_backup();
     callback diff_saves_dialog();
-    in-out property <bool> show_update_modal: false;
+    in-out property <bool> show_update_modal: UpdaterState.is_modal_open;
     in-out property <bool> show_command_palette: false;
     in-out property <string> command_palette_search: "";
     in-out property <bool> show_docs_modal: false;
@@ -1365,7 +1366,7 @@ export component MainWindow inherits Window {
     in-out property <string> splash_status: "Awakening the Ashtamurti & Invoking Sharabha (अष्टमूर्ति)...";
 
     // Active Tab: 0 = Rudra (Memory), 1 = Kalyana (Save Forge), 2 = Jnana (Knowledge Base)
-    in-out property <int> active_tab: LiveSave.active_tab_hint;
+    in-out property <int> active_tab: UpdaterState.active_tab >= 0 ? UpdaterState.active_tab : LiveSave.active_tab_hint;
 
     // Resizable Panes Dimensions (Interactive Drag Splitters)
     in-out property <string> active_process_name: LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]";
@@ -2071,9 +2072,10 @@ export component MainWindow inherits Window {
     callback toggle_save_view_mode();
     callback run_lua_script(string);
     callback register_agama_profile();
-    callback check_for_updates();
-    callback start_update_download();
+    callback check_for_updates(int);
+    callback start_update_download(int);
     callback install_update_and_exit(string);
+    callback dismiss_update_modal(int);
 
     // =========================================================================
     // LAYER 1: AMBIENT CANVAS BACKGROUND (SACRED ALTAR STILL / ANIMATED LOOP)
@@ -2339,7 +2341,7 @@ export component MainWindow inherits Window {
                         explanation: "Checks GitHub repository for latest sanctified release, renders markdown changelog, downloads setup, and performs seamless upgrade.";
                         clicked => {
                             root.show_update_modal = true;
-                            root.check_for_updates();
+                            root.check_for_updates(root.active_tab);
                         }
                     }
                 }
@@ -5076,7 +5078,7 @@ export component MainWindow inherits Window {
                             clicked => {
                                 root.show_command_palette = false;
                                 root.show_update_modal = true;
-                                root.check_for_updates();
+                                root.check_for_updates(root.active_tab);
                             }
                         }
 
@@ -6245,6 +6247,7 @@ export component MainWindow inherits Window {
             clicked => {
                 if !UpdaterState.is_downloading {
                     root.show_update_modal = false;
+                    root.dismiss_update_modal(root.active_tab);
                 }
             }
         }
@@ -6327,6 +6330,7 @@ export component MainWindow inherits Window {
                             clicked => {
                                 if !UpdaterState.is_downloading {
                                     root.show_update_modal = false;
+                                    root.dismiss_update_modal(root.active_tab);
                                 }
                             }
                         }
@@ -6540,6 +6544,7 @@ export component MainWindow inherits Window {
                             clicked => {
                                 if !UpdaterState.is_downloading {
                                     root.show_update_modal = false;
+                                    root.dismiss_update_modal(root.active_tab);
                                 }
                             }
                         }
@@ -6557,14 +6562,14 @@ export component MainWindow inherits Window {
                     HorizontalLayout {
                         spacing: 12px;
 
-                        if !UpdaterState.is_downloading && !UpdaterState.is_ready: Rectangle {
+                        if !UpdaterState.is_downloading && !UpdaterState.is_ready && UpdaterState.has_update: Rectangle {
                             width: 270px;
                             height: 42px;
                             background: #ca8a04;
                             border-radius: 6px;
                             TouchArea {
                                 mouse-cursor: pointer;
-                                clicked => { root.start_update_download(); }
+                                clicked => { root.start_update_download(root.active_tab); }
                             }
                             HorizontalLayout {
                                 spacing: 8px;
@@ -6576,6 +6581,28 @@ export component MainWindow inherits Window {
                                     font-weight: 900;
                                     letter-spacing: 0.5px;
                                     color: #07090d;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        if !UpdaterState.is_downloading && !UpdaterState.is_ready && !UpdaterState.has_update: Rectangle {
+                            width: 270px;
+                            height: 42px;
+                            background: #0f172a;
+                            border-width: 1px;
+                            border-color: #334155;
+                            border-radius: 6px;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: center;
+                                Text { text: "✓"; font-size: 14px; color: #38bdf8; vertical-alignment: center; }
+                                Text {
+                                    text: "VESSEL SANCTIFIED (UP TO DATE)";
+                                    font-size: 11px;
+                                    font-weight: 900;
+                                    letter-spacing: 0.5px;
+                                    color: #94a3b8;
                                     vertical-alignment: center;
                                 }
                             }
