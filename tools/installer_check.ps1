@@ -36,11 +36,11 @@ if (-not $isInstalled) {
     if (Test-Path (Join-Path $defaultInstallPath "bin\Sharabha.exe")) {
         $detectedPath = $defaultInstallPath
         $isInstalled = $true
-        $installedVersion = "0.5.1"
+        $installedVersion = "0.5.2"
     } elseif (Test-Path "C:\Software\Sharabha\bin\Sharabha.exe") {
         $detectedPath = "C:\Software\Sharabha"
         $isInstalled = $true
-        $installedVersion = "0.5.1"
+        $installedVersion = "0.5.2"
     }
 }
 

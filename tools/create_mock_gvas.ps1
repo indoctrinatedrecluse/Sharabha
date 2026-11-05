@@ -1,4 +1,4 @@
-# Creates a valid synthetic Unreal Engine 5 GVAS save file for testing and verification
+﻿# Creates a valid synthetic Unreal Engine 5 GVAS save file for testing and verification
 param(
     [string]$OutPath = "assets\saves\SampleUe5.sav"
 )

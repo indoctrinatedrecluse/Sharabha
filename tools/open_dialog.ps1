@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetFilePath = "",
     [switch]$Reparse
 )
@@ -27,7 +27,7 @@ if ($TargetFilePath -and (Test-Path $TargetFilePath)) {
 if (-not $selectedPath) {
     $dialog = New-Object System.Windows.Forms.OpenFileDialog
     $dialog.Title = "SHARABHA // Select Game Save Vessel (पात्र प्रवेश)"
-    $dialog.Filter = "All Supported Saves (*.json;*.pcsav;*.sl2;*.sav;*.dat;*.bin)|*.json;*.pcsav;*.sl2;*.sav;*.dat;*.bin|JSON Saves (*.json)|*.json|Mass Effect LE (*.pcsav)|*.pcsav|FromSoftware (*.sl2)|*.sl2|Unreal Engine (*.sav)|*.sav|Cyberpunk 2077 (*.dat)|*.dat|All Files (*.*)|*.*"
+    $dialog.Filter = "All Supported Saves (*.json;*.pcsav;*.sl2;*.sav;*.save;*.dat;*.bin;*.rpgsave;*.rvdata;*.rvdata2;*.rxdata)|*.json;*.pcsav;*.sl2;*.sav;*.save;*.dat;*.bin;*.rpgsave;*.rvdata;*.rvdata2;*.rxdata|JSON Saves (*.json)|*.json|RPG Maker (*.rpgsave;*.rvdata2;*.rxdata)|*.rpgsave;*.rvdata;*.rvdata2;*.rxdata|Mass Effect LE (*.pcsav)|*.pcsav|FromSoftware (*.sl2)|*.sl2|Unreal Engine (*.sav)|*.sav|Ren'Py Visual Novel (*.save)|*.save|Cyberpunk 2077 (*.dat)|*.dat|All Files (*.*)|*.*"
     
     $initialDir = ""
     if (Test-Path $activeSaveFile) {
@@ -228,7 +228,121 @@ if ($hasUnrealPackageMagic) {
 $isDeterministicProfile = $false
 $gameTitle = "$filename (Pravaha Sukshma Rekha // Fine Line Overseer)"
 
-if ($isJson) {
+# ==============================================================================
+# RPG MAKER VESSEL PARSER (MAYA LILA SUTRA // Maya Lila Sutra)
+# Containers: MV/MZ LZ-String base64 + plain JSON (*.rpgsave) and RPG Maker
+# XP/VX/VX Ace Ruby Marshal 4.8 (*.rxdata / *.rvdata / *.rvdata2).
+# Token-level decoding is delegated to SharabhaCli.exe --parse-rpg so the UI, the
+# surgical editor and the writer share one implementation - exactly like Ren'Py.
+# ==============================================================================
+$isRpgMaker = $false
+$rpgExtensions = @(".rpgsave", ".rvdata", ".rvdata2", ".rxdata")
+if ($rpgExtensions -contains $ext) {
+    $isRpgMaker = $true
+} else {
+    try {
+        $peekLen = [Math]::Min($len, 65536)
+        if ($peekLen -gt 12) {
+            $peek = [System.Text.Encoding]::UTF8.GetString($bytes, 0, $peekLen)
+            $looksRpgJson = $peek.TrimStart().StartsWith("{") -and (
+                $peek.Contains('"_gold"') -or
+                $peek.Contains('"_actors"') -or
+                $peek.Contains('$gameParty') -or
+                $peek.Contains('$gameActors') -or
+                ($peek.Contains('"party"') -and $peek.Contains('"_data"')))
+            $isRpgMaker = $looksRpgJson
+        }
+        if (-not $isRpgMaker -and $len -ge 2 -and $bytes[0] -eq 0x04 -and $bytes[1] -eq 0x08) {
+            # Ruby Marshal 4.8 header: only an RGSS save object makes it RPG Maker.
+            $marshalPeek = [System.Text.Encoding]::ASCII.GetString($bytes, 0, [Math]::Min($len, 4096))
+            $isRpgMaker = ($marshalPeek.Contains("@gold") -or $marshalPeek.Contains("@level") -or
+                $marshalPeek.Contains("RPG::") -or $marshalPeek.Contains('$game_'))
+        }
+    } catch {
+        $isRpgMaker = $false
+    }
+}
+
+if ($isRpgMaker) {
+    $isDeterministicProfile = $true
+    $gameTitle = "RPG MAKER // Maya Lila Sutra (Vessel: $filename)"
+    $verdict = "RPG Maker Vessel (JSON / LZ-String / Ruby Marshal container)"
+
+    $rpgCli = Join-Path $projectDir "zig-out\bin\SharabhaCli.exe"
+    if (-not (Test-Path $rpgCli)) { $rpgCli = Join-Path $projectDir "bin\SharabhaCli.exe" }
+
+    $rpgRows = 0
+    if (Test-Path $rpgCli) {
+        try {
+            # PROP payload format: PROP:<label>|<type>|<value>|<tag>
+            $propLines = & $rpgCli --parse-rpg $file.FullName 2>&1 | ForEach-Object { "$_" }
+            foreach ($line in $propLines) {
+                if ($line.StartsWith("FORMAT:")) {
+                    $verdict = "RPG Maker Vessel ($($line.Substring("FORMAT:".Length).Trim()))"
+                    continue
+                }
+                if (-not $line.StartsWith("PROP:")) { continue }
+                $parts = $line.Substring("PROP:".Length).Split('|')
+                if ($parts.Count -lt 4) { continue }
+
+                $pLabel = $parts[0]
+                $pType = $parts[1]
+                $pTag = $parts[$parts.Count - 1]
+                $pVal = if ($parts.Count -gt 4) { ($parts[2..($parts.Count - 2)] -join '|') } else { $parts[2] }
+
+                # --write-save-kv takes a single token, so emit the canonical short
+                # address (Gold / Actor2.Level / Variable3 / Switch2 / Item17) that
+                # RpgMakerSave.applyEdit round-trips; the label stays in the offset.
+                $numMatch = [regex]::Match($pLabel, '\d+')
+                $num = if ($numMatch.Success) { [int]$numMatch.Value } else { 0 }
+                $pKey = switch ($pTag) {
+                    "RPG_GOLD" { "Gold" }
+                    "RPG_LEVEL" { "Actor$num.Level" }
+                    "RPG_HP" { "Actor$num.HP" }
+                    "RPG_MP" { "Actor$num.MP" }
+                    "RPG_VAR" { "Variable$num" }
+                    "RPG_SW" { "Switch$num" }
+                    "RPG_ITEM" { "Item$num" }
+                    default { $pLabel }
+                }
+
+                $hexStr = switch ($pTag) {
+                    "RPG_SW" { if ("$pVal" -eq "True") { "01 00 00 00" } else { "00 00 00 00" } }
+                    "RPG_GOLD" { "4C 5A 4A 53" }  # 'LZJS' container marker
+                    default { "24 64 61 74" }      # '$dat' data-array marker
+                }
+
+                $rows.Add([PSCustomObject]@{
+                    offset = "RPG:{0:D4}: $pLabel" -f $rpgRows
+                    key = $pKey
+                    type = $pType
+                    conf = "100% Curated Maya Lila"
+                    hex = $hexStr
+                    val = "$pVal"
+                })
+                $rpgRows++
+                if ($rows.Count -ge 1200) { break }
+            }
+        } catch {
+            Write-Warning "RPG Maker container decoding error: $_"
+        }
+    } else {
+        Write-Warning "SharabhaCli.exe not found; RPG Maker vessel decoded in header-only mode."
+    }
+
+    if ($rpgRows -eq 0) {
+        $rows.Add([PSCustomObject]@{
+            offset = "HEADER: rpgmaker_container"
+            key = "Gold"
+            type = "Signature (RPG Maker Vessel)"
+            conf = "100% Curated Maya Lila"
+            hex = "04 08 00 00"
+            val = $ext
+        })
+    }
+}
+
+if ($isJson -and -not $isRpgMaker) {
     try {
         $jsonContent = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
         $parsed = ConvertFrom-Json $jsonContent -ErrorAction Stop
@@ -515,7 +629,9 @@ if ($isJson) {
         Write-Warning "JSON parse error: $_"
     }
 } else {
-    $verdict = if ($decompressedPayload) { "Deflate Container Vessel ($($decompressedPayload.Length) Bytes Decompressed)" } else { "Binary Byte Stream ($len Bytes)" }
+    if (-not $isRpgMaker) {
+        $verdict = if ($decompressedPayload) { "Deflate Container Vessel ($($decompressedPayload.Length) Bytes Decompressed)" } else { "Binary Byte Stream ($len Bytes)" }
+    }
 
     # ==============================================================================
     # MASS EFFECT LEGENDARY EDITION — CURATED AGAMA PROFILES
@@ -941,6 +1057,86 @@ if ($isJson) {
             }
         } catch {
             Write-Warning "GVAS parsing error: $_"
+        }
+    }
+
+    # ==============================================================================
+    # REN'PY VISUAL NOVEL VESSEL PARSER (KAVYA SUTRA // Kavya Sutra)
+    # Magic: "Ren'Py Save Game <version> <timestamp>\n" + zlib(pickle protocol 0-5)
+    # Opcode-level decoding is delegated to SharabhaCli.exe --parse-renpy so the
+    # offset-preserving surgical editor and the UI share a single implementation.
+    # ==============================================================================
+    $renpyMagic = "Ren'Py Save Game"
+    $isRenpy = ($len -gt ($renpyMagic.Length + 8) -and [System.Text.Encoding]::ASCII.GetString($bytes, 0, $renpyMagic.Length) -eq $renpyMagic)
+    if ($isRenpy) {
+        $isDeterministicProfile = $true
+        $gameTitle = "REN'PY VISUAL NOVEL // Kavya Sutra (Vessel: $filename)"
+        $verdict = "Ren'Py Visual Novel Save (zlib + pickle opcode stream)"
+
+        $hdrText = $renpyMagic
+        try {
+            $hdrEnd = 0
+            while ($hdrEnd -lt [Math]::Min($len, 64) -and $bytes[$hdrEnd] -ne 0x0A) { $hdrEnd++ }
+            $hdrText = [System.Text.Encoding]::ASCII.GetString($bytes, 0, $hdrEnd).Trim()
+            $renpyVer = $hdrText.Substring($renpyMagic.Length).Trim()
+            if ($renpyVer) { $verdict = "Ren'Py Visual Novel Save (header: $renpyVer, zlib + pickle)" }
+        } catch { }
+
+        $renpyCli = Join-Path $projectDir "zig-out\bin\SharabhaCli.exe"
+        if (-not (Test-Path $renpyCli)) { $renpyCli = Join-Path $projectDir "bin\SharabhaCli.exe" }
+
+        $renpyRows = 0
+        if (Test-Path $renpyCli) {
+            try {
+                # PROP payload format: PROP:<path>|<type>|<value>|<tag>
+                $propLines = & $renpyCli --parse-renpy $file.FullName 2>&1 | ForEach-Object { "$_" }
+                foreach ($line in $propLines) {
+                    if (-not $line.StartsWith("PROP:")) { continue }
+                    $parts = $line.Substring(5).Split('|')
+                    if ($parts.Count -lt 4) { continue }
+
+                    $pPath = $parts[0]
+                    $pTag = $parts[$parts.Count - 1]
+                    $pType = $parts[1]
+                    $pVal = if ($parts.Count -gt 4) { ($parts[2..($parts.Count - 2)] -join '|') } else { $parts[2] }
+
+                    # Representative pickle opcode bytes for the row's hex column.
+                    $tagBytes = [System.Text.Encoding]::ASCII.GetBytes($pTag)
+                    $hexStr = switch ($pTag) {
+                        "RENPY_INT" { "4A 00 00 00" }    # BININT
+                        "RENPY_FLOAT" { "47 00 00 00" }  # BINFLOAT
+                        "RENPY_STR" { "58 00 00 00" }    # BINUNICODE
+                        "RENPY_BOOL" { if ($pVal -eq "True") { "88 00 00 00" } else { "89 00 00 00" } } # NEWTRUE / NEWFALSE
+                        default { (Get-Hex 0 ([Math]::Min(4, $tagBytes.Length)) $tagBytes) }
+                    }
+
+                    $rows.Add([PSCustomObject]@{
+                        offset = "PICKLE[{0:D4}]: $pPath" -f $renpyRows
+                        key = $pPath
+                        type = $pType
+                        conf = "100% Curated Kavya Sutra"
+                        hex = $hexStr
+                        val = $pVal
+                    })
+                    $renpyRows++
+                    if ($rows.Count -ge 1200) { break }
+                }
+            } catch {
+                Write-Warning "Ren'Py pickle decoding error: $_"
+            }
+        } else {
+            Write-Warning "SharabhaCli.exe not found; Ren'Py vessel decoded in header-only mode."
+        }
+
+        if ($renpyRows -eq 0) {
+            $rows.Add([PSCustomObject]@{
+                offset = "HEADER: renpy_signature"
+                key = "renpy.header"
+                type = "Signature (Ren'Py Vessel)"
+                conf = "100% Curated Kavya Sutra"
+                hex = "52 45 4E 50"
+                val = $hdrText
+            })
         }
     }
 

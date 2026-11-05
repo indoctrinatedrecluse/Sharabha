@@ -8,6 +8,10 @@ zig-out/
 *.swp
 *~
 
+# Local scratch / upstream reference checkouts (never shipped)
+node_modules/
+temp_saveeditor/
+
 # Native build and OS files
 *.o
 *.obj
@@ -16,6 +20,8 @@ zig-out/
 *.pdb
 *.zip
 release_notes*.md
+# Release packaging working directories (tools\package.ps1)
+Sharabha-*-windows-x64-portable/
 Thumbs.db
 
 # Vault and temporary backup files

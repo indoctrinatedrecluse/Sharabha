@@ -142,6 +142,14 @@ pub fn main() !void {
         return;
     }
 
+    if (std.mem.indexOf(u8, cmd_utf8, "--freeze-stop") != null) {
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // STAMBHANA FREEZE SENTINEL (स्तम्भन गोरक्ष)\n", .{});
+        std.debug.print("========================================================================\n", .{});
+        Sharabha.engine_service.handleStopFreezeDaemon();
+        return;
+    }
+
     if (std.mem.indexOf(u8, cmd_utf8, "--freeze-status") != null) {
         Sharabha.engine_service.handleFreezeStatus(allocator) catch |err| {
             std.debug.print("  ❌ [Freeze Status Error]: {s}\n", .{@errorName(err)});
@@ -305,8 +313,10 @@ pub fn main() !void {
         const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--load-ct".len..], " \"'");
         const path = if (path_raw.len > 0) path_raw else "D:\\Mods\\BG3\\bg3.CT";
         Sharabha.engine_service.handleLoadCt(allocator, path) catch |err| {
-            std.debug.print("  ❌ [Load .CT Table Failed]: {s}\n", .{@errorName(err)});
-            return;
+            std.debug.print("  ❌ [Load .CT Table Failed]: {s} ({s})\n", .{ @errorName(err), path });
+            // tools\open_ct.ps1 inspects $LASTEXITCODE: a swallowed failure would
+            // report success to the UI and leave the stale table on screen.
+            std.process.exit(1);
         };
         return;
     }
@@ -353,6 +363,115 @@ pub fn main() !void {
             const stdout_h = Sharabha.memory.win.GetStdHandle(-11) orelse return;
             var written: u32 = 0;
             _ = Sharabha.memory.win.WriteFile(stdout_h, list.items.ptr, @as(u32, @intCast(list.items.len)), &written, null);
+        }
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--parse-rpg")) |idx| {
+        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--parse-rpg".len..], " \"'");
+        const path = if (path_raw.len > 0) path_raw else "assets/saves/SampleRpgMaker.rpgsave";
+        const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path) catch |err| {
+            std.debug.print("  ❌ [Path UTF-16 Conversion Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer allocator.free(path_w);
+
+        const hFile = Sharabha.rewrite.win.CreateFileW(path_w.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+        if (hFile == Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+            std.debug.print("  ❌ [File Open Error]: Could not open vessel '{s}'\n", .{path});
+            return;
+        }
+        defer _ = Sharabha.rewrite.win.CloseHandle(hFile);
+
+        var high_sz: u32 = 0;
+        const low_sz = Sharabha.rewrite.win.GetFileSize(hFile, &high_sz);
+        const content = allocator.alloc(u8, low_sz) catch |err| {
+            std.debug.print("  ❌ [Allocation Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer allocator.free(content);
+
+        var br: u32 = 0;
+        _ = Sharabha.rewrite.win.ReadFile(hFile, content.ptr, low_sz, &br, null);
+
+        var rpg_save = Sharabha.rpgmaker.RpgMakerSave.parse(allocator, content) catch |err| {
+            std.debug.print("  ❌ [RPG Maker Parse Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer rpg_save.deinit(allocator);
+
+        std.debug.print("FORMAT:{s}\n", .{@tagName(rpg_save.format)});
+        if (rpg_save.gold) |g| {
+            std.debug.print("PROP:Party Gold (_gold)|i64 (Integer)|{d}|RPG_GOLD\n", .{g});
+        }
+        for (rpg_save.actors) |act| {
+            std.debug.print("PROP:Actor #{d} Level ({s})|i64 (Level)|{d}|RPG_LEVEL\n", .{ act.id, act.name, act.level });
+            std.debug.print("PROP:Actor #{d} HP ({s})|i64 (HP)|{d}|RPG_HP\n", .{ act.id, act.name, act.hp });
+            std.debug.print("PROP:Actor #{d} MP ({s})|i64 (MP)|{d}|RPG_MP\n", .{ act.id, act.name, act.mp });
+        }
+        for (rpg_save.variables) |v| {
+            std.debug.print("PROP:Variable #{d:0>4}|i64 (GameVariable)|{d}|RPG_VAR\n", .{ v.id, v.value });
+        }
+        for (rpg_save.switches) |s| {
+            std.debug.print("PROP:Switch #{d:0>4}|bool (GameSwitch)|{s}|RPG_SW\n", .{ s.id, if (s.value) "True" else "False" });
+        }
+        for (rpg_save.items) |it| {
+            std.debug.print("PROP:Item #{s}|i64 (ItemCount)|{d}|RPG_ITEM\n", .{ it.id, it.count });
+        }
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--parse-renpy")) |idx| {
+        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--parse-renpy".len..], " \"'");
+        const path = if (path_raw.len > 0) path_raw else "assets/saves/SampleRenpy.save";
+        const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path) catch |err| {
+            std.debug.print("  ❌ [Path UTF-16 Conversion Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer allocator.free(path_w);
+
+        const hFile = Sharabha.rewrite.win.CreateFileW(path_w.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+        if (hFile == Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+            std.debug.print("  ❌ [File Open Error]: Could not open vessel '{s}'\n", .{path});
+            return;
+        }
+        defer _ = Sharabha.rewrite.win.CloseHandle(hFile);
+
+        var high_sz: u32 = 0;
+        const low_sz = Sharabha.rewrite.win.GetFileSize(hFile, &high_sz);
+        if (low_sz == 0 or low_sz > 128 * 1024 * 1024) {
+            std.debug.print("  ❌ [File Size Error]: Vessel '{s}' is empty or too large.\n", .{path});
+            return;
+        }
+        const content = allocator.alloc(u8, low_sz) catch |err| {
+            std.debug.print("  ❌ [Allocation Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer allocator.free(content);
+
+        var br: u32 = 0;
+        _ = Sharabha.rewrite.win.ReadFile(hFile, content.ptr, low_sz, &br, null);
+
+        var renpy_save = Sharabha.renpy.RenpySave.parse(allocator, content) catch |err| {
+            std.debug.print("  ❌ [Ren'Py Parse Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer renpy_save.deinit();
+
+        std.debug.print("FORMAT:Renpy (Ren'Py {s}, Pickle Protocol {d})\n", .{ renpy_save.renpyVersion(), renpy_save.protocol });
+        if (renpy_save.fields_truncated) {
+            std.debug.print("  ⚠️ [Ren'Py Warning]: field list truncated at {d} entries.\n", .{Sharabha.renpy.max_fields});
+        }
+        var num_buf: [64]u8 = undefined;
+        for (renpy_save.fields.items) |field| {
+            const v = field.value();
+            const text: []const u8 = switch (v) {
+                .Int => |i| std.fmt.bufPrint(&num_buf, "{d}", .{i}) catch "?",
+                .Float => |f| std.fmt.bufPrint(&num_buf, "{d}", .{f}) catch "?",
+                .Bool => |b| if (b) "True" else "False",
+                .Str => |s| s,
+            };
+            std.debug.print("PROP:{s}|{s}|{s}|{s}\n", .{ field.path, field.typeName(), text, field.typeTag() });
         }
         return;
     }
@@ -516,6 +635,97 @@ pub fn main() !void {
                 std.debug.print("  ⚠️ [Unity Warning]: Property '{s}' not found or type mismatch.\n", .{key_str});
                 return;
             }
+        }
+
+        // Check if vessel is an RPG Maker container (Maya Lila Sutra: LZ-String, JSON, Ruby Marshal)
+        if (Sharabha.rpgmaker.RpgMakerSave.detectFormat(file_buf) != .Unknown) {
+            var rpg_save = Sharabha.rpgmaker.RpgMakerSave.parse(allocator, file_buf) catch |err| {
+                std.debug.print("  ❌ [RPG Maker Parse Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+            defer rpg_save.deinit(allocator);
+
+            const applied = rpg_save.applyEdit(key_str, val_str) catch |err| switch (err) {
+                error.MarshalMutationUnsupported => {
+                    std.debug.print("  ⚠️ [RPG Maker]: Ruby Marshal containers (.rxdata/.rvdata/.rvdata2) are read-only for now; edit an MV/MZ (.rpgsave) vessel instead.\n", .{});
+                    return;
+                },
+                else => {
+                    std.debug.print("  ❌ [RPG Maker Mutation Error]: {s}\n", .{@errorName(err)});
+                    return;
+                },
+            };
+
+            if (!applied) {
+                std.debug.print("  ⚠️ [RPG Maker Warning]: Key '{s}' not recognized. Accepted: Gold, Actor<n>.Level|HP|MP, Variable<n>, Switch<n>, Item<n>.\n", .{key_str});
+                return;
+            }
+
+            // Atomic commit: {path}.sharabha.tmp -> MoveFileExW, with .sharabha.bak backup.
+            rpg_save.writeToDisk(path, allocator) catch |err| {
+                std.debug.print("  ❌ [RPG Maker Write Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+
+            std.debug.print("  [✓] Modified RPG Maker '{s}' = '{s}' safely in {s}\n", .{ key_str, val_str, path });
+            std.debug.print("  [✓] Sthiti Kavacha backup created: '{s}.sharabha.bak'\n", .{path});
+            return;
+        }
+
+        // Check if vessel is a Ren'Py visual novel save (Kavya Sutra: header + zlib pickle)
+        if (Sharabha.renpy.isRenpySave(file_buf)) {
+            var renpy_save = Sharabha.renpy.RenpySave.parse(allocator, file_buf) catch |err| {
+                std.debug.print("  ❌ [Ren'Py Parse Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+            defer renpy_save.deinit();
+
+            var applied = true;
+            renpy_save.applyEdit(key_str, val_str) catch |err| switch (err) {
+                error.KindMismatch => applied = false,
+                else => {
+                    std.debug.print("  ❌ [Ren'Py Mutation Error]: {s}\n", .{@errorName(err)});
+                    return;
+                },
+            };
+
+            // Fall back to a unique leaf-name match (e.g. "gold" for "store.gold").
+            if (!applied) {
+                for (renpy_save.fields.items) |f| {
+                    if (!std.mem.eql(u8, f.name, key_str)) continue;
+                    renpy_save.applyEdit(f.path, val_str) catch continue;
+                    applied = true;
+                    break;
+                }
+            }
+
+            if (!applied) {
+                std.debug.print("  ⚠️ [Ren'Py Warning]: Key '{s}' not found or type mismatch.\n", .{key_str});
+                return;
+            }
+
+            const repacked = renpy_save.serialize(allocator) catch |err| {
+                std.debug.print("  ❌ [Ren'Py Serialize Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+            defer allocator.free(repacked);
+
+            // Create Sthiti Kavacha backup (.sharabha.bak)
+            var bak_buf: [1024]u8 = undefined;
+            const bak_path = std.fmt.bufPrint(&bak_buf, "{s}.sharabha.bak", .{path}) catch return;
+            const bak_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, bak_path);
+            defer allocator.free(bak_w);
+            _ = Sharabha.rewrite.win.CopyFileW(target_w.ptr, bak_w.ptr, 0);
+
+            const wh = Sharabha.rewrite.win.CreateFileW(target_w.ptr, Sharabha.rewrite.win.GENERIC_WRITE, 0, null, Sharabha.rewrite.win.CREATE_ALWAYS, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+            if (wh != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                defer _ = Sharabha.rewrite.win.CloseHandle(wh);
+                var bw: u32 = 0;
+                _ = Sharabha.rewrite.win.WriteFile(wh, repacked.ptr, @intCast(repacked.len), &bw, null);
+            }
+            std.debug.print("  [✓] Modified Ren'Py '{s}' = '{s}' safely in {s}\n", .{ key_str, val_str, path });
+            std.debug.print("  [✓] Sthiti Kavacha backup created: '{s}.sharabha.bak'\n", .{path});
+            return;
         }
 
         var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, file_buf);

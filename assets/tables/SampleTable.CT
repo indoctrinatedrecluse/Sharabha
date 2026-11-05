@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="46">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>100</ID>
+      <Description>"--- Player Vitals (Group) ---"</Description>
+      <GroupHeader>1</GroupHeader>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>101</ID>
+          <Description>"Player Gold"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>SharabhaCli.exe+0</Address>
+          <ShowAsSigned>1</ShowAsSigned>
+          <Color>FF00FF</Color>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>102</ID>
+          <Description>"Player Health &amp; Shield"</Description>
+          <VariableType>Float</VariableType>
+          <Address>SharabhaCli.exe+4</Address>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>200</ID>
+      <Description>"Pointer: Player Stamina"</Description>
+      <VariableType>4 Bytes</VariableType>
+      <Address>SharabhaCli.exe+10</Address>
+      <Offsets>
+        <Offset>8</Offset>
+        <Offset>0</Offset>
+      </Offsets>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>300</ID>
+      <Description>"Precision Timer"</Description>
+      <VariableType>Double</VariableType>
+      <Address>SharabhaCli.exe+18</Address>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>400</ID>
+      <Description>"Auto Assembler: Kunapa Astra"</Description>
+      <VariableType>Auto Assembler Script</VariableType>
+      <Address>SharabhaCli.exe+20</Address>
+      <AssemblerScript>[ENABLE]
+// Sharabha CT fixture: no-op auto assembler script
+[DISABLE]
+</AssemblerScript>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols>
+    <SymbolEntry>
+      <Name>player_gold</Name>
+      <Address>1000</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>player_health</Name>
+      <Address>1004</Address>
+    </SymbolEntry>
+  </UserdefinedSymbols>
+  <LuaScript>print("Sharabha Kavacha CT fixture: Lua environment online")</LuaScript>
+</CheatTable>

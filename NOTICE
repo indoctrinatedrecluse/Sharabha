@@ -34,3 +34,13 @@ inspired by the following third-party projects:
    Copyright (c) 2024 kvasszn
    Description: Capcom RE Engine DSSS save container specifications, header/footer layout,
    and MurmurHash3_x86_32 integrity algorithm implementation.
+
+4. SaveEditor.top (saveeditor)
+   Author: paradoxie
+   Repository: https://github.com/paradoxie/saveeditor
+   License: MIT License
+   Copyright (c) 2025 paradoxie
+   Description: Browser-based save editor whose open-source Ren'Py (.save) and RPG Maker
+   (.rpgsave / .rvdata2) container handling — header layouts, LZ-String and pickle payload
+   framing, and field naming — was cross-referenced while implementing and validating the
+   Kavya Sutra (Ren'Py) and Maya Lila Sutra (RPG Maker) parsers.

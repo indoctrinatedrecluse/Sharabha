@@ -11,6 +11,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.2] - 2026-11-05
+
+### Fixed
+- **`.CT` (Cheat Engine table) loader crash — silent ParserError under Windows PowerShell 5.1**:
+  - `tools/open_ct.ps1` contained non-ASCII glyphs (emoji + Devanagari) but no UTF-8 BOM. Windows PowerShell 5.1 decodes BOM-less scripts as ANSI (CP1252), so multi-byte UTF-8 continuation bytes (`0x93`/`0x94`) were re-read as smart quotes and the tokenizer aborted with a `ParserError`. The script therefore never executed, which the UI surfaced as a "crash" of the `.CT` import button.
+  - Rewrote `tools/open_ct.ps1` with an explicit UTF-8 BOM and a header comment documenting the encoding contract, `$PSScriptRoot`-relative resolution of the bundled resources (works from `-File` invocations and any working directory), `Resolve-SharabhaCli` lookup (`bin\` → `zig-out\bin\` → `PATH`), a top-most invisible owner window for the file picker, persistence of the selected table path (`active_table_path.txt`, UTF-8 without BOM), and a guarded viewer poke that only fires when `live_table.slint` exists and is non-empty.
+- **Slint viewer crash on generated tables (`--auto-reload`)**:
+  - `slint-viewer --auto-reload` recompiles `src/ui/live_table.slint` the instant it changes, so a truncated or partially written file kills the whole UI process. Table export now publishes atomically: the payload is written to `<path>.tmp`, flushed, and swapped into place with `MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`, falling back to a direct overwrite (and shadow-copy cleanup) if the rename cannot be performed. Refactored `writeFullFile` into `toWideZ` + `writeFileDirect` + atomic publish so every writer inherits the same guarantee.
+- **Generated Slint literals are now guaranteed to be valid UTF-8**:
+  - `appendEscapedSlint` escapes `"` and `\`, collapses CR/LF/TAB into spaces, drops remaining control bytes, and replaces malformed multi-byte sequences with `?`. A `.CT` authored in a legacy code page can no longer emit an uncompilable `live_table.slint`.
+  - Table header assembly moved off a fixed 512-byte stack buffer to heap formatting, so long table names/paths can no longer fail with `NoSpaceLeft`; the table title/basename are now escaped as well.
+- **RPG Maker writer could corrupt the wrong field (and silently no-op)**:
+  - `setActorLevel` ignored its `actor_idx` argument and rewrote the *first* `_level` in the container, so editing "Actor #2 Level" changed Actor #1; `setVariable` was an empty stub. Both now operate on JSON *byte spans* (`findField`/`findScopedSpan`/`arrayElement`/`replaceSpan`), so `party._gold`, `actors._data[n]._level|_hp|_mp`, `variables._data[n]`, `switches._data[n]` and `party._items["<id>"]` are edited individually and the rest of the file stays byte-identical.
+  - Scope lookups skip decoy `null` values (MZ containers carry `"system": { "switches": null }` before the real `"switches": {"_data": [...]}`), which previously made every switch/variable edit fail with `SwitchNotFound`.
+  - Ruby Marshal containers (`.rxdata`/`.rvdata`/`.rvdata2`) now return `error.MarshalMutationUnsupported` and a read-only warning instead of reporting a successful write that `serialize` dropped on the floor.
+  - `--write-save-kv` commits RPG Maker mutations through `RpgMakerSave.writeToDisk` (`{path}.sharabha.tmp` + `MoveFileExW` + `.sharabha.bak`) instead of a direct `CREATE_ALWAYS` overwrite.
+- **`.CT` tables saved as "Unicode" parsed as zero entries**: `ct_parser.readCtFile` now normalises the payload (`normalizeCtBytes`): UTF-8 BOM is stripped, UTF-16LE/BE (with BOM, including surrogate pairs) is transcoded to UTF-8 before the tag scanner runs. Cheat Engine's default UTF-8-BOM output and legacy UTF-16 tables both parse identically.
+- **`--load-ct` failures were reported as success**: the CLI exited `0` even when the table could not be read, so `tools/open_ct.ps1`'s `$LASTEXITCODE` guard could never fire and the UI kept showing a stale table. Load/parse failures now exit `1` with the offending path in the message.
+- **Generated bridges were written relative to the current directory**: `src/ui/live_table.slint` and `assets/tables/active_table_path.txt` are resolved through `resolveProjectPath` (CWD → exe dir → exe dir with a trailing `bin\` removed), so a packaged `bin\Sharabha.exe` (CWD = `bin\`) updates the files the Slint viewer and launcher scripts read instead of writing into `bin\src\ui\`.
+- **Stambhana freeze daemon lifecycle / `zig build` install lock**:
+  - The sentinel daemon keeps `SharabhaCli.exe` mapped, so a daemon surviving a test run broke the following `zig build` install step with an opaque failure. The spawning side now records the child PID immediately (no window where the PID file lags behind the process), the test suite disarms the daemon before finishing, and a new `SharabhaCli.exe --freeze-stop` command terminates an armed sentinel and clears its PID record.
+
+### Added
+- **PowerShell encoding guard (`tools/check_scripts.ps1`)**: parses every `tools\*.ps1` with `[System.Management.Automation.Language.Parser]`, fails on any `ParserError` (with line/message), and warns when a script contains non-ASCII characters without a UTF-8 BOM. Intended as the CI/pre-commit guard for the class of failure described above.
+- **Ren'Py Visual Novel save parser ("काव्य सूत्र // Kavya Sutra")** (`src/save/renpy.zig`):
+  - `Ren'Py Save Game` header/metadata parsing with pickle-protocol reporting, zlib inflate/deflate of the save payload, and a bounded (8192-field) typed field tree.
+  - Typed accessors and mutators (`getInt`/`getFloat`/`getBool`/`getString`, `setInt`/`setFloat`/`setBool`/`setString`, `applyEdit`) plus deterministic reserialization preserving the container.
+  - CLI: `--parse-renpy [path]` inspector output (`FORMAT:`/`PROP:` rows consumable by the UI) and `--write-save-kv <key> <value>` support with `.sharabha.bak` backups and atomic swap.
+  - Detection registered in `src/save/metrics/magic_header.zig` (`RenpySave`).
+  - Sample fixture `assets/saves/SampleRenpy.save` and generator `tools/create_mock_renpy.ps1`.
+- **RPG Maker save parser ("माया लीला सूत्र // Maya Lila Sutra")** (`src/save/rpgmaker.zig`):
+  - Container detection and decoding for Ruby Marshal 4.8 (`.rxdata`/`.rvdata`/`.rvdata2`), LZ-String Base64 (`.rpgsave`), and plain JSON saves.
+  - Extraction of party gold, actor stats (name/level/HP/MP), game variables, switches, and inventory item counts, with indexed mutators (`setGold`, `setActorField`/`setActorLevel`, `setVariable`, `setSwitch`, `setItem`, `applyEdit`), reserialization, and `writeToDisk` (`.sharabha.bak` + atomic swap).
+  - `applyEdit` accepts the exact `--parse-rpg` row labels (`Party Gold (_gold)`, `Actor #2 Level (Marsha)`, `Variable #0003`, `Switch #0002`, `Item #17`) as well as short keys (`Gold`, `Actor2.Level`, `Switch2`, ...).
+- **RPG Maker vessel in the save-editor UI pipeline** (`tools/open_dialog.ps1`): RPG Maker containers are now detected from extension (`.rpgsave`/`.rvdata`/`.rvdata2`/`.rxdata`), MV/MZ JSON shape, or an RGSS Ruby Marshal payload, decoded through `SharabhaCli.exe --parse-rpg` (single implementation shared with the CLI), and rendered as curated rows whose keys round-trip through `--write-save-kv`. The file picker gained matching filters.
+  - CLI: `--parse-rpg [path]` inspector output, `--write-save-kv` support, and RPG Maker deltas in `diffRpgMakerSaves` (`src/save/diff.zig`).
+  - Detection registered in `src/save/metrics/magic_header.zig` (`RpgMakerSave`).
+  - Sample fixture `assets/saves/SampleRpgMaker.rpgsave`.
+- **`.CT` loader smoke fixtures**: `assets/tables/SampleTable.CT` (pointer entry with offsets, 4/8-byte float types, auto-assembler script, userdefined symbols, `LuaScript`) exercises the full parse → `live_table.slint` export path without requiring a live game process.
+
+### Changed
+- Version bumped to **0.5.2** across `build.zig.zon`, `src/root.zig` banner, `src/ui/installer.slint`, `src/ui/updater_state.slint`, `tools/package.ps1`, `tools/extract_release_notes.ps1`, `tools/installer_*.ps1`, and `tools/updater.ps1`.
+
+### Credits
+- Save-format research for the Ren'Py and RPG Maker containers was cross-referenced against the open-source **SaveEditor.top** project by **paradoxie** ([`paradoxie/saveeditor`](https://github.com/paradoxie/saveeditor), MIT License).
+
+---
+
 ## [0.5.1] - 2026-11-04
 
 ### Added

@@ -1,51 +1,155 @@
 {
-    "filename":  "SampleUnity.es3",
-    "gameTitle":  "UNITY ENGINE // Aikya Sutra (à¤à¤•à¥à¤¯ à¤¸à¥‚à¤¤à¥à¤° // EasySave3 Vessel)",
-    "md5Str":  "8C822D38B2E042B8",
-    "verdict":  "Unity Engine EasySave 3 Format (ES3 JSON Typed Dictionary)",
-    "len":  329,
+    "filename":  "SampleRpgMaker.rpgsave",
+    "gameTitle":  "RPG MAKER // Maya Lila Sutra (Vessel: SampleRpgMaker.rpgsave)",
+    "md5Str":  "309319CBE68D1303",
+    "verdict":  "RPG Maker Vessel (PlainJson)",
+    "len":  592,
     "isDeterministicProfile":  true,
-    "totalExtracted":  5,
+    "totalExtracted":  18,
     "rows":  [
                  {
-                     "offset":  "ES3: PlayerName",
-                     "key":  "PlayerName",
-                     "type":  "Value (ES3)",
-                     "conf":  "100% Curated Aikya Sutra",
-                     "hex":  "45 53 33 00",
-                     "val":  "Arjuna"
+                     "offset":  "RPG:0017: Item #17",
+                     "key":  "Item17",
+                     "type":  "i64 (ItemCount)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "12"
                  },
                  {
-                     "offset":  "ES3: PlayerMana",
-                     "key":  "PlayerMana",
-                     "type":  "Value (ES3)",
-                     "conf":  "100% Curated Aikya Sutra",
-                     "hex":  "45 53 33 00",
-                     "val":  "250"
+                     "offset":  "RPG:0016: Item #2",
+                     "key":  "Item2",
+                     "type":  "i64 (ItemCount)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "1"
                  },
                  {
-                     "offset":  "ES3: PlayerHealth",
-                     "key":  "PlayerHealth",
-                     "type":  "Value (ES3)",
-                     "conf":  "100% Curated Aikya Sutra",
-                     "hex":  "45 53 33 00",
-                     "val":  "100.00"
+                     "offset":  "RPG:0015: Item #1",
+                     "key":  "Item1",
+                     "type":  "i64 (ItemCount)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "5"
                  },
                  {
-                     "offset":  "ES3: PlayerGold",
-                     "key":  "PlayerGold",
-                     "type":  "Value (ES3)",
-                     "conf":  "100% Curated Aikya Sutra",
-                     "hex":  "45 53 33 00",
-                     "val":  "123456"
+                     "offset":  "RPG:0014: Switch #0003",
+                     "key":  "Switch3",
+                     "type":  "bool (GameSwitch)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "01 00 00 00",
+                     "val":  "True"
                  },
                  {
-                     "offset":  "ES3: IsHardcore",
-                     "key":  "IsHardcore",
-                     "type":  "Value (ES3)",
-                     "conf":  "100% Curated Aikya Sutra",
-                     "hex":  "45 53 33 00",
+                     "offset":  "RPG:0013: Switch #0002",
+                     "key":  "Switch2",
+                     "type":  "bool (GameSwitch)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "00 00 00 00",
                      "val":  "False"
+                 },
+                 {
+                     "offset":  "RPG:0012: Switch #0001",
+                     "key":  "Switch1",
+                     "type":  "bool (GameSwitch)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "01 00 00 00",
+                     "val":  "True"
+                 },
+                 {
+                     "offset":  "RPG:0011: Variable #0005",
+                     "key":  "Variable5",
+                     "type":  "i64 (GameVariable)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "42"
+                 },
+                 {
+                     "offset":  "RPG:0010: Variable #0004",
+                     "key":  "Variable4",
+                     "type":  "i64 (GameVariable)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "0"
+                 },
+                 {
+                     "offset":  "RPG:0009: Variable #0003",
+                     "key":  "Variable3",
+                     "type":  "i64 (GameVariable)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "3"
+                 },
+                 {
+                     "offset":  "RPG:0008: Variable #0002",
+                     "key":  "Variable2",
+                     "type":  "i64 (GameVariable)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "1500"
+                 },
+                 {
+                     "offset":  "RPG:0007: Variable #0001",
+                     "key":  "Variable1",
+                     "type":  "i64 (GameVariable)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "7"
+                 },
+                 {
+                     "offset":  "RPG:0006: Actor #2 MP (Marsha)",
+                     "key":  "Actor2.MP",
+                     "type":  "i64 (MP)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "140"
+                 },
+                 {
+                     "offset":  "RPG:0005: Actor #2 HP (Marsha)",
+                     "key":  "Actor2.HP",
+                     "type":  "i64 (HP)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "410"
+                 },
+                 {
+                     "offset":  "RPG:0004: Actor #2 Level (Marsha)",
+                     "key":  "Actor2.Level",
+                     "type":  "i64 (Level)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "11"
+                 },
+                 {
+                     "offset":  "RPG:0003: Actor #1 MP (Harold)",
+                     "key":  "Actor1.MP",
+                     "type":  "i64 (MP)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "90"
+                 },
+                 {
+                     "offset":  "RPG:0002: Actor #1 HP (Harold)",
+                     "key":  "Actor1.HP",
+                     "type":  "i64 (HP)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "480"
+                 },
+                 {
+                     "offset":  "RPG:0001: Actor #1 Level (Harold)",
+                     "key":  "Actor1.Level",
+                     "type":  "i64 (Level)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "24 64 61 74",
+                     "val":  "12"
+                 },
+                 {
+                     "offset":  "RPG:0000: Party Gold (_gold)",
+                     "key":  "Gold",
+                     "type":  "i64 (Integer)",
+                     "conf":  "100% Curated Maya Lila",
+                     "hex":  "4C 5A 4A 53",
+                     "val":  "4200"
                  }
              ]
 }

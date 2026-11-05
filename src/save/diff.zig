@@ -9,6 +9,7 @@ const std = @import("std");
 const fuzzy = @import("fuzzy.zig");
 const gvas = @import("gvas.zig");
 const unity = @import("unity.zig");
+const rpgmaker = @import("rpgmaker.zig");
 
 pub const MutationKind = enum {
     Modified,
@@ -513,6 +514,145 @@ pub fn diffUnitySaves(
     return report;
 }
 
+/// Compares two RPG Maker Saves and produces typed property deltas (Gold, Actors, Variables, Switches)
+pub fn diffRpgMakerSaves(
+    child_allocator: std.mem.Allocator,
+    save_a: *const rpgmaker.RpgMakerSave,
+    save_b: *const rpgmaker.RpgMakerSave,
+    file_a_name: []const u8,
+    file_b_name: []const u8,
+) !*SaveDiffReport {
+    const arena = try child_allocator.create(std.heap.ArenaAllocator);
+    arena.* = std.heap.ArenaAllocator.init(child_allocator);
+    errdefer {
+        arena.deinit();
+        child_allocator.destroy(arena);
+    }
+    const alloc = arena.allocator();
+
+    var mutation_list: std.ArrayList(DiffMutation) = .empty;
+
+    // 1. Gold Diff
+    if (save_a.gold != null or save_b.gold != null) {
+        const ga = save_a.gold orelse 0;
+        const gb = save_b.gold orelse 0;
+        if (ga != gb) {
+            const diff = gb - ga;
+            try mutation_list.append(alloc, .{
+                .offset = 0,
+                .length = 4,
+                .key_name = try alloc.dupe(u8, "Party Gold (_gold)"),
+                .kind = .Modified,
+                .inferred_type = .Int32LE,
+                .old_val_str = try std.fmt.allocPrint(alloc, "{d}", .{ga}),
+                .new_val_str = try std.fmt.allocPrint(alloc, "{d}", .{gb}),
+                .delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff }),
+                .confidence = 100,
+                .hex_preview = try alloc.dupe(u8, "RPG_GOLD"),
+            });
+        }
+    }
+
+    // 2. Actor Stats Diff
+    for (save_b.actors) |actor_b| {
+        var found_a: ?rpgmaker.RpgMakerActor = null;
+        for (save_a.actors) |actor_a| {
+            if (actor_a.id == actor_b.id) {
+                found_a = actor_a;
+                break;
+            }
+        }
+
+        if (found_a) |actor_a| {
+            if (actor_a.level != actor_b.level) {
+                const diff = actor_b.level - actor_a.level;
+                const name = try std.fmt.allocPrint(alloc, "Actor #{d} Level ({s})", .{ actor_b.id, actor_b.name });
+                try mutation_list.append(alloc, .{
+                    .offset = 0,
+                    .length = 4,
+                    .key_name = name,
+                    .kind = .Modified,
+                    .inferred_type = .Int32LE,
+                    .old_val_str = try std.fmt.allocPrint(alloc, "{d}", .{actor_a.level}),
+                    .new_val_str = try std.fmt.allocPrint(alloc, "{d}", .{actor_b.level}),
+                    .delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff }),
+                    .confidence = 100,
+                    .hex_preview = try alloc.dupe(u8, "RPG_LEVEL"),
+                });
+            }
+            if (actor_a.hp != actor_b.hp) {
+                const diff = actor_b.hp - actor_a.hp;
+                const name = try std.fmt.allocPrint(alloc, "Actor #{d} HP ({s})", .{ actor_b.id, actor_b.name });
+                try mutation_list.append(alloc, .{
+                    .offset = 0,
+                    .length = 4,
+                    .key_name = name,
+                    .kind = .Modified,
+                    .inferred_type = .Int32LE,
+                    .old_val_str = try std.fmt.allocPrint(alloc, "{d}", .{actor_a.hp}),
+                    .new_val_str = try std.fmt.allocPrint(alloc, "{d}", .{actor_b.hp}),
+                    .delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff }),
+                    .confidence = 100,
+                    .hex_preview = try alloc.dupe(u8, "RPG_HP"),
+                });
+            }
+        }
+    }
+
+    // 3. Variables Diff
+    for (save_b.variables) |var_b| {
+        for (save_a.variables) |var_a| {
+            if (var_a.id == var_b.id and var_a.value != var_b.value) {
+                const diff = var_b.value - var_a.value;
+                const name = try std.fmt.allocPrint(alloc, "Variable #{d}", .{var_b.id});
+                try mutation_list.append(alloc, .{
+                    .offset = 0,
+                    .length = 4,
+                    .key_name = name,
+                    .kind = .Modified,
+                    .inferred_type = .Int32LE,
+                    .old_val_str = try std.fmt.allocPrint(alloc, "{d}", .{var_a.value}),
+                    .new_val_str = try std.fmt.allocPrint(alloc, "{d}", .{var_b.value}),
+                    .delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff }),
+                    .confidence = 100,
+                    .hex_preview = try alloc.dupe(u8, "RPG_VAR"),
+                });
+            }
+        }
+    }
+
+    // 4. Switches Diff
+    for (save_b.switches) |sw_b| {
+        for (save_a.switches) |sw_a| {
+            if (sw_a.id == sw_b.id and sw_a.value != sw_b.value) {
+                const name = try std.fmt.allocPrint(alloc, "Switch #{d}", .{sw_b.id});
+                try mutation_list.append(alloc, .{
+                    .offset = 0,
+                    .length = 1,
+                    .key_name = name,
+                    .kind = .Modified,
+                    .inferred_type = .RawBinary,
+                    .old_val_str = if (sw_a.value) "true" else "false",
+                    .new_val_str = if (sw_b.value) "true" else "false",
+                    .delta_str = if (sw_b.value) "Toggled TRUE" else "Toggled FALSE",
+                    .confidence = 100,
+                    .hex_preview = try alloc.dupe(u8, "RPG_SWITCH"),
+                });
+            }
+        }
+    }
+
+    const report = try alloc.create(SaveDiffReport);
+    report.* = .{
+        .arena = arena,
+        .file_a_name = try alloc.dupe(u8, file_a_name),
+        .file_b_name = try alloc.dupe(u8, file_b_name),
+        .total_mutations = mutation_list.items.len,
+        .mutations = mutation_list.items,
+    };
+    return report;
+}
+
 test "Kala Chakra: Binary Save Diff Detects Mutations and Deltas" {
     const alloc = std.testing.allocator;
 
@@ -629,4 +769,42 @@ test "Kala Chakra: Unity Save Diff Detects Mutations and Deltas" {
     try std.testing.expectEqual(@as(usize, 2), report.total_mutations);
     try std.testing.expectEqualStrings("+949999", report.mutations[0].delta_str);
     try std.testing.expectEqualStrings("+150.50", report.mutations[1].delta_str);
+}
+
+test "Kala Chakra: RPG Maker Save Diff Detects Mutations and Deltas" {
+    const alloc = std.testing.allocator;
+
+    const json_a =
+        \\{
+        \\  "party": { "_gold": 5000 },
+        \\  "actors": { "_data": [null, { "_actorId": 1, "_name": "Harold", "_level": 10, "_hp": 500, "_mp": 100 }] },
+        \\  "variables": { "_data": [null, 42] },
+        \\  "switches": { "_data": [null, false] }
+        \\}
+    ;
+
+    const json_b =
+        \\{
+        \\  "party": { "_gold": 99999 },
+        \\  "actors": { "_data": [null, { "_actorId": 1, "_name": "Harold", "_level": 25, "_hp": 850, "_mp": 100 }] },
+        \\  "variables": { "_data": [null, 999] },
+        \\  "switches": { "_data": [null, true] }
+        \\}
+    ;
+
+    var save_a = try rpgmaker.RpgMakerSave.parse(alloc, json_a);
+    defer save_a.deinit(alloc);
+
+    var save_b = try rpgmaker.RpgMakerSave.parse(alloc, json_b);
+    defer save_b.deinit(alloc);
+
+    const report = try diffRpgMakerSaves(alloc, save_a, save_b, "SaveA.rpgsave", "SaveB.rpgsave");
+    defer report.deinit(alloc);
+
+    try std.testing.expectEqual(@as(usize, 5), report.total_mutations);
+    try std.testing.expectEqualStrings("+94999", report.mutations[0].delta_str); // Gold
+    try std.testing.expectEqualStrings("+15", report.mutations[1].delta_str);    // Level
+    try std.testing.expectEqualStrings("+350", report.mutations[2].delta_str);   // HP
+    try std.testing.expectEqualStrings("+957", report.mutations[3].delta_str);   // Var 1
+    try std.testing.expectEqualStrings("Toggled TRUE", report.mutations[4].delta_str); // Switch 1
 }

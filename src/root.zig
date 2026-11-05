@@ -22,6 +22,8 @@ pub const dual_mode = @import("save/dual_mode.zig");
 pub const diff = @import("save/diff.zig");
 pub const gvas = @import("save/gvas.zig");
 pub const unity = @import("save/unity.zig");
+pub const rpgmaker = @import("save/rpgmaker.zig");
+pub const renpy = @import("save/renpy.zig");
 pub const knowledge = @import("knowledge/profiles.zig");
 pub const security = @import("security/vault.zig");
 pub const ai = @import("ai/analyzer.zig");
@@ -34,7 +36,7 @@ pub fn printBanner() void {
     std.debug.print(
         \\
         \\========================================================================
-        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.5.1)
+        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.5.2)
         \\  [Kalyana Sthiti: Calm / शान्त]   │   [Rudra Tandava: Violent / उग्र]
         \\  ॐ नमः शरभाय — Subduing Narasimha & The Untamed Process
         \\========================================================================
@@ -64,6 +66,8 @@ test {
     _ = diff;
     _ = gvas;
     _ = unity;
+    _ = rpgmaker;
+    _ = renpy;
     _ = knowledge;
     _ = security;
     _ = ai;
@@ -72,3 +76,4 @@ test {
     _ = jnanakosha;
     _ = chitrapata;
 }
+

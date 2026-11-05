@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$SavePathA = "",
     [string]$SavePathB = "",
     [switch]$CompareWithBak

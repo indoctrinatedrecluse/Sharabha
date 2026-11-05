@@ -9,6 +9,8 @@ pub const ContainerType = enum {
     SQLiteDatabase,
     UnrealEngineGVAS,
     UnitySerialized,
+    RpgMakerSave,
+    RenpySave,
     BsonFormat,
     Unknown,
 
@@ -22,6 +24,8 @@ pub const ContainerType = enum {
             .SQLiteDatabase => "SQLite 3 Engine (आधार स्तम्भ)",
             .UnrealEngineGVAS => "Unreal Engine GVAS (माया संपुट)",
             .UnitySerialized => "Unity Engine Serialization (एकीकृत प्रारूप)",
+            .RpgMakerSave => "RPG Maker Save / Maya Lila Sutra (माया लीला सूत्र)",
+            .RenpySave => "Ren'Py Visual Novel Save (काव्य सूत्र)",
             .BsonFormat => "BSON Binary Document (बीसॉन)",
             .Unknown => "Unrecognized Container (अविज्ञात)",
         };
@@ -79,6 +83,30 @@ pub fn detectMagicHeader(buffer: []const u8) ContainerType {
         return .UnitySerialized;
     }
 
+    // Ren'Py Visual Novel Save (काव्य सूत्र)
+    if (buffer.len >= 16 and std.mem.startsWith(u8, buffer, "Ren'Py Save Game")) {
+        return .RenpySave;
+    }
+
+    // RPG Maker Ruby Marshal 4.8 (.rxdata, .rvdata, .rvdata2)
+    if (buffer.len >= 2 and buffer[0] == 0x04 and buffer[1] == 0x08) {
+        return .RpgMakerSave;
+    }
+
+    // RPG Maker LZ-String Base64 ("N4Ig", "BY", "CY")
+    const trimmed_head = std.mem.trim(u8, buffer[0..@min(buffer.len, 64)], " \r\n\t");
+    if (trimmed_head.len >= 4 and (std.mem.startsWith(u8, trimmed_head, "N4Ig") or std.mem.startsWith(u8, trimmed_head, "BY") or std.mem.startsWith(u8, trimmed_head, "CY"))) {
+        return .RpgMakerSave;
+    }
+
+    // RPG Maker JSON
+    const json_check_len = @min(buffer.len, 512);
+    if (std.mem.indexOf(u8, buffer[0..json_check_len], "\"$gameParty\"") != null or
+        (std.mem.indexOf(u8, buffer[0..json_check_len], "\"party\"") != null and std.mem.indexOf(u8, buffer[0..json_check_len], "\"_gold\"") != null))
+    {
+        return .RpgMakerSave;
+    }
+
     // Plain text check
     var is_text = true;
     const check_len = @min(buffer.len, 64);
@@ -105,4 +133,13 @@ test "Magic header detection" {
 
     const text = "{\"hero\": \"Rudra\"}";
     try std.testing.expectEqual(ContainerType.PlainText, detectMagicHeader(text));
+
+    const rpg_lz = "N4IgDghgTgLgniAXKA+gcwPYBsAmSCch+AvsUA==";
+    try std.testing.expectEqual(ContainerType.RpgMakerSave, detectMagicHeader(rpg_lz));
+
+    const ruby_marshal = "\x04\x08o:\x0bObject\x00";
+    try std.testing.expectEqual(ContainerType.RpgMakerSave, detectMagicHeader(ruby_marshal));
+
+    const renpy = "Ren'Py Save Game\n\x78\x9c...";
+    try std.testing.expectEqual(ContainerType.RenpySave, detectMagicHeader(renpy));
 }

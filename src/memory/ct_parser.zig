@@ -627,6 +627,74 @@ test "CtParser parses basic cheat entries and auto assembler script" {
     try std.testing.expectEqual(@as(usize, 1), sh_table.scripts.items.len);
 }
 
+/// Normalises a raw `.CT` payload into UTF-8 text.
+///
+/// Cheat Engine writes tables as XML and still emits them as UTF-8 + BOM, and
+/// older / "Unicode" tables are UTF-16LE or UTF-16BE with a BOM. The tag scanner
+/// below matches ASCII tag names, so a UTF-16 table would otherwise parse as
+/// zero entries ("table loaded" but nothing to show). Returns an owned buffer;
+/// on the UTF-16 path the input buffer is freed.
+pub fn normalizeCtBytes(allocator: std.mem.Allocator, raw: []u8) ![]u8 {
+    // UTF-8 BOM: strip in place.
+    if (raw.len >= 3 and raw[0] == 0xEF and raw[1] == 0xBB and raw[2] == 0xBF) {
+        std.mem.copyForwards(u8, raw[0 .. raw.len - 3], raw[3..]);
+        return try allocator.realloc(raw, raw.len - 3);
+    }
+
+    const has_le_bom = raw.len >= 2 and raw[0] == 0xFF and raw[1] == 0xFE;
+    const has_be_bom = raw.len >= 2 and raw[0] == 0xFE and raw[1] == 0xFF;
+    if (!has_le_bom and !has_be_bom) return raw;
+
+    const little = has_le_bom;
+    const unit_count = (raw.len - 2) / 2;
+
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+
+    var i: usize = 0;
+    while (i < unit_count) : (i += 1) {
+        const b0: u16 = raw[2 + i * 2];
+        const b1: u16 = raw[2 + i * 2 + 1];
+        var cp: u21 = @intCast(if (little) (b0 | (b1 << 8)) else ((b0 << 8) | b1));
+
+        // Combine UTF-16 surrogate pairs; lone surrogates become U+FFFD.
+        if (cp >= 0xD800 and cp <= 0xDBFF and i + 1 < unit_count) {
+            const lb0: u16 = raw[2 + (i + 1) * 2];
+            const lb1: u16 = raw[2 + (i + 1) * 2 + 1];
+            const low: u21 = @intCast(if (little) (lb0 | (lb1 << 8)) else ((lb0 << 8) | lb1));
+            if (low >= 0xDC00 and low <= 0xDFFF) {
+                cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                i += 1;
+            } else {
+                cp = 0xFFFD;
+            }
+        } else if (cp >= 0xDC00 and cp <= 0xDFFF) {
+            cp = 0xFFFD;
+        }
+
+        if (cp == 0) continue; // NUL padding between units - drop it
+        if (cp < 0x80) {
+            try out.append(allocator, @intCast(cp));
+        } else if (cp < 0x800) {
+            try out.append(allocator, @intCast(0xC0 | (cp >> 6)));
+            try out.append(allocator, @intCast(0x80 | (cp & 0x3F)));
+        } else if (cp < 0x10000) {
+            try out.append(allocator, @intCast(0xE0 | (cp >> 12)));
+            try out.append(allocator, @intCast(0x80 | ((cp >> 6) & 0x3F)));
+            try out.append(allocator, @intCast(0x80 | (cp & 0x3F)));
+        } else {
+            try out.append(allocator, @intCast(0xF0 | (cp >> 18)));
+            try out.append(allocator, @intCast(0x80 | ((cp >> 12) & 0x3F)));
+            try out.append(allocator, @intCast(0x80 | ((cp >> 6) & 0x3F)));
+            try out.append(allocator, @intCast(0x80 | (cp & 0x3F)));
+        }
+    }
+
+    const normalized = try out.toOwnedSlice(allocator);
+    allocator.free(raw);
+    return normalized;
+}
+
 pub fn readCtFile(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
     const path_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, file_path);
     defer allocator.free(path_w);
@@ -686,7 +754,9 @@ pub fn readCtFile(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
         return error.FileReadFailed;
     }
 
-    return buf;
+    // UTF-8 + BOM and UTF-16LE/BE tables are common in the wild; normalise once
+    // here so every consumer (CLI inquest, Slint bridge, entry runner) sees UTF-8.
+    return try normalizeCtBytes(allocator, buf);
 }
 
 test "CtParser parses real-world BG3.CT if available" {
@@ -705,4 +775,65 @@ test "CtParser parses real-world BG3.CT if available" {
     try std.testing.expect(flat.len > 10);
     // Verify symbols
     try std.testing.expect(table.symbols.items.len > 0);
+}
+
+test "CtParser: UTF-8 BOM and UTF-16LE tables normalise into parseable UTF-8" {
+    const allocator = std.testing.allocator;
+
+    const xml =
+        \\<?xml version="1.0" encoding="utf-8"?>
+        \\<CheatTable CheatEngineTableVersion="46">
+        \\  <CheatEntries>
+        \\    <CheatEntry>
+        \\      <ID>1</ID>
+        \\      <Description>"Player Gold"</Description>
+        \\      <VariableType>4 Bytes</VariableType>
+        \\      <Address>game.exe+1234</Address>
+        \\    </CheatEntry>
+        \\  </CheatEntries>
+        \\</CheatTable>
+    ;
+
+    // 1. UTF-8 + BOM (what Cheat Engine writes by default) is stripped.
+    const utf8_bom = try allocator.alloc(u8, xml.len + 3);
+    utf8_bom[0] = 0xEF;
+    utf8_bom[1] = 0xBB;
+    utf8_bom[2] = 0xBF;
+    @memcpy(utf8_bom[3..], xml);
+    const stripped = try normalizeCtBytes(allocator, utf8_bom);
+    defer allocator.free(stripped);
+    try std.testing.expectEqualStrings(xml, stripped);
+
+    // 2. UTF-16LE + BOM ("Unicode" table) is transcoded, not silently ignored.
+    const wide = try allocator.alloc(u8, 2 + xml.len * 2);
+    wide[0] = 0xFF;
+    wide[1] = 0xFE;
+    for (xml, 0..) |c, i| {
+        wide[2 + i * 2] = c;
+        wide[2 + i * 2 + 1] = 0;
+    }
+    const narrow = try normalizeCtBytes(allocator, wide);
+    defer allocator.free(narrow);
+    try std.testing.expectEqualStrings(xml, narrow);
+
+    var parser = CtParser.init(allocator, narrow);
+    var table = try parser.parse();
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(u32, 46), table.version);
+    try std.testing.expectEqual(@as(usize, 1), table.entries.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, table.entries.items[0].description, "Player Gold") != null);
+    try std.testing.expectEqualStrings("game.exe+1234", table.entries.items[0].address);
+
+    // 3. UTF-16BE is handled too.
+    const wide_be = try allocator.alloc(u8, 2 + xml.len * 2);
+    wide_be[0] = 0xFE;
+    wide_be[1] = 0xFF;
+    for (xml, 0..) |c, i| {
+        wide_be[2 + i * 2] = 0;
+        wide_be[2 + i * 2 + 1] = c;
+    }
+    const narrow_be = try normalizeCtBytes(allocator, wide_be);
+    defer allocator.free(narrow_be);
+    try std.testing.expectEqualStrings(xml, narrow_be);
 }

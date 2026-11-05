@@ -1,0 +1,22 @@
+{
+  "system": { "locale": "en_US", "versionId": 12345678, "switches": null },
+  "party": {
+    "_gold": 4200,
+    "_items": { "1": 5, "2": 1, "17": 12 },
+    "_actors": [1, 2]
+  },
+  "actors": {
+    "_data": [
+      null,
+      { "_name": "Harold", "_level": 12, "_hp": 480, "_mp": 90 },
+      { "_name": "Marsha", "_level": 11, "_hp": 410, "_mp": 140 }
+    ]
+  },
+  "variables": {
+    "_data": [null, 7, 1500, 3, 0, 42]
+  },
+  "switches": {
+    "_data": [null, true, false, true]
+  },
+  "meta": { "sharabha_fixture": "RPG Maker MV/MZ sample (plain JSON container)" }
+}

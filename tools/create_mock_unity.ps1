@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # SHARABHA // AIKYA SUTRA (ऐक्य सूत्र) — MOCK UNITY SAVE GENERATOR
 # Generates realistic Unity saves for verification:
 # 1. SampleUnity.dat (NRBF BinaryFormatter)

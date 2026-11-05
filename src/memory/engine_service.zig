@@ -108,6 +108,7 @@ pub const win = struct {
     ) callconv(.winapi) i32;
 
     pub extern "kernel32" fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) callconv(.winapi) ?HANDLE;
+    pub extern "kernel32" fn TerminateProcess(hProcess: HANDLE, uExitCode: u32) callconv(.winapi) i32;
     pub extern "kernel32" fn CloseHandle(hObject: HANDLE) callconv(.winapi) i32;
     pub extern "kernel32" fn CreateDirectoryA(lpPathName: [*:0]const u8, lpSecurityAttributes: ?*anyopaque) callconv(.winapi) i32;
     pub extern "kernel32" fn DeleteFileA(lpFileName: [*:0]const u8) callconv(.winapi) i32;
@@ -115,6 +116,19 @@ pub const win = struct {
     pub extern "kernel32" fn GetSystemTimeAsFileTime(lpSystemTimeAsFileTime: *FILETIME) callconv(.winapi) void;
     pub extern "kernel32" fn GetCurrentProcessId() callconv(.winapi) u32;
     pub extern "kernel32" fn Sleep(dwMilliseconds: u32) callconv(.winapi) void;
+    pub extern "kernel32" fn GetFileAttributesW(lpFileName: [*:0]const u16) callconv(.winapi) u32;
+    pub extern "kernel32" fn GetModuleFileNameA(hModule: ?*anyopaque, lpFilename: [*]u8, nSize: u32) callconv(.winapi) u32;
+
+    pub const INVALID_FILE_ATTRIBUTES: u32 = 0xFFFFFFFF;
+
+    pub const MOVEFILE_REPLACE_EXISTING: u32 = 0x00000001;
+    pub const MOVEFILE_WRITE_THROUGH: u32 = 0x00000008;
+
+    pub extern "kernel32" fn MoveFileExW(
+        lpExistingFileName: [*:0]const u16,
+        lpNewFileName: [*:0]const u16,
+        dwFlags: u32,
+    ) callconv(.winapi) i32;
 };
 
 pub const ACTIVE_PID_PATH: [*:0]const u8 = "assets/memory/active_pid.txt";
@@ -123,10 +137,58 @@ pub const FROZEN_ENTRIES_PATH: [*:0]const u8 = "assets/memory/frozen_entries.txt
 pub const FREEZE_DAEMON_PID_PATH: [*:0]const u8 = "assets/memory/freeze_daemon_pid.txt";
 pub const POINTER_PATHS_PATH: [*:0]const u8 = "assets/memory/pointer_paths.txt";
 pub const LIVE_SCAN_SLINT_PATH: [*:0]const u8 = "src/ui/live_scan.slint";
+pub const LIVE_TABLE_SLINT_PATH: [*:0]const u8 = "src/ui/live_table.slint";
 pub const APP_SLINT_PATH: [*:0]const u16 = std.unicode.utf8ToUtf16LeStringLiteral("src/ui/app.slint");
 
 pub fn ensureDirectory(path: [*:0]const u8) void {
     _ = win.CreateDirectoryA(path, null);
+}
+
+fn dupeUtf8Z(allocator: std.mem.Allocator, text: []const u8) ![:0]u8 {
+    const out = try allocator.allocSentinel(u8, text.len, 0);
+    @memcpy(out, text);
+    return out;
+}
+
+fn pathExistsUtf8(path: []const u8) bool {
+    var wide_buf: [2048]u16 = undefined;
+    const wide = toWideZ(&wide_buf, path) orelse return false;
+    return win.GetFileAttributesW(wide) != win.INVALID_FILE_ATTRIBUTES;
+}
+
+/// Resolves a project-relative path (`src/ui/live_table.slint`, `assets/...`).
+///
+/// Those paths are relative to the Sharabha root, but a packaged install starts
+/// `bin\Sharabha.exe`, so the process CWD is `bin\` and a naive relative write
+/// lands in `bin\src\ui\...` - a location the auto-reloading Slint viewer never
+/// watches. Resolution order:
+///   1. path as given (dev layout: the repo root is the CWD),
+///   2. exe dir with a trailing `bin` component removed (portable layout),
+///   3. plain exe dir.
+/// Always returns an owned NUL-terminated string.
+pub fn resolveProjectPath(allocator: std.mem.Allocator, relative: []const u8) ![:0]u8 {
+    if (pathExistsUtf8(relative)) return try dupeUtf8Z(allocator, relative);
+
+    var exe_buf: [1024]u8 = undefined;
+    const exe_len = win.GetModuleFileNameA(null, &exe_buf, exe_buf.len);
+    if (exe_len > 0 and exe_len < exe_buf.len) {
+        const exe_path = exe_buf[0..exe_len];
+        const exe_dir = std.fs.path.dirname(exe_path) orelse ".";
+
+        if (std.ascii.eqlIgnoreCase(std.fs.path.basename(exe_dir), "bin")) {
+            if (std.fs.path.dirname(exe_dir)) |root| {
+                const candidate = try std.fmt.allocPrint(allocator, "{s}\\{s}", .{ root, relative });
+                defer allocator.free(candidate);
+                if (pathExistsUtf8(candidate)) return try dupeUtf8Z(allocator, candidate);
+            }
+        }
+
+        const candidate = try std.fmt.allocPrint(allocator, "{s}\\{s}", .{ exe_dir, relative });
+        defer allocator.free(candidate);
+        if (pathExistsUtf8(candidate)) return try dupeUtf8Z(allocator, candidate);
+    }
+
+    return try dupeUtf8Z(allocator, relative);
 }
 
 pub fn deleteFile(path: [*:0]const u8) void {
@@ -144,14 +206,59 @@ pub fn readFullFile(path: [*:0]const u8, buffer: []u8) ?usize {
     return bytes_read;
 }
 
-pub fn writeFullFile(path: [*:0]const u8, data: []const u8) !void {
-    const h = win.CreateFileA(path, win.GENERIC_WRITE, win.FILE_SHARE_READ, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
+/// Converts a UTF-8 slice into a NUL-terminated UTF-16 stack buffer.
+fn toWideZ(buf: []u16, path: []const u8) ?[*:0]const u16 {
+    if (path.len + 1 > buf.len) return null;
+    const len = std.unicode.utf8ToUtf16Le(buf, path) catch return null;
+    buf[len] = 0;
+    return buf[0..len :0].ptr;
+}
+
+/// In-place write used as the fallback path of `writeFullFile`.
+fn writeFileDirect(path: [*:0]const u8, data: []const u8) !void {
+    const h = win.CreateFileA(path, win.GENERIC_WRITE, win.FILE_SHARE_READ | win.FILE_SHARE_WRITE, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
     if (h == win.INVALID_HANDLE_VALUE) return error.CannotCreateFile;
     defer _ = win.CloseHandle(h);
 
     var bytes_written: u32 = 0;
     const ok = win.WriteFile(h, data.ptr, @as(u32, @intCast(data.len)), &bytes_written, null);
-    if (ok == 0) return error.WriteFileFailed;
+    if (ok == 0 or bytes_written != data.len) return error.WriteFileFailed;
+}
+
+/// Atomically writes `data` to `path`: the payload goes to `<path>.tmp` first and is
+/// then swapped in with MoveFileExW(MOVEFILE_REPLACE_EXISTING).
+///
+/// This matters for the auto-generated `live_*.slint` bridges: slint-viewer runs
+/// with `--auto-reload`, so an in-place CREATE_ALWAYS write exposes a truncated
+/// (or empty) Slint file to the watcher, the reload fails to compile and the whole
+/// UI process dies. A directory-entry swap makes readers see either the previous
+/// or the complete new file - never a partial one.
+pub fn writeFullFile(path: [*:0]const u8, data: []const u8) !void {
+    const path_slice = std.mem.span(path);
+
+    var tmp_buf: [1024]u8 = undefined;
+    if (path_slice.len + 5 <= tmp_buf.len) {
+        @memcpy(tmp_buf[0..path_slice.len], path_slice);
+        @memcpy(tmp_buf[path_slice.len..][0..5], ".tmp\x00");
+        const tmp_slice = tmp_buf[0 .. path_slice.len + 4];
+        const tmp_z: [*:0]const u8 = @ptrCast(tmp_slice.ptr);
+
+        if (writeFileDirect(tmp_z, data)) |_| {
+            var src_w_buf: [1024]u16 = undefined;
+            var dst_w_buf: [1024]u16 = undefined;
+            const src_w = toWideZ(&src_w_buf, tmp_slice);
+            const dst_w = toWideZ(&dst_w_buf, path_slice);
+            if (src_w != null and dst_w != null) {
+                const flags = win.MOVEFILE_REPLACE_EXISTING | win.MOVEFILE_WRITE_THROUGH;
+                if (win.MoveFileExW(src_w.?, dst_w.?, flags) != 0) return;
+            }
+            // Atomic swap unavailable (locked handle, cross-volume temp, ...):
+            // drop the shadow copy and fall back to a direct overwrite.
+            deleteFile(tmp_z);
+        } else |_| {}
+    }
+
+    try writeFileDirect(path, data);
 }
 
 pub fn touchAppSlint() void {
@@ -885,8 +992,42 @@ pub fn ensureFreezeDaemonRunning() void {
     if (ok != 0) {
         _ = win.CloseHandle(pi.hProcess);
         _ = win.CloseHandle(pi.hThread);
+        // Record the PID from the parent side as well: the daemon writes the
+        // same value on startup, but a caller that arms-then-disarms quickly
+        // would otherwise race the child and leak a locked executable.
+        ensureDirectory("assets");
+        ensureDirectory("assets/memory");
+        var pid_buf: [32]u8 = undefined;
+        const pid_str = std.fmt.bufPrint(&pid_buf, "{d}\n", .{pi.dwProcessId}) catch "";
+        if (pid_str.len > 0) writeFullFile(FREEZE_DAEMON_PID_PATH, pid_str) catch {};
         std.debug.print("  [✓] Stambhana Background Daemon spawned [PID {d}].\n", .{pi.dwProcessId});
     }
+}
+
+/// Terminates the background Stambhana sentinel loop (if armed) and clears its
+/// PID record. The daemon keeps `SharabhaCli.exe` mapped, which blocks the next
+/// `zig build` install step, so anything that arms a freeze must be able to
+/// release it deterministically instead of waiting out the idle timeout.
+pub fn handleStopFreezeDaemon() void {
+    // The PID record may land a few milliseconds after CreateProcess returns.
+    var attempt: usize = 0;
+    while (attempt < 20) : (attempt += 1) {
+        if (isFreezeDaemonRunning()) |pid| {
+            // PROCESS_TERMINATE
+            if (win.OpenProcess(0x0001, 0, pid)) |handle| {
+                defer _ = win.CloseHandle(handle);
+                if (win.TerminateProcess(handle, 0) != 0) {
+                    std.debug.print("  [✓] Stambhana Background Daemon disarmed [PID {d}].\n", .{pid});
+                }
+            }
+            // Give the kernel a beat to tear the image section down before the
+            // caller tries to replace the executable.
+            win.Sleep(120);
+            break;
+        }
+        win.Sleep(25);
+    }
+    deleteFile(FREEZE_DAEMON_PID_PATH);
 }
 
 pub fn handleFreezeDaemon(allocator: std.mem.Allocator) !void {
@@ -1534,15 +1675,20 @@ pub fn handleLoadCt(allocator: std.mem.Allocator, file_path: []const u8) !void {
     // Write src/ui/live_table.slint
     try exportLiveTableSlint(allocator, final_path, flat_entries, ph);
 
-    // Persist active table path
-    const act_tbl_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, "assets\\tables\\active_table_path.txt") catch null;
-    if (act_tbl_w) |pw| {
-        defer allocator.free(pw);
-        const h = win.CreateFileW(pw.ptr, win.GENERIC_WRITE, 0, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
-        if (h != win.INVALID_HANDLE_VALUE) {
-            defer _ = win.CloseHandle(h);
-            var wr: u32 = 0;
-            _ = win.WriteFile(h, final_path.ptr, @intCast(final_path.len), &wr, null);
+    // Persist active table path (resolved against the project root so packaged
+    // `bin\Sharabha.exe` runs still update the file the launcher scripts read).
+    const act_tbl_path = resolveProjectPath(allocator, "assets\\tables\\active_table_path.txt") catch null;
+    if (act_tbl_path) |ap| {
+        defer allocator.free(ap);
+        const act_tbl_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, ap) catch null;
+        if (act_tbl_w) |pw| {
+            defer allocator.free(pw);
+            const h = win.CreateFileW(pw.ptr, win.GENERIC_WRITE, 0, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
+            if (h != win.INVALID_HANDLE_VALUE) {
+                defer _ = win.CloseHandle(h);
+                var wr: u32 = 0;
+                _ = win.WriteFile(h, final_path.ptr, @intCast(final_path.len), &wr, null);
+            }
         }
     }
 
@@ -1643,18 +1789,19 @@ fn exportLiveTableSlint(
         basename = basename[0 .. basename.len - 3];
     }
 
-    var hdr_buf: [512]u8 = undefined;
-    const hdr1 = try std.fmt.bufPrint(&hdr_buf, "export global LiveTable {{\n    in property <string> table_title: \"{s}\";\n    in property <string> file_path: \"", .{
-        basename,
-    });
-    try list.appendSlice(allocator, hdr1);
+    try list.appendSlice(allocator, "export global LiveTable {\n    in property <string> table_title: \"");
+    try appendEscapedSlint(&list, allocator, basename);
+    try list.appendSlice(allocator, "\";\n    in property <string> file_path: \"");
     try appendEscapedSlint(&list, allocator, file_path);
-    const hdr2 = try std.fmt.bufPrint(&hdr_buf, "\";\n    in property <string> status_feedback: \"Loaded: {s} ({d} Entries)\";\n    in property <int> total_entries: {d};\n    in property <bool> is_ct_table: true;\n\n    in property <[CheatTableRowData]> rows: [\n", .{
-        basename,
-        entries.len,
-        entries.len,
-    });
-    try list.appendSlice(allocator, hdr2);
+    try list.appendSlice(allocator, "\";\n    in property <string> status_feedback: \"Loaded: ");
+    try appendEscapedSlint(&list, allocator, basename);
+
+    const hdr = try std.fmt.allocPrint(allocator,
+        " ({d} Entries)\";\n    in property <int> total_entries: {d};\n    in property <bool> is_ct_table: true;\n\n    in property <[CheatTableRowData]> rows: [\n",
+        .{ entries.len, entries.len },
+    );
+    defer allocator.free(hdr);
+    try list.appendSlice(allocator, hdr);
 
     const max_rows = @min(entries.len, 50);
     for (entries[0..max_rows], 0..) |entry, i| {
@@ -1739,30 +1886,50 @@ fn exportLiveTableSlint(
 
     try list.appendSlice(allocator, "    ];\n}\n");
 
-    const target_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, "src\\ui\\live_table.slint");
-    defer allocator.free(target_w);
-
-    const h = win.CreateFileW(target_w.ptr, win.GENERIC_WRITE, 0, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
-    if (h != win.INVALID_HANDLE_VALUE) {
-        defer _ = win.CloseHandle(h);
-        var wr: u32 = 0;
-        _ = win.WriteFile(h, list.items.ptr, @intCast(list.items.len), &wr, null);
-    }
+    // Atomic swap: slint-viewer watches this file with --auto-reload.
+    // Resolved against the project root so a packaged `bin\Sharabha.exe`
+    // (CWD = bin\) still updates the file the viewer is actually watching.
+    const slint_path = try resolveProjectPath(allocator, std.mem.span(LIVE_TABLE_SLINT_PATH));
+    defer allocator.free(slint_path);
+    try writeFullFile(slint_path.ptr, list.items);
 }
 
+/// Escapes a value for a Slint string literal and guarantees valid UTF-8 output,
+/// so a `.CT` authored in a legacy code page can never emit an uncompilable
+/// `live_table.slint` (which would take the auto-reloading viewer down with it).
 fn appendEscapedSlint(list: *std.ArrayList(u8), allocator: std.mem.Allocator, str: []const u8) !void {
-    for (str) |b| {
+    var i: usize = 0;
+    while (i < str.len) {
+        const b = str[i];
         if (b == '"') {
             try list.appendSlice(allocator, "\\\"");
+            i += 1;
         } else if (b == '\\') {
             try list.appendSlice(allocator, "\\\\");
-        } else if (b == '\n') {
+            i += 1;
+        } else if (b == '\n' or b == '\r' or b == '\t') {
             try list.appendSlice(allocator, " ");
-        } else if (b == '\r') {
-            // skip
-        } else {
+            i += 1;
+        } else if (b < 0x20 or b == 0x7F) {
+            // Drop other control characters (NUL, BEL, ESC, ...) outright.
+            i += 1;
+        } else if (b < 0x80) {
             const ch = [_]u8{b};
             try list.appendSlice(allocator, &ch);
+            i += 1;
+        } else {
+            const seq_len = std.unicode.utf8ByteSequenceLength(b) catch {
+                try list.appendSlice(allocator, "?");
+                i += 1;
+                continue;
+            };
+            if (i + seq_len > str.len or !std.unicode.utf8ValidateSlice(str[i .. i + seq_len])) {
+                try list.appendSlice(allocator, "?");
+                i += 1;
+                continue;
+            }
+            try list.appendSlice(allocator, str[i .. i + seq_len]);
+            i += seq_len;
         }
     }
 }
@@ -1798,6 +1965,73 @@ test "engine_service self process scan, filter, and write" {
     try handleFreezeMem(allocator, addr_str, false);
     try std.testing.expect(!isAddressFrozen(addr_str));
 
+    // The armed sentinel must not outlive the test: a live daemon keeps
+    // SharabhaCli.exe mapped and breaks the next `zig build` install step.
+    handleStopFreezeDaemon();
+    try std.testing.expect(isFreezeDaemonRunning() == null);
+
     // 5. Reset scan test
     try handleResetScan(allocator);
+}
+
+test "writeFullFile performs an atomic swap and leaves no temp file behind" {
+    const probe_path = "assets/memory/_write_probe.txt";
+    ensureDirectory("assets");
+    ensureDirectory("assets/memory");
+    deleteFile("assets/memory/_write_probe.txt");
+    deleteFile("assets/memory/_write_probe.txt.tmp");
+
+    const payload = "Sharabha atomic write probe \xCE\xBB\nsecond line\n";
+    try writeFullFile(probe_path, payload);
+    // Overwrite must replace, never append.
+    try writeFullFile(probe_path, payload);
+
+    var buf: [256]u8 = undefined;
+    const read = readFullFile(probe_path, &buf) orelse return error.ProbeNotWritten;
+    try std.testing.expectEqualStrings(payload, buf[0..read]);
+
+    // The shadow copy is renamed over the target, so it must not survive.
+    var tmp_buf: [64]u8 = undefined;
+    try std.testing.expect(readFullFile("assets/memory/_write_probe.txt.tmp", &tmp_buf) == null);
+
+    deleteFile(probe_path);
+}
+
+test "appendEscapedSlint keeps live_table.slint compilable for hostile input" {
+    const allocator = std.testing.allocator;
+
+    var list: std.ArrayList(u8) = .empty;
+    defer list.deinit(allocator);
+
+    // quote, backslash, newline, carriage return, tab, NUL/BEL, valid UTF-8
+    // (emoji + Devanagari) and an invalid lone 0x94 byte (CP1252 smart quote).
+    const hostile = "a\"b\\c\nd\re\tf\x00g\x07h\xF0\x9F\x94\xB1\xE0\xA4\xB8\x94z";
+    try appendEscapedSlint(&list, allocator, hostile);
+
+    try std.testing.expectEqualStrings(
+        "a\\\"b\\\\c d e fgh\xF0\x9F\x94\xB1\xE0\xA4\xB8?z",
+        list.items,
+    );
+    // Whatever a `.CT` contains, the emitted Slint literal stays valid UTF-8.
+    try std.testing.expect(std.unicode.utf8ValidateSlice(list.items));
+}
+
+test "resolveProjectPath locates project-relative UI assets" {
+    const allocator = std.testing.allocator;
+
+    // Table fixture (slash form, as used by the Slint bridge constants).
+    const table_path = try resolveProjectPath(allocator, "assets/tables/SampleTable.CT");
+    defer allocator.free(table_path);
+    try std.testing.expect(pathExistsUtf8(table_path));
+
+    // Backslash form, as used by the active-table path persistence.
+    const active_path = try resolveProjectPath(allocator, "assets\\tables\\SampleTable.CT");
+    defer allocator.free(active_path);
+    try std.testing.expect(pathExistsUtf8(active_path));
+
+    // Unresolvable paths degrade to the literal relative path instead of failing.
+    const missing = try resolveProjectPath(allocator, "src/ui/__sharabha_missing_bridge.slint");
+    defer allocator.free(missing);
+    try std.testing.expect(!pathExistsUtf8(missing));
+    try std.testing.expectEqualStrings("src/ui/__sharabha_missing_bridge.slint", std.mem.span(missing.ptr));
 }
