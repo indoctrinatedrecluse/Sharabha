@@ -36,7 +36,7 @@ pub fn printBanner() void {
     std.debug.print(
         \\
         \\========================================================================
-        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.5.2)
+        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.5.3)
         \\  [Kalyana Sthiti: Calm / शान्त]   │   [Rudra Tandava: Violent / उग्र]
         \\  ॐ नमः शरभाय — Subduing Narasimha & The Untamed Process
         \\========================================================================

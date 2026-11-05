@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.3] - 2026-11-05
+
+### Fixed
+- **Update downloads were impossible under Windows PowerShell 5.1** (the runtime the UI actually shells out to): `tools/updater.ps1` built its streaming client with `New-Object System.Net.Http.HttpClient`, and `System.Net.Http` is not resolvable in a stock 5.1 session — every `-Download` aborted with `Cannot find type [System.Net.Http.HttpClient]` *after* the progress state had already been written, which the modal rendered as a download that never starts. The transport is now `WebRequest`/`HttpWebRequest` (present in every supported runtime) with an explicit `Tls12`(+`Tls13` when available) negotiation, a `User-Agent`, redirect following, `Content-Length` used as a fallback size when the API omits it, and a non-zero exit code on failure. Verified end-to-end: a real 57.14 MB release asset streams, verifies, and lands in `%TEMP%\Sharabha-Update`.
+- **Embedded LuaJIT no longer inherits a host-wide `LUA_PATH` / `LUA_CPATH`** — root cause of the "Cheat Engine / `require`" breakage investigated this cycle:
+  - In Lua, an exported `LUA_PATH` **replaces** (never extends) the compiled-in default unless it contains a bare `;;` entry. Any machine carrying a leftover 5.1 LuaRocks / LuaJIT tree therefore redirected `require()` away from the modules that ship next to the host executable. That is exactly why a `.CT` script could not find its own `defines.lua` when the launch CWD was not the Cheat Engine folder, and why `package.cpath` entries could hand 5.1-ABI DLLs to the VM.
+  - `ScriptEngine.init` (`src/scripting/engine.zig`) now pins `package.path` / `package.cpath` to deterministic roots before the first user script runs: `<exe>\lua\?.lua`, `<exe>\lua\?\init.lua`, the portable vessel root (`<root>\lua\?.lua`, `<root>\?.lua`) when the executable lives in `bin\`, `<exe>\?.lua`, `<exe>\?\init.lua`, and only then the process CWD — mirroring `engine_service.resolveProjectPath`. Native modules resolve from `<exe>\lua\?.dll`, `<root>\lua\?.dll`, `<exe>\?.dll`, `.\?.dll`.
+  - Extension roots are still available, but only as a documented opt-in appended *after* the bundle: `SHARABHA_LUA_PATH` / `SHARABHA_LUA_CPATH`. A stale global can no longer shadow anything Sharabha ships.
+  - Failure to pin is non-fatal (a single `[Lua Warning]` on stderr); the VM then keeps Lua's compiled-in defaults.
+- **Auto-updater payload corruption paths (`tools/updater.ps1`)**:
+  - The release-metadata cache is written atomically (`<cache>.tmp` → copy) and treated as stale after 30 minutes. `-Download` now refreshes instead of trusting a superseded tag/asset URL; `-Dismiss` re-serialises whatever is cached without touching the network.
+  - Downloads are verified before they can ever be installed: byte count must equal the asset size **and** the payload must start with an `MZ` header. A truncated or HTML-error-page download is deleted from the staging folder rather than being picked up later as the newest `*setup.exe`.
+  - `-Install` re-validates the payload (size + `MZ`), closes `Sharabha` / `slint-viewer` **before** the setup starts (bounded wait loop, so no files-in-use dialog), and reports an `Installer Payload Invalid` state instead of failing silently.
+  - `published_at` / `body` are handled null-safely (`Format-ReleaseDate`); changelog bodies are capped at 32k with control bytes stripped so an oversized or ESC-laden release note can never break `slint-viewer --auto-reload`; version comparison is semver-aware (`Test-NewerVersion`, so `v0.5.10` correctly beats `v0.5.9`).
+
+### Changed
+- **Console cloaking contract documented and enforced for the updater**: the UI invokes it through `powershell.exe -WindowStyle Hidden`, the script sets `$ProgressPreference = 'SilentlyContinue'` so no progress bar can paint into an allocated console, and every child it spawns (`setup.exe`) is a GUI-subsystem binary. Check → download → install produces no terminal window and no dialog.
+- Version bumped to **0.5.3** across `build.zig.zon`, `src/root.zig`, the installer UI / logic / check scripts, `tools/package.ps1`, `tools/extract_release_notes.ps1`, `tools/updater.ps1`, and the release workflow's fallback tag.
+
+### Added
+- **Regression tests for the Lua path pinning** (`src/scripting/engine.zig`): `buildPackagePath` ordering (exe → portable root → exe dir → CWD → opt-in), `buildPackageCpath` + `Lua` string escaping for Windows paths, and a live VM test asserting the running `package.path` starts with the executable's own `lua\?.lua` and never contains a host `LUA_PATH`.
+
+---
+
 ## [0.5.2] - 2026-11-05
 
 ### Fixed

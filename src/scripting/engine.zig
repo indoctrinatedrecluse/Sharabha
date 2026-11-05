@@ -13,6 +13,142 @@ pub fn luaToString(L: ?*c.lua_State, idx: c_int) ?[:0]const u8 {
     return std.mem.span(ptr);
 }
 
+/// Opt-in variables that add *extra* Lua search roots on top of Sharabha's own
+/// deterministic ones. The stock `LUA_PATH` / `LUA_CPATH` are deliberately
+/// ignored: Lua replaces (never extends) its compiled-in defaults with them, so a
+/// host-wide `LUA_PATH` left behind by another Lua/LuaRocks install silently hides
+/// every module that ships next to the executable (the exact failure mode that
+/// breaks Cheat Engine's `require("defines")` on machines carrying a stale 5.1
+/// LuaRocks tree). Sharabha pins its own roots instead and appends these opt-ins.
+pub const LUA_PATH_ENV = "SHARABHA_LUA_PATH";
+pub const LUA_CPATH_ENV = "SHARABHA_LUA_CPATH";
+
+/// Minimal kernel32 surface needed to resolve the executable directory and the
+/// opt-in environment variables without depending on std APIs whose shape moves
+/// between Zig releases (the rest of the engine talks to Win32 directly too).
+const kernel32 = struct {
+    pub extern "kernel32" fn GetModuleFileNameA(hModule: ?*anyopaque, lpFilename: [*]u8, nSize: u32) callconv(.winapi) u32;
+    pub extern "kernel32" fn GetEnvironmentVariableA(lpName: [*:0]const u8, lpBuffer: [*]u8, nSize: u32) callconv(.winapi) u32;
+};
+
+/// Reads an environment variable into `buffer`; returns `null` when unset,
+/// empty, or longer than the buffer (a truncated search path is worse than none).
+fn readEnvVar(buffer: []u8, name: [:0]const u8) ?[]const u8 {
+    if (buffer.len == 0) return null;
+    const len = kernel32.GetEnvironmentVariableA(name, buffer.ptr, @intCast(buffer.len));
+    if (len == 0 or len >= buffer.len) return null;
+    const value = buffer[0..len];
+    if (std.mem.trim(u8, value, " \t").len == 0) return null;
+    return value;
+}
+
+/// Resolves the directory that holds the running executable (`zig-out\bin` in a
+/// dev build, `<install>\bin` for a packaged vessel). Falls back to `null` (the
+/// caller substitutes the process CWD) when the path cannot be queried.
+fn exeDirectory(buffer: []u8) ?[]const u8 {
+    if (buffer.len == 0) return null;
+    const len = kernel32.GetModuleFileNameA(null, buffer.ptr, @intCast(buffer.len));
+    if (len == 0 or len >= buffer.len) return null;
+    return std.fs.path.dirname(buffer[0..len]);
+}
+
+/// Appends one `;`-separated entry, formatting it on the way in.
+fn appendPathEntry(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt: []const u8, args: anytype) !void {
+    if (out.items.len > 0) try out.append(allocator, ';');
+    const entry = try std.fmt.allocPrint(allocator, fmt, args);
+    defer allocator.free(entry);
+    try out.appendSlice(allocator, entry);
+}
+
+/// Builds the deterministic Lua `package.path` for `exe_dir`.
+///
+/// Resolution order (first hit wins, `?` is substituted with the module name):
+///   1. `<exe>\lua\?.lua` / `<exe>\lua\?\init.lua`  — bundled module tree,
+///   2. `<root>\lua\?.lua` / `<root>\?.lua`         — portable layout, where the
+///      executable lives in `bin\` and the vessel root is one level up (mirrors
+///      `engine_service.resolveProjectPath`),
+///   3. `<exe>\?.lua` / `<exe>\?\init.lua`          — modules dropped next to the exe,
+///   4. `.\?.lua` / `.\?\init.lua`                  — process CWD (repo-root runs),
+///   5. `extra` (the `SHARABHA_LUA_PATH` opt-in), appended verbatim.
+pub fn buildPackagePath(allocator: std.mem.Allocator, exe_dir: []const u8, extra: ?[]const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+
+    const dir = if (exe_dir.len == 0) "." else exe_dir;
+
+    try appendPathEntry(allocator, &out, "{s}\\lua\\?.lua", .{dir});
+    try appendPathEntry(allocator, &out, "{s}\\lua\\?\\init.lua", .{dir});
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.basename(dir), "bin")) {
+        if (std.fs.path.dirname(dir)) |root| {
+            try appendPathEntry(allocator, &out, "{s}\\lua\\?.lua", .{root});
+            try appendPathEntry(allocator, &out, "{s}\\?.lua", .{root});
+        }
+    }
+
+    try appendPathEntry(allocator, &out, "{s}\\?.lua", .{dir});
+    try appendPathEntry(allocator, &out, "{s}\\?\\init.lua", .{dir});
+    try appendPathEntry(allocator, &out, ".\\?.lua", .{});
+    try appendPathEntry(allocator, &out, ".\\?\\init.lua", .{});
+
+    if (extra) |raw| {
+        const trimmed = std.mem.trim(u8, raw, "; \t");
+        if (trimmed.len > 0) {
+            try out.append(allocator, ';');
+            try out.appendSlice(allocator, trimmed);
+        }
+    }
+
+    return out.toOwnedSlice(allocator);
+}
+
+/// Companion of `buildPackagePath` for native modules (`package.cpath`).
+pub fn buildPackageCpath(allocator: std.mem.Allocator, exe_dir: []const u8, extra: ?[]const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+
+    const dir = if (exe_dir.len == 0) "." else exe_dir;
+
+    try appendPathEntry(allocator, &out, "{s}\\lua\\?.dll", .{dir});
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.basename(dir), "bin")) {
+        if (std.fs.path.dirname(dir)) |root| {
+            try appendPathEntry(allocator, &out, "{s}\\lua\\?.dll", .{root});
+        }
+    }
+
+    try appendPathEntry(allocator, &out, "{s}\\?.dll", .{dir});
+    try appendPathEntry(allocator, &out, ".\\?.dll", .{});
+
+    if (extra) |raw| {
+        const trimmed = std.mem.trim(u8, raw, "; \t");
+        if (trimmed.len > 0) {
+            try out.append(allocator, ';');
+            try out.appendSlice(allocator, trimmed);
+        }
+    }
+
+    return out.toOwnedSlice(allocator);
+}
+
+/// Escapes `text` for use inside a double-quoted Lua string literal.
+fn escapeLuaString(allocator: std.mem.Allocator, text: []const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+
+    for (text) |byte| {
+        switch (byte) {
+            '\\' => try out.appendSlice(allocator, "\\\\"),
+            '"' => try out.appendSlice(allocator, "\\\""),
+            '\n' => try out.appendSlice(allocator, "\\n"),
+            '\r' => try out.appendSlice(allocator, "\\r"),
+            else => try out.append(allocator, byte),
+        }
+    }
+
+    return out.toOwnedSlice(allocator);
+}
+
 pub const ExecutionResult = struct {
     success: bool,
     output: []const u8,
@@ -47,7 +183,47 @@ pub const ScriptEngine = struct {
         self.registerBindings();
         const ce_compat = @import("ce_compat.zig");
         ce_compat.registerCeCompatibility(&self);
+        self.pinPackagePaths();
         return self;
+    }
+
+    /// Pins `package.path` / `package.cpath` to Sharabha's own deterministic roots
+    /// (see `buildPackagePath`) so the embedded LuaJIT can never inherit a stray
+    /// host `LUA_PATH` / `LUA_CPATH`. Failure is non-fatal: a warning is printed and
+    /// the runtime keeps Lua's compiled-in defaults.
+    fn pinPackagePaths(self: *ScriptEngine) void {
+        const allocator = self.allocator;
+
+        var exe_buf: [1024]u8 = undefined;
+        const exe_dir = exeDirectory(&exe_buf) orelse ".";
+
+        var env_path_buf: [8192]u8 = undefined;
+        const extra_path = readEnvVar(&env_path_buf, LUA_PATH_ENV);
+
+        var env_cpath_buf: [8192]u8 = undefined;
+        const extra_cpath = readEnvVar(&env_cpath_buf, LUA_CPATH_ENV);
+
+        const path = buildPackagePath(allocator, exe_dir, extra_path) catch return;
+        defer allocator.free(path);
+        const cpath = buildPackageCpath(allocator, exe_dir, extra_cpath) catch return;
+        defer allocator.free(cpath);
+
+        const escaped_path = escapeLuaString(allocator, path) catch return;
+        defer allocator.free(escaped_path);
+        const escaped_cpath = escapeLuaString(allocator, cpath) catch return;
+        defer allocator.free(escaped_cpath);
+
+        const chunk = std.fmt.allocPrintSentinel(
+            allocator,
+            "package.path = \"{s}\"\npackage.cpath = \"{s}\"\n",
+            .{ escaped_path, escaped_cpath },
+            0,
+        ) catch return;
+        defer allocator.free(chunk);
+
+        self.runString(chunk) catch {
+            std.debug.print("[Lua Warning] Unable to pin package.path/package.cpath\n", .{});
+        };
     }
 
     pub fn deinit(self: *ScriptEngine) void {
@@ -697,4 +873,66 @@ test "LuaJIT read_pointer chain traversal on self-process" {
     const res = engine.executeWithOutput(script);
     try std.testing.expect(res.success);
     try std.testing.expect(std.mem.indexOf(u8, res.output, "Pointer resolved successfully") != null);
+}
+
+test "buildPackagePath pins exe-relative roots before the process CWD" {
+    const allocator = std.testing.allocator;
+
+    const path = try buildPackagePath(allocator, "C:\\Games\\Sharabha\\bin", null);
+    defer allocator.free(path);
+
+    try std.testing.expect(std.mem.startsWith(u8, path, "C:\\Games\\Sharabha\\bin\\lua\\?.lua;"));
+    // Portable layout: the vessel root (one level above `bin`) is searched too.
+    try std.testing.expect(std.mem.indexOf(u8, path, "C:\\Games\\Sharabha\\lua\\?.lua") != null);
+    try std.testing.expect(std.mem.indexOf(u8, path, "C:\\Games\\Sharabha\\?.lua") != null);
+    try std.testing.expect(std.mem.endsWith(u8, path, ".\\?\\init.lua"));
+
+    const without_bin = try buildPackagePath(allocator, "C:\\Sharabha", null);
+    defer allocator.free(without_bin);
+    try std.testing.expect(std.mem.startsWith(u8, without_bin, "C:\\Sharabha\\lua\\?.lua;"));
+    try std.testing.expect(std.mem.indexOf(u8, without_bin, ".\\?.lua") != null);
+
+    // The SHARABHA_LUA_PATH opt-in is appended after the deterministic roots.
+    const with_extra = try buildPackagePath(allocator, "C:\\Sharabha", " D:\\mods\\?.lua; ");
+    defer allocator.free(with_extra);
+    try std.testing.expect(std.mem.endsWith(u8, with_extra, ";D:\\mods\\?.lua"));
+}
+
+test "buildPackageCpath and escapeLuaString keep Windows paths intact" {
+    const allocator = std.testing.allocator;
+
+    const cpath = try buildPackageCpath(allocator, "C:\\Sharabha\\bin", null);
+    defer allocator.free(cpath);
+    try std.testing.expect(std.mem.startsWith(u8, cpath, "C:\\Sharabha\\bin\\lua\\?.dll;"));
+    try std.testing.expect(std.mem.indexOf(u8, cpath, "C:\\Sharabha\\lua\\?.dll") != null);
+    try std.testing.expect(std.mem.endsWith(u8, cpath, ".\\?.dll"));
+
+    const escaped = try escapeLuaString(allocator, "C:\\lua\\a\"b.lua");
+    defer allocator.free(escaped);
+    try std.testing.expectEqualStrings("C:\\\\lua\\\\a\\\"b.lua", escaped);
+}
+
+test "LuaJIT package.path is pinned to the executable directory" {
+    var engine = try ScriptEngine.init(std.testing.allocator, null);
+    defer engine.deinit();
+
+    var exe_buf: [1024]u8 = undefined;
+    const exe_dir = exeDirectory(&exe_buf) orelse ".";
+
+    var prefix_buf: [1200]u8 = undefined;
+    const prefix = try std.fmt.bufPrint(&prefix_buf, "{s}\\lua\\?.lua", .{exe_dir});
+
+    const res = engine.executeWithOutput(
+        \\print(package.path)
+        \\print(package.cpath)
+    );
+    try std.testing.expect(res.success);
+    try std.testing.expect(std.mem.indexOf(u8, res.output, prefix) != null);
+    try std.testing.expect(std.mem.indexOf(u8, res.output, "\\lua\\?.dll") != null);
+
+    // A host-wide LUA_PATH (e.g. a stale LuaRocks tree) must never reach the VM.
+    var host_buf: [8192]u8 = undefined;
+    if (readEnvVar(&host_buf, "LUA_PATH")) |host_path| {
+        try std.testing.expect(std.mem.indexOf(u8, res.output, host_path) == null);
+    }
 }
