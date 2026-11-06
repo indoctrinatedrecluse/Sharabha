@@ -11,6 +11,7 @@ const pointer = @import("pointer.zig");
 const disasm = @import("disasm.zig");
 const debugger = @import("debugger.zig");
 const breakpoint = @import("breakpoint.zig");
+const ce_compat = @import("../scripting/ce_compat.zig");
 
 pub const win = struct {
     pub const HANDLE = *anyopaque;
@@ -117,6 +118,7 @@ pub const win = struct {
     pub extern "kernel32" fn GetCurrentProcessId() callconv(.winapi) u32;
     pub extern "kernel32" fn Sleep(dwMilliseconds: u32) callconv(.winapi) void;
     pub extern "kernel32" fn GetFileAttributesW(lpFileName: [*:0]const u16) callconv(.winapi) u32;
+    pub extern "kernel32" fn GetFileSize(hFile: HANDLE, lpFileSizeHigh: ?*u32) callconv(.winapi) u32;
     pub extern "kernel32" fn GetModuleFileNameA(hModule: ?*anyopaque, lpFilename: [*]u8, nSize: u32) callconv(.winapi) u32;
 
     pub const INVALID_FILE_ATTRIBUTES: u32 = 0xFFFFFFFF;
@@ -293,6 +295,16 @@ pub fn setActivePid(pid: u32) !void {
     var buf: [32]u8 = undefined;
     const str = try std.fmt.bufPrint(&buf, "{d}\n", .{pid});
     try writeFullFile(ACTIVE_PID_PATH, str);
+}
+
+/// The persisted active PID, but only when that process is still alive. A stale
+/// `active_pid.txt` (game closed between sessions) must never be reported as a
+/// bound target: resolving through a dead PID silently yields garbage.
+pub fn currentValidPid() u32 {
+    const pid = getActivePid() orelse return 0;
+    var proc = process.ProcessHandle.open(pid) catch return 0;
+    proc.close();
+    return pid;
 }
 
 pub fn getOrDetectTargetPid() !u32 {
@@ -653,6 +665,11 @@ pub fn handleAttach(allocator: std.mem.Allocator, pid: u32) !void {
     proc.close();
 
     try setActivePid(pid);
+
+    // Mirror the binding into `live_bind.slint` so the address list header and
+    // the process card show the same target the scripts are using.
+    var bind_name_buf: [260]u8 = undefined;
+    writeLiveBind(allocator, pid, processNameOf(pid, &bind_name_buf));
 
     var status_buf: [128]u8 = undefined;
     const status_str = try std.fmt.bufPrint(&status_buf, "Win32 Netra Hooked // PID {d} Armed [VM_READ | VM_WRITE]", .{pid});
@@ -1609,159 +1626,15 @@ pub fn handleLoadTable(allocator: std.mem.Allocator, file_path: []const u8) !voi
     }
 }
 
+/// Legacy entry point: opens a table, replacing the current address list.
+/// Legacy entry point: opens a table, replacing the current address list.
 pub fn handleLoadCt(allocator: std.mem.Allocator, file_path: []const u8) !void {
-    const ct_parser = @import("ct_parser.zig");
-    const ce_compat = @import("../scripting/ce_compat.zig");
-    const scripting = @import("../scripting/engine.zig");
-
-    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.CT";
-    const bytes = try ct_parser.readCtFile(allocator, final_path);
-    defer allocator.free(bytes);
-
-    var parser = ct_parser.CtParser.init(allocator, bytes);
-    var ct_tbl = try parser.parse();
-    defer ct_tbl.deinit();
-
-    std.debug.print("========================================================================\n", .{});
-    std.debug.print("  SHARABHA // CHEAT ENGINE TABLE INQUEST (.CT / चेतना तालिका)\n", .{});
-    std.debug.print("========================================================================\n", .{});
-    std.debug.print("  Vessel Path : {s}\n", .{final_path});
-    std.debug.print("  CE Version  : {d}\n", .{ct_tbl.version});
-    std.debug.print("  Symbols ({d}):\n", .{ct_tbl.symbols.items.len});
-
-    // Register symbols
-    for (ct_tbl.symbols.items) |sym| {
-        try ce_compat.registerSymbol(sym.name, sym.address, allocator);
-        std.debug.print("    • [Symbol] {s} => 0x{X}\n", .{ sym.name, sym.address });
-    }
-
-    const flat_entries = try ct_tbl.flattenEntries(allocator);
-    defer allocator.free(flat_entries);
-    std.debug.print("  Total Entries Discovered: {d}\n", .{flat_entries.len});
-
-    // Target process detection & pointer resolution
-    const target_pid = getOrDetectTargetPid() catch 0;
-    var ph: ?process.ProcessHandle = null;
-    if (target_pid != 0) {
-        ph = process.ProcessHandle.open(target_pid) catch null;
-    }
-    defer if (ph) |*p| p.close();
-
-    // Check for Master Lua Script
-    if (ct_tbl.lua_script) |ls| {
-        std.debug.print("  🔱 Master LuaScript Detected ({d} bytes). Executing...\n", .{ls.len});
-        var engine = try scripting.ScriptEngine.init(allocator, null);
-        defer engine.deinit();
-
-        if (target_pid != 0) {
-            engine.attach(target_pid) catch {};
-        }
-
-        const ls_z = try allocator.allocSentinel(u8, ls.len, 0);
-        @memcpy(ls_z, ls);
-        defer allocator.free(ls_z);
-
-        const res = engine.executeWithOutput(ls_z);
-        if (res.output.len > 0) {
-            std.debug.print("  [Master Lua Output]:\n{s}\n", .{res.output});
-        }
-        if (!res.success) {
-            std.debug.print("  ⚠️ [Lua Warning]: {s}\n", .{res.error_msg orelse "Unknown"});
-        } else {
-            std.debug.print("  [✓] Master Lua script initialized.\n", .{});
-        }
-    }
-
-    // Write src/ui/live_table.slint
-    try exportLiveTableSlint(allocator, final_path, flat_entries, ph);
-
-    // Persist active table path (resolved against the project root so packaged
-    // `bin\Sharabha.exe` runs still update the file the launcher scripts read).
-    const act_tbl_path = resolveProjectPath(allocator, "assets\\tables\\active_table_path.txt") catch null;
-    if (act_tbl_path) |ap| {
-        defer allocator.free(ap);
-        const act_tbl_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, ap) catch null;
-        if (act_tbl_w) |pw| {
-            defer allocator.free(pw);
-            const h = win.CreateFileW(pw.ptr, win.GENERIC_WRITE, 0, null, win.CREATE_ALWAYS, win.FILE_ATTRIBUTE_NORMAL, null);
-            if (h != win.INVALID_HANDLE_VALUE) {
-                defer _ = win.CloseHandle(h);
-                var wr: u32 = 0;
-                _ = win.WriteFile(h, final_path.ptr, @intCast(final_path.len), &wr, null);
-            }
-        }
-    }
-
-    std.debug.print("  [✓] Synchronized {d} entries to src/ui/live_table.slint\n", .{flat_entries.len});
+    try handleLoadCtEx(allocator, file_path, false);
 }
 
+/// Legacy entry point: enables a record (Cheat Engine's checkbox ON).
 pub fn handleRunCtEntry(allocator: std.mem.Allocator, file_path: []const u8, entry_id_str: []const u8) !void {
-    const ct_parser = @import("ct_parser.zig");
-    const scripting = @import("../scripting/engine.zig");
-
-    const entry_id = std.fmt.parseInt(u32, entry_id_str, 10) catch {
-        std.debug.print("  ❌ [Invalid Entry ID]: {s}\n", .{entry_id_str});
-        return;
-    };
-
-    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.CT";
-    const bytes = try ct_parser.readCtFile(allocator, final_path);
-    defer allocator.free(bytes);
-
-    var parser = ct_parser.CtParser.init(allocator, bytes);
-    var ct_tbl = try parser.parse();
-    defer ct_tbl.deinit();
-
-    const entry = ct_tbl.findEntryById(entry_id) orelse {
-        std.debug.print("  ❌ [Entry Not Found]: ID {d}\n", .{entry_id});
-        return;
-    };
-
-    std.debug.print("========================================================================\n", .{});
-    std.debug.print("  SHARABHA // CHEAT ENTRY ACTIVATION (ID {d})\n", .{entry.id});
-    std.debug.print("========================================================================\n", .{});
-    std.debug.print("  Description : {s}\n", .{entry.description});
-    std.debug.print("  Type        : {s}\n", .{entry.variable_type});
-
-    if (entry.isScript()) {
-        const sec = entry.extractScriptSections();
-        const script_to_run = sec.enable orelse entry.assembler_script orelse "";
-
-        var lua_code: []const u8 = script_to_run;
-        if (std.mem.indexOf(u8, script_to_run, "{$lua}")) |l_start| {
-            const after_lua = script_to_run[l_start + "{$lua}".len ..];
-            if (std.mem.indexOf(u8, after_lua, "{$asm}")) |l_end| {
-                lua_code = after_lua[0..l_end];
-            } else {
-                lua_code = after_lua;
-            }
-        }
-
-        var engine = try scripting.ScriptEngine.init(allocator, null);
-        defer engine.deinit();
-
-        const target_pid = getOrDetectTargetPid() catch 0;
-        if (target_pid != 0) {
-            engine.attach(target_pid) catch {};
-        }
-
-        const trimmed_lua = std.mem.trim(u8, lua_code, " \r\n\t");
-        const script_z = try allocator.allocSentinel(u8, trimmed_lua.len, 0);
-        @memcpy(script_z, trimmed_lua);
-        defer allocator.free(script_z);
-
-        const res = engine.executeWithOutput(script_z);
-        if (res.output.len > 0) {
-            std.debug.print("  [Script Output]:\n{s}\n", .{res.output});
-        }
-        if (!res.success) {
-            std.debug.print("  ❌ [Script Error]: {s}\n", .{res.error_msg orelse "Unknown"});
-        } else {
-            std.debug.print("  [✓] Entry script evaluated successfully.\n", .{});
-        }
-    } else {
-        std.debug.print("  [Address Record]: {s}\n", .{entry.address});
-    }
+    try handleRunCtEntryEx(allocator, file_path, entry_id_str, null);
 }
 
 fn readProcessVal(proc: *const process.ProcessHandle, comptime T: type, address: usize) ?T {
@@ -1769,129 +1642,6 @@ fn readProcessVal(proc: *const process.ProcessHandle, comptime T: type, address:
     const br = proc.readMemory(address, &buf) catch return null;
     if (br != @sizeOf(T)) return null;
     return @as(*const T, @ptrCast(@alignCast(&buf))).*;
-}
-
-fn exportLiveTableSlint(
-    allocator: std.mem.Allocator,
-    file_path: []const u8,
-    entries: []const @import("ct_parser.zig").CtEntry,
-    ph: ?process.ProcessHandle,
-) !void {
-    var list: std.ArrayList(u8) = .empty;
-    defer list.deinit(allocator);
-
-    try list.appendSlice(allocator, "// Auto-generated by Sharabha Rudra Tandava Memory Inquest Engine\n");
-    try list.appendSlice(allocator, "export struct CheatTableRowData {\n");
-    try list.appendSlice(allocator, "    id: int,\n    description: string,\n    address: string,\n    val_type: string,\n    val: string,\n    is_frozen: bool,\n    is_script: bool,\n    script_active: bool,\n}\n\n");
-
-    var basename = std.fs.path.basename(file_path);
-    if (std.mem.endsWith(u8, basename, ".ct") or std.mem.endsWith(u8, basename, ".CT")) {
-        basename = basename[0 .. basename.len - 3];
-    }
-
-    try list.appendSlice(allocator, "export global LiveTable {\n    in property <string> table_title: \"");
-    try appendEscapedSlint(&list, allocator, basename);
-    try list.appendSlice(allocator, "\";\n    in property <string> file_path: \"");
-    try appendEscapedSlint(&list, allocator, file_path);
-    try list.appendSlice(allocator, "\";\n    in property <string> status_feedback: \"Loaded: ");
-    try appendEscapedSlint(&list, allocator, basename);
-
-    const hdr = try std.fmt.allocPrint(allocator,
-        " ({d} Entries)\";\n    in property <int> total_entries: {d};\n    in property <bool> is_ct_table: true;\n\n    in property <[CheatTableRowData]> rows: [\n",
-        .{ entries.len, entries.len },
-    );
-    defer allocator.free(hdr);
-    try list.appendSlice(allocator, hdr);
-
-    const max_rows = @min(entries.len, 50);
-    for (entries[0..max_rows], 0..) |entry, i| {
-        var val_str: []const u8 = "???";
-        var addr_buf: [128]u8 = undefined;
-        var addr_display: []const u8 = entry.address;
-        if (entry.offsets.len > 0) {
-            addr_display = std.fmt.bufPrint(&addr_buf, "{s} -> +0x{X}", .{ entry.address, entry.offsets[0] }) catch entry.address;
-        }
-
-        if (entry.isScript()) {
-            val_str = if (entry.has_lua) "[Lua Altar]" else "[Auto Assembler]";
-        } else if (ph) |proc| {
-            var resolved_addr: usize = 0;
-            if (std.mem.indexOf(u8, entry.address, "+")) |p_idx| {
-                const mod_name = std.mem.trim(u8, entry.address[0..p_idx], " \"'");
-                const off_val = @import("ct_parser.zig").parseHexOrDec(entry.address[p_idx + 1 ..]);
-                var iter = process.ModuleIterator.init(proc.pid) catch null;
-                if (iter) |*it| {
-                    defer it.deinit();
-                    while (it.next()) |me| {
-                        if (std.ascii.eqlIgnoreCase(me.getName(), mod_name) or std.mem.eql(u8, mod_name, "$process")) {
-                            resolved_addr = me.base_address + off_val;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                resolved_addr = @import("ct_parser.zig").parseHexOrDec(entry.address);
-            }
-
-            if (resolved_addr != 0 and entry.offsets.len > 0) {
-                var cur = resolved_addr;
-                var o_idx = entry.offsets.len;
-                while (o_idx > 1) {
-                    o_idx -= 1;
-                    const next_val = readProcessVal(&proc, usize, cur + entry.offsets[o_idx]);
-                    if (next_val == null or next_val.? == 0) break;
-                    cur = next_val.?;
-                }
-                resolved_addr = cur + entry.offsets[0];
-            }
-
-            if (resolved_addr != 0) {
-                var v_buf: [64]u8 = undefined;
-                if (std.mem.indexOf(u8, entry.variable_type, "Float") != null) {
-                    if (readProcessVal(&proc, f32, resolved_addr)) |fv| {
-                        val_str = std.fmt.bufPrint(&v_buf, "{d:.2}", .{fv}) catch "???";
-                    }
-                } else if (std.mem.indexOf(u8, entry.variable_type, "Double") != null) {
-                    if (readProcessVal(&proc, f64, resolved_addr)) |dv| {
-                        val_str = std.fmt.bufPrint(&v_buf, "{d:.4}", .{dv}) catch "???";
-                    }
-                } else {
-                    if (readProcessVal(&proc, i32, resolved_addr)) |iv| {
-                        val_str = std.fmt.bufPrint(&v_buf, "{d}", .{iv}) catch "???";
-                    }
-                }
-            }
-        }
-
-        try list.appendSlice(allocator, "        { id: ");
-        var num_buf: [32]u8 = undefined;
-        try list.appendSlice(allocator, try std.fmt.bufPrint(&num_buf, "{d}", .{entry.id}));
-        try list.appendSlice(allocator, ", description: \"");
-        try appendEscapedSlint(&list, allocator, entry.description);
-        try list.appendSlice(allocator, "\", address: \"");
-        try appendEscapedSlint(&list, allocator, addr_display);
-        try list.appendSlice(allocator, "\", val_type: \"");
-        try appendEscapedSlint(&list, allocator, entry.variable_type);
-        try list.appendSlice(allocator, "\", val: \"");
-        try appendEscapedSlint(&list, allocator, val_str);
-        try list.appendSlice(allocator, "\", is_frozen: false, is_script: ");
-        try list.appendSlice(allocator, if (entry.isScript()) "true" else "false");
-        try list.appendSlice(allocator, ", script_active: false }");
-        if (i + 1 < max_rows) {
-            try list.appendSlice(allocator, ",\n");
-        } else {
-            try list.appendSlice(allocator, "\n");
-        }
-    }
-
-    try list.appendSlice(allocator, "    ];\n}\n");
-
-    // Atomic swap: slint-viewer watches this file with --auto-reload.
-    // Resolved against the project root so a packaged `bin\Sharabha.exe`
-    // (CWD = bin\) still updates the file the viewer is actually watching.
-    const slint_path = try resolveProjectPath(allocator, std.mem.span(LIVE_TABLE_SLINT_PATH));
-    defer allocator.free(slint_path);
-    try writeFullFile(slint_path.ptr, list.items);
 }
 
 /// Escapes a value for a Slint string literal and guarantees valid UTF-8 output,
@@ -1931,6 +1681,81 @@ fn appendEscapedSlint(list: *std.ArrayList(u8), allocator: std.mem.Allocator, st
             try list.appendSlice(allocator, str[i .. i + seq_len]);
             i += seq_len;
         }
+    }
+}
+
+test "resolveCtAddress honours registered symbols and pointer chains" {
+    const allocator = std.testing.allocator;
+
+    // A symbol registered by a table script must win over hex parsing, which is
+    // what made `statsPtr+8` style records resolve to 0 before.
+    var target: i64 = 0x1122334455667788;
+    const target_addr = @intFromPtr(&target);
+    try ce_compat.registerSymbol("unitTestBase", target_addr, allocator);
+    defer ce_compat.deinitSymbols();
+
+    var proc = process.ProcessHandle.open(win.GetCurrentProcessId()) catch return;
+    defer proc.close();
+
+    try std.testing.expectEqual(target_addr, resolveCtBase(&proc, "unitTestBase"));
+    try std.testing.expectEqual(target_addr + 0x10, resolveCtBase(&proc, "unitTestBase+10"));
+    try std.testing.expectEqual(target_addr, resolveCtAddress(&proc, "unitTestBase", &.{}));
+
+    // Two-level path: the first hop dereferences the stored pointer, the second
+    // adds the final offset (Cheat Engine applies offsets[0] last).
+    var holder: usize = target_addr;
+    const holder_addr = @intFromPtr(&holder);
+    try ce_compat.registerSymbol("unitTestHolder", holder_addr, allocator);
+    const resolved = resolveCtAddress(&proc, "unitTestHolder", &.{ 0, 0 });
+    try std.testing.expectEqual(target_addr, resolved);
+
+    // Value formatting follows Cheat Engine's type names.
+    var buf: [64]u8 = undefined;
+    try std.testing.expect(formatCtValue(&proc, target_addr, "8 Bytes", &buf).len > 0);
+    try std.testing.expectEqualStrings("???", formatCtValue(&proc, 0, "4 Bytes", &buf));
+}
+
+test "handleLoadCtEx, merge, filter and clear keep the session consistent" {
+    const allocator = std.testing.allocator;
+    const fixture = "assets/tables/_selfcheck.ct";
+
+    // Replace mode: the fixture carries exactly two records.
+    try handleLoadCtEx(allocator, fixture, false);
+
+    {
+        var session = try loadCtSession(allocator);
+        defer session.deinit();
+        try std.testing.expectEqual(@as(usize, 2), session.rows.items.len);
+        try std.testing.expectEqual(@as(usize, 1), session.tables.items.len);
+        try std.testing.expect(session.rows.items[0].is_script);
+    }
+
+    // Merge mode with the same table refreshes instead of duplicating.
+    try handleLoadCtEx(allocator, fixture, true);
+    {
+        var session = try loadCtSession(allocator);
+        defer session.deinit();
+        try std.testing.expectEqual(@as(usize, 2), session.rows.items.len);
+        try std.testing.expectEqual(@as(usize, 1), session.tables.items.len);
+    }
+
+    // Filter commits to the session and narrows the visible rows.
+    try handleFilterCt(allocator, "[SelfCheck] AOB");
+    {
+        var session = try loadCtSession(allocator);
+        defer session.deinit();
+        try std.testing.expectEqualStrings("[SelfCheck] AOB", session.filter);
+        try std.testing.expectEqual(@as(usize, 1), session.visibleRowCount());
+    }
+
+    // Clearing drops every row but keeps the session file valid.
+    try handleFilterCt(allocator, "");
+    try handleClearCt(allocator);
+    {
+        var session = try loadCtSession(allocator);
+        defer session.deinit();
+        try std.testing.expectEqual(@as(usize, 0), session.rows.items.len);
+        try std.testing.expectEqual(@as(usize, 0), session.tables.items.len);
     }
 }
 
@@ -2035,3 +1860,676 @@ test "resolveProjectPath locates project-relative UI assets" {
     try std.testing.expect(!pathExistsUtf8(missing));
     try std.testing.expectEqualStrings("src/ui/__sharabha_missing_bridge.slint", std.mem.span(missing.ptr));
 }
+
+// ============================================================================
+// CHEAT ENGINE SESSION ENGINE (चेतना तालिका सत्र)
+//
+// The `.CT` pipeline is session-backed: a load folds a table into
+// `assets/tables/ct_session.tsv` (replace OR merge), values are resolved with
+// Cheat Engine's pointer semantics *and* the user-defined symbol table, and
+// `src/ui/live_table.slint` is regenerated from that session. Script records run
+// through the Auto Assembler interpreter instead of being handed to Lua.
+// ============================================================================
+
+const ct_session = @import("ct_session.zig");
+const aa_interp = @import("aa_interp.zig");
+const ct_parser = @import("ct_parser.zig");
+
+pub const CT_SESSION_PATH: [*:0]const u8 = "assets/tables/ct_session.tsv";
+pub const LIVE_BIND_SLINT_PATH: [*:0]const u8 = "src/ui/live_bind.slint";
+/// Safety ceiling for the generated Slint model: every row is compiled into the
+/// UI on reload, and the biggest published tables carry ~13k records.
+pub const MAX_LIVE_ROWS: usize = 20000;
+
+fn readWholeFile(allocator: std.mem.Allocator, path: []const u8) ?[]u8 {
+    const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path) catch return null;
+    defer allocator.free(path_w);
+
+    const share = win.FILE_SHARE_READ | win.FILE_SHARE_WRITE;
+    const h = win.CreateFileW(path_w.ptr, win.GENERIC_READ, share, null, win.OPEN_EXISTING, win.FILE_ATTRIBUTE_NORMAL, null);
+    if (h == win.INVALID_HANDLE_VALUE) return null;
+    defer _ = win.CloseHandle(h);
+
+    var high: u32 = 0;
+    const size = win.GetFileSize(h, &high);
+    if (size == 0xFFFFFFFF or size == 0) return null;
+
+    const buf = allocator.alloc(u8, size) catch return null;
+    var bytes_read: u32 = 0;
+    if (win.ReadFile(h, buf.ptr, size, &bytes_read, null) == 0 or bytes_read != size) {
+        allocator.free(buf);
+        return null;
+    }
+    return buf;
+}
+
+/// Loads `assets/tables/ct_session.tsv`; a missing/corrupt session yields an
+/// empty one so the UI still starts with a valid address list.
+pub fn loadCtSession(allocator: std.mem.Allocator) !ct_session.Session {
+    var session = try ct_session.Session.init(allocator);
+    errdefer session.deinit();
+
+    const path = try resolveProjectPath(allocator, std.mem.span(CT_SESSION_PATH));
+    defer allocator.free(path);
+
+    const text = readWholeFile(allocator, path) orelse return session;
+    defer allocator.free(text);
+    session.deserialize(text) catch {};
+    return session;
+}
+
+pub fn saveCtSession(session: *ct_session.Session) void {
+    const allocator = session.allocator;
+    const blob = session.serialize(allocator) catch return;
+    defer allocator.free(blob);
+
+    ensureDirectory("assets");
+    ensureDirectory("assets/tables");
+    const path = resolveProjectPath(allocator, std.mem.span(CT_SESSION_PATH)) catch return;
+    defer allocator.free(path);
+    writeFullFile(path.ptr, blob) catch {};
+}
+
+/// Writes `src/ui/live_bind.slint` so the UI learns which process is attached —
+/// the piece that lets a table's `openProcess()` click rebind the whole page.
+pub fn writeLiveBind(allocator: std.mem.Allocator, pid: u32, name: []const u8) void {
+    ensureDirectory("src");
+    ensureDirectory("src/ui");
+
+    var list: std.ArrayList(u8) = .empty;
+    defer list.deinit(allocator);
+
+    list.appendSlice(allocator,
+        \\// Auto-generated by Sharabha Rudra Tandava Memory Inquest Engine
+        \\// Bound target process (Netra Bandhana)
+        \\export global LiveBind {
+        \\
+    ) catch return;
+    appendPrint(&list, allocator, "    in property <int> pid: {d};\n", .{pid}) catch return;
+    list.appendSlice(allocator, "    in property <string> name: \"") catch return;
+    appendEscapedSlint(&list, allocator, name) catch return;
+    list.appendSlice(allocator, "\";\n    in property <bool> bound: ") catch return;
+    list.appendSlice(allocator, if (pid != 0) "true" else "false") catch return;
+    list.appendSlice(allocator, ";\n}\n") catch return;
+
+    const path = resolveProjectPath(allocator, std.mem.span(LIVE_BIND_SLINT_PATH)) catch return;
+    defer allocator.free(path);
+    writeFullFile(path.ptr, list.items) catch {};
+}
+
+/// Resolves one address term: symbol, `$process`, `module.exe`, hex or decimal.
+fn resolveCtTerm(proc: ?*process.ProcessHandle, term_raw: []const u8) usize {
+    const term = std.mem.trim(u8, term_raw, " \t\r\n");
+    if (term.len == 0) return 0;
+
+    if (std.mem.eql(u8, term, "$process")) {
+        const p = proc orelse return 0;
+        var iter = process.ModuleIterator.init(p.pid) catch return 0;
+        defer iter.deinit();
+        const m = iter.next() orelse return 0;
+        return m.base_address;
+    }
+
+    if (ce_compat.lookupSymbol(term)) |addr| return addr;
+
+    if (std.mem.indexOfScalar(u8, term, '.') != null) {
+        if (proc) |p| {
+            var iter = process.ModuleIterator.init(p.pid) catch null;
+            if (iter) |*it| {
+                defer it.deinit();
+                while (it.next()) |m| {
+                    if (std.ascii.eqlIgnoreCase(m.getName(), term)) return m.base_address;
+                }
+            }
+        }
+    }
+
+    if (term[0] == '$') return std.fmt.parseInt(usize, term[1..], 16) catch 0;
+    if (std.mem.startsWith(u8, term, "0x") or std.mem.startsWith(u8, term, "0X")) {
+        return std.fmt.parseInt(usize, term[2..], 16) catch 0;
+    }
+    // Cheat Engine address expressions are hexadecimal (`statsPtr+10` is +0x10),
+    // so hex wins and decimal is only a fallback for non-hex characters.
+    if (std.fmt.parseInt(usize, term, 16)) |hex_value| {
+        return hex_value;
+    } else |_| {}
+    return std.fmt.parseInt(usize, term, 10) catch 0;
+}
+
+/// Resolves a Cheat Engine address expression (`statsPtr+8`, `bg3.exe+24A266F`,
+/// `0x7FF6...`) into a base pointer. Symbols registered by table scripts or by
+/// `<UserdefinedSymbols>` take priority, which is what makes pointer records
+/// from real tables resolve at all.
+pub fn resolveCtBase(proc: ?*process.ProcessHandle, expr: []const u8) usize {
+    var text = std.mem.trim(u8, expr, " \t\r\n");
+    text = std.mem.trim(u8, text, "\"'");
+    if (text.len == 0) return 0;
+
+    var total: usize = 0;
+    var any = false;
+    var index: usize = 0;
+    var term_start: usize = 0;
+    var add = true;
+
+    while (index <= text.len) : (index += 1) {
+        const is_sep = index == text.len or text[index] == '+' or text[index] == '-';
+        if (!is_sep) continue;
+        const term = std.mem.trim(u8, text[term_start..index], " \t");
+        if (term.len > 0) {
+            const value = resolveCtTerm(proc, term);
+            if (value == 0) return 0;
+            total = if (add) total +% value else total -% value;
+            any = true;
+        }
+        if (index < text.len) add = text[index] == '+';
+        term_start = index + 1;
+    }
+    return if (any) total else 0;
+}
+
+/// Cheat Engine pointer semantics: base, then `offsets[len-1] .. offsets[1]`
+/// indirections, with `offsets[0]` applied last.
+pub fn resolveCtAddress(proc: ?*process.ProcessHandle, expr: []const u8, offsets: []const usize) usize {
+    const p = proc orelse return 0;
+    var cur = resolveCtBase(p, expr);
+    if (cur == 0) return 0;
+    if (offsets.len == 0) return cur;
+
+    var idx = offsets.len;
+    while (idx > 1) {
+        idx -= 1;
+        const ptr = readProcessVal(p, usize, cur + offsets[idx]) orelse return 0;
+        if (ptr == 0) return 0;
+        cur = ptr;
+    }
+    const total = cur + offsets[0];
+    return if (total < 0x10000) 0 else total;
+}
+
+/// Reads a record value with Cheat Engine's type names and renders it for the
+/// address list. Returns `"???"` when the address is unreadable.
+pub fn formatCtValue(proc: ?*process.ProcessHandle, addr: usize, val_type: []const u8, buf: []u8) []const u8 {
+    const p = proc orelse return "???";
+    if (addr == 0) return "???";
+
+    if (containsIgnoreCase(val_type, "Float")) {
+        if (readProcessVal(p, f32, addr)) |v| return std.fmt.bufPrint(buf, "{d:.2}", .{v}) catch "???";
+    } else if (containsIgnoreCase(val_type, "Double")) {
+        if (readProcessVal(p, f64, addr)) |v| return std.fmt.bufPrint(buf, "{d:.4}", .{v}) catch "???";
+    } else if (containsIgnoreCase(val_type, "8 Bytes")) {
+        if (readProcessVal(p, i64, addr)) |v| return std.fmt.bufPrint(buf, "{d}", .{v}) catch "???";
+    } else if (containsIgnoreCase(val_type, "2 Bytes")) {
+        if (readProcessVal(p, i16, addr)) |v| return std.fmt.bufPrint(buf, "{d}", .{v}) catch "???";
+    } else if (containsIgnoreCase(val_type, "Byte")) {
+        if (readProcessVal(p, u8, addr)) |v| return std.fmt.bufPrint(buf, "{d}", .{v}) catch "???";
+    } else if (containsIgnoreCase(val_type, "String")) {
+        var raw: [48]u8 = undefined;
+        const got = p.readMemory(addr, &raw) catch return "???";
+        var clean: [48]u8 = undefined;
+        var out_len: usize = 0;
+        for (raw[0..got]) |ch| {
+            if (ch == 0) break;
+            if (ch < 0x20 or ch == 0x7F) continue;
+            if (out_len >= clean.len) break;
+            clean[out_len] = ch;
+            out_len += 1;
+        }
+        const width = @min(out_len, buf.len);
+        @memcpy(buf[0..width], clean[0..width]);
+        return buf[0..width];
+    } else if (containsIgnoreCase(val_type, "Array of Bytes")) {
+        var raw: [8]u8 = undefined;
+        const got = p.readMemory(addr, &raw) catch return "???";
+        var out: usize = 0;
+        for (raw[0..got], 0..) |ch, i| {
+            const text = std.fmt.bufPrint(buf[out..], "{s}{X:0>2}", .{ if (i == 0) "" else " ", ch }) catch break;
+            out += text.len;
+        }
+        return buf[0..out];
+    } else {
+        if (readProcessVal(p, i32, addr)) |v| return std.fmt.bufPrint(buf, "{d}", .{v}) catch "???";
+    }
+    return "???";
+}
+
+/// Re-reads every address record in the session (scripts and folders are left
+/// alone) so the address list shows live values instead of load-time ones.
+pub fn refreshSessionValues(session: *ct_session.Session, proc: ?*process.ProcessHandle) usize {
+    const p = proc orelse return 0;
+    var updated: usize = 0;
+    for (session.rows.items) |*row| {
+        if (row.is_group or row.is_script) continue;
+        const addr = resolveCtAddress(p, row.addr_expr, row.offsets);
+        var buf: [96]u8 = undefined;
+        const text = formatCtValue(p, addr, row.val_type, &buf);
+        row.value = session.allocator.dupe(u8, text) catch row.value;
+        if (addr != 0) updated += 1;
+    }
+    return updated;
+}
+
+/// Regenerates `src/ui/live_table.slint` from the session. Every row (folder
+/// headers included, indented by `depth`) is emitted, bounded by `MAX_LIVE_ROWS`;
+/// the UI virtualises the list so a 13k-entry table scrolls smoothly.
+pub fn writeLiveTableFromSession(allocator: std.mem.Allocator, session: *ct_session.Session) !void {
+    ensureDirectory("src");
+    ensureDirectory("src/ui");
+
+    var list: std.ArrayList(u8) = .empty;
+    defer list.deinit(allocator);
+
+    try list.appendSlice(allocator,
+        \\// Auto-generated by Sharabha Rudra Tandava Memory Inquest Engine
+        \\// Do not edit: regenerated from assets/tables/ct_session.tsv
+        \\export struct CheatTableRowData {
+        \\    id: int,
+        \\    ce_id: int,
+        \\    description: string,
+        \\    address: string,
+        \\    val_type: string,
+        \\    val: string,
+        \\    hotkey: string,
+        \\    source: string,
+        \\    depth: int,
+        \\    is_frozen: bool,
+        \\    is_script: bool,
+        \\    script_active: bool,
+        \\    is_group: bool,
+        \\}
+        \\
+        \\export global LiveTable {
+        \\
+    );
+
+    const has_rows = session.rows.items.len > 0;
+    const title = if (session.tables.items.len > 0) session.tables.items[0].title else "Rudra Address List";
+    const file_path = if (session.tables.items.len > 0) session.tables.items[0].path else "";
+
+    try list.appendSlice(allocator, "    in property <string> table_title: \"");
+    try appendEscapedSlint(&list, allocator, title);
+    try list.appendSlice(allocator, "\";\n    in property <string> file_path: \"");
+    try appendEscapedSlint(&list, allocator, file_path);
+    try list.appendSlice(allocator, "\";\n    in property <string> status_feedback: \"");
+    if (has_rows) {
+        try appendPrint(&list, allocator, "{d} entries loaded across {d} table(s)", .{
+            session.rows.items.len, session.tables.items.len,
+        });
+    } else {
+        try list.appendSlice(allocator, "No table loaded");
+    }
+    try list.appendSlice(allocator, "\";\n");
+    try appendPrint(&list, allocator, "    in property <int> total_entries: {d};\n", .{session.rows.items.len});
+    try appendPrint(&list, allocator, "    in property <int> table_count: {d};\n", .{session.tables.items.len});
+    try list.appendSlice(allocator, "    in property <string> filter: \"");
+    try appendEscapedSlint(&list, allocator, session.filter);
+    try list.appendSlice(allocator, "\";\n");
+    try appendPrint(&list, allocator, "    in property <bool> is_ct_table: {s};\n\n", .{
+        if (has_rows) "true" else "false",
+    });
+    try list.appendSlice(allocator, "    in property <[CheatTableRowData]> rows: [\n");
+
+    var emitted: usize = 0;
+    var first = true;
+    for (session.rows.items) |*row| {
+        if (!ct_session.Session.rowMatches(row, session.filter)) continue;
+        if (emitted >= MAX_LIVE_ROWS) break;
+
+        if (!first) try list.appendSlice(allocator, ",\n");
+        first = false;
+
+        try appendPrint(&list, allocator, "        {{ id: {d}, ce_id: {d}, description: \"", .{ row.seq, row.ce_id });
+        try appendEscapedSlint(&list, allocator, row.description);
+        try list.appendSlice(allocator, "\", address: \"");
+        try appendEscapedSlint(&list, allocator, row.address);
+        try list.appendSlice(allocator, "\", val_type: \"");
+        try appendEscapedSlint(&list, allocator, row.val_type);
+        try list.appendSlice(allocator, "\", val: \"");
+        try appendEscapedSlint(&list, allocator, row.value);
+        try list.appendSlice(allocator, "\", hotkey: \"");
+        try appendEscapedSlint(&list, allocator, row.hotkey);
+        try list.appendSlice(allocator, "\", source: \"");
+        try appendEscapedSlint(&list, allocator, row.source);
+        try appendPrint(&list, allocator, "\", depth: {d}, is_frozen: {s}, is_script: {s}, script_active: {s}, is_group: {s} }}", .{
+            row.depth,
+            if (row.is_frozen) "true" else "false",
+            if (row.is_script) "true" else "false",
+            if (row.script_active) "true" else "false",
+            if (row.is_group) "true" else "false",
+        });
+        emitted += 1;
+    }
+    try list.appendSlice(allocator, "\n    ];\n");
+    try appendPrint(&list, allocator, "    in property <int> visible_entries: {d};\n", .{emitted});
+    try list.appendSlice(allocator, "}\n");
+
+    const path = try resolveProjectPath(allocator, std.mem.span(LIVE_TABLE_SLINT_PATH));
+    defer allocator.free(path);
+    try writeFullFile(path.ptr, list.items);
+}
+
+fn processNameOf(pid: u32, buf: *[260]u8) []const u8 {
+    var iter = process.ProcessIterator.init() catch return "";
+    defer iter.deinit();
+    while (iter.next()) |p| {
+        if (p.pid == pid) {
+            @memcpy(buf[0..p.name_len], p.getName());
+            return buf[0..p.name_len];
+        }
+    }
+    return "";
+}
+
+fn persistActiveTablePath(allocator: std.mem.Allocator, path: []const u8) void {
+    const resolved = resolveProjectPath(allocator, "assets/tables/active_table_path.txt") catch return;
+    defer allocator.free(resolved);
+    writeFullFile(resolved.ptr, path) catch {};
+}
+
+fn ctTitleFromPath(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
+    var base = std.fs.path.basename(path);
+    if (std.mem.lastIndexOfScalar(u8, base, '.')) |dot| {
+        if (dot > 0) base = base[0..dot];
+    }
+    return allocator.dupe(u8, base);
+}
+
+/// Opens (or merges) a Cheat Engine table. `merge` keeps the currently attached
+/// process, every existing address-list row and the active search filter.
+pub fn handleLoadCtEx(allocator: std.mem.Allocator, file_path: []const u8, merge: bool) !void {
+    const scripting = @import("../scripting/engine.zig");
+
+    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.CT";
+    const bytes = try ct_parser.readCtFile(allocator, final_path);
+    defer allocator.free(bytes);
+
+    var parser = ct_parser.CtParser.init(allocator, bytes);
+    var tbl = try parser.parse();
+    defer tbl.deinit();
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // CHEAT ENGINE TABLE INQUEST (.CT / चेतना तालिका)\n", .{});
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Vessel Path : {s}\n", .{final_path});
+    std.debug.print("  CE Version  : {d}\n", .{tbl.version});
+    std.debug.print("  Mode        : {s}\n", .{if (merge) "MERGE (keep process + address list)" else "REPLACE"});
+
+    // 1. Symbols shipped with the table.
+    var registered: usize = 0;
+    for (tbl.symbols.items) |sym| {
+        if (sym.address == 0) continue;
+        ce_compat.registerSymbol(sym.name, sym.address, allocator) catch continue;
+        registered += 1;
+    }
+    std.debug.print("  Symbols     : {d} defined in table\n", .{registered});
+    ce_compat.persistSymbols();
+
+    // 2. Master Lua runs first: table scripts use `openProcess()` to auto-attach
+    //    the game before any pointer is resolved.
+    var target_pid: u32 = currentValidPid();
+    if (tbl.lua_script) |ls| {
+        var engine = try scripting.ScriptEngine.init(allocator, null);
+        defer engine.deinit();
+
+        if (target_pid != 0) engine.attach(target_pid) catch {};
+
+        const ls_z = try allocator.allocSentinel(u8, ls.len, 0);
+        @memcpy(ls_z, ls);
+        defer allocator.free(ls_z);
+
+        const res = engine.executeWithOutput(ls_z);
+        if (res.output.len > 0) std.debug.print("  [Master Lua Output]:\n{s}\n", .{res.output});
+        if (!res.success) {
+            std.debug.print("  ⚠️ [Master Lua Warning]: {s}\n", .{res.error_msg orelse "Unknown"});
+        } else {
+            std.debug.print("  [✓] Master Lua script initialized ({d} bytes).\n", .{ls.len});
+        }
+        if (engine.target_pid != 0) target_pid = engine.target_pid;
+    }
+
+    var name_buf: [260]u8 = undefined;
+    if (target_pid != 0) {
+        const name = processNameOf(target_pid, &name_buf);
+        setActivePid(target_pid) catch {};
+        writeLiveBind(allocator, target_pid, name);
+        std.debug.print("  Target PID  : {d} ({s})\n", .{ target_pid, name });
+    } else {
+        std.debug.print("  Target PID  : none (values resolve after BIND PROCESS)\n", .{});
+    }
+
+    // 3. Fold into the persistent address-list session.
+    var session = try loadCtSession(allocator);
+    defer session.deinit();
+
+    const flat = try tbl.flattenEntriesWithDepth(allocator);
+    defer allocator.free(flat);
+    const title = try ctTitleFromPath(allocator, final_path);
+    defer allocator.free(title);
+
+    const stats = try session.importTable(final_path, title, flat, !merge);
+
+    // 4. Resolve live values for the records we can reach.
+    var proc_handle: ?process.ProcessHandle = null;
+    if (target_pid != 0) proc_handle = process.ProcessHandle.open(target_pid) catch null;
+    defer if (proc_handle) |*p| p.close();
+
+    const resolved = refreshSessionValues(&session, if (proc_handle) |*p| p else null);
+
+    saveCtSession(&session);
+    try writeLiveTableFromSession(allocator, &session);
+    persistActiveTablePath(allocator, final_path);
+    touchAppSlint();
+
+    std.debug.print("  Entries     : {d} imported, {d} in address list\n", .{ stats.added, session.rows.items.len });
+    if (merge and stats.replaced_rows > 0) {
+        std.debug.print("  Replaced    : {d} row(s) from a previous load of the same table\n", .{stats.replaced_rows});
+    }
+    std.debug.print("  Resolved    : {d} live value(s)\n", .{resolved});
+    std.debug.print("  [✓] Synchronized address list -> src/ui/live_table.slint\n", .{});
+}
+
+/// Enables or disables a single `.CT` record. Auto Assembler records go through
+/// `aa_interp` (aobscan / alloc / registersymbol / db patches / `{$lua}`), pure
+/// Lua records are wrapped into a `{$lua}` block, and the resulting state is
+/// persisted so the address list shows which cheats are live.
+pub fn handleRunCtEntryEx(
+    allocator: std.mem.Allocator,
+    file_path: []const u8,
+    entry_id_str: []const u8,
+    mode_str: ?[]const u8,
+) !void {
+    const scripting = @import("../scripting/engine.zig");
+
+    const entry_id = std.fmt.parseInt(u32, entry_id_str, 10) catch {
+        std.debug.print("  ❌ [Invalid Entry ID]: {s}\n", .{entry_id_str});
+        return;
+    };
+
+    const final_path = if (file_path.len > 0) file_path else "assets/tables/workspace.CT";
+    const bytes = try ct_parser.readCtFile(allocator, final_path);
+    defer allocator.free(bytes);
+
+    var parser = ct_parser.CtParser.init(allocator, bytes);
+    var tbl = try parser.parse();
+    defer tbl.deinit();
+
+    const entry = tbl.findEntryById(entry_id) orelse {
+        std.debug.print("  ❌ [Entry Not Found]: ID {d} in {s}\n", .{ entry_id, final_path });
+        return;
+    };
+
+    var disabling = false;
+    if (mode_str) |m| {
+        if (aa_interp.eqlIgnoreCase(m, "disable") or aa_interp.eqlIgnoreCase(m, "false") or
+            aa_interp.eqlIgnoreCase(m, "off") or std.mem.eql(u8, m, "0"))
+        {
+            disabling = true;
+        }
+    }
+    const mode: aa_interp.Mode = if (disabling) .disable else .enable;
+
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  SHARABHA // CHEAT ENTRY {s} (ID {d})\n", .{
+        if (disabling) "DISABLE" else "ENABLE", entry.id,
+    });
+    std.debug.print("========================================================================\n", .{});
+    std.debug.print("  Description : {s}\n", .{entry.description});
+    std.debug.print("  Type        : {s}\n", .{entry.variable_type});
+
+    var target_pid: u32 = currentValidPid();
+    var proc_handle: ?process.ProcessHandle = null;
+    if (target_pid != 0) proc_handle = process.ProcessHandle.open(target_pid) catch null;
+    defer if (proc_handle) |*p| p.close();
+    const proc_ptr: ?*process.ProcessHandle = if (proc_handle) |*p| p else null;
+
+    const mem_addr = resolveCtAddress(proc_ptr, entry.address, entry.offsets);
+
+    if (!entry.isScript()) {
+        std.debug.print("  [Address Record]: {s} -> 0x{X}\n", .{ entry.address, mem_addr });
+        return;
+    }
+
+    var engine = try scripting.ScriptEngine.init(allocator, null);
+    defer engine.deinit();
+    if (target_pid != 0) engine.attach(target_pid) catch {};
+
+    const memrec: aa_interp.MemRec = .{
+        .id = entry.id,
+        .address = mem_addr,
+        .description = entry.description,
+        .active = !disabling,
+    };
+
+    const body = entry.scriptBody() orelse "";
+    var report = blk: {
+        if (entry.isLuaOnly()) {
+            // Pure Lua record: run the whole body inside one `{$lua}` block.
+            const wrapped = try std.fmt.allocPrint(allocator, "{{$lua}}\n{s}\n{{$asm}}", .{body});
+            defer allocator.free(wrapped);
+            break :blk aa_interp.run(allocator, &engine, proc_ptr, wrapped, .enable, memrec);
+        }
+        break :blk aa_interp.run(allocator, &engine, proc_ptr, body, mode, memrec);
+    };
+    defer report.deinit();
+
+    if (report.log.items.len > 0) std.debug.print("{s}", .{report.log.items});
+    std.debug.print("  Applied: {d} · Lua blocks: {d} · asm skipped: {d} · errors: {d}\n", .{
+        report.applied, report.lua_blocks, report.skipped_instructions, report.errors,
+    });
+
+    // A script may have auto-attached through openProcess().
+    if (engine.target_pid != 0 and engine.target_pid != target_pid) {
+        target_pid = engine.target_pid;
+        var name_buf: [260]u8 = undefined;
+        const name = processNameOf(target_pid, &name_buf);
+        setActivePid(target_pid) catch {};
+        writeLiveBind(allocator, target_pid, name);
+        std.debug.print("  [✓] Auto-attached to {s} (PID {d}) via openProcess()\n", .{ name, target_pid });
+    }
+
+    // Persist the enable/disable state so the row survives the UI reload.
+    var session = try loadCtSession(allocator);
+    defer session.deinit();
+    _ = session.setScriptActive(final_path, entry.id, !disabling);
+    saveCtSession(&session);
+    try writeLiveTableFromSession(allocator, &session);
+    touchAppSlint();
+
+    if (report.errors == 0) {
+        std.debug.print("  [✓] Record {s}. Address list state updated.\n", .{if (disabling) "disabled" else "enabled"});
+    } else {
+        std.debug.print("  ⚠️ Record executed with {d} reported error(s).\n", .{report.errors});
+    }
+}
+
+/// Re-reads every reachable record value (UI ⟳ REFRESH VALUES).
+pub fn handleRefreshCt(allocator: std.mem.Allocator) !void {
+    var session = try loadCtSession(allocator);
+    defer session.deinit();
+
+    const pid = currentValidPid();
+    var proc_handle: ?process.ProcessHandle = null;
+    if (pid != 0) proc_handle = process.ProcessHandle.open(pid) catch null;
+    defer if (proc_handle) |*p| p.close();
+
+    const updated = refreshSessionValues(&session, if (proc_handle) |*p| p else null);
+    saveCtSession(&session);
+    try writeLiveTableFromSession(allocator, &session);
+    touchAppSlint();
+
+    std.debug.print("  [✓] Refreshed {d} of {d} record(s) in the address list.\n", .{ updated, session.rows.items.len });
+}
+
+/// Empties the address list without touching the attached process.
+pub fn handleClearCt(allocator: std.mem.Allocator) !void {
+    var session = try loadCtSession(allocator);
+    defer session.deinit();
+
+    const removed = session.rows.items.len;
+    session.clearRows();
+    session.filter = "";
+    saveCtSession(&session);
+    try writeLiveTableFromSession(allocator, &session);
+    touchAppSlint();
+
+    std.debug.print("  [✓] Address list cleared ({d} row(s) dropped). Process binding preserved.\n", .{removed});
+}
+
+/// Applies a search filter to the address list. An empty query shows everything.
+pub fn handleFilterCt(allocator: std.mem.Allocator, query: []const u8) !void {
+    var session = try loadCtSession(allocator);
+    defer session.deinit();
+
+    const trimmed = std.mem.trim(u8, query, " \t\r\n");
+    session.filter = session.allocator.dupe(u8, trimmed) catch "";
+    saveCtSession(&session);
+    try writeLiveTableFromSession(allocator, &session);
+    touchAppSlint();
+
+    std.debug.print("  [✓] Address list filter: \"{s}\" -> {d} of {d} row(s) shown.\n", .{
+        session.filter, session.visibleRowCount(), session.rows.items.len,
+    });
+}
+
+/// Attaches by executable name (case-insensitive, suffix-tolerant). This is the
+/// engine behind a table whose script asks for `openProcess("game.exe")` and for
+/// the UI's own auto-attach action.
+pub fn handleAttachByName(allocator: std.mem.Allocator, process_name: []const u8) !void {
+    const wanted = std.mem.trim(u8, process_name, " \t\r\n\"'");
+    if (wanted.len == 0) {
+        std.debug.print("  ❌ [Auto-Attach]: no process name supplied.\n", .{});
+        return;
+    }
+
+    var found_pid: u32 = 0;
+    var found_name: [260]u8 = undefined;
+    var found_len: usize = 0;
+
+    var iter = process.ProcessIterator.init() catch return;
+    defer iter.deinit();
+    while (iter.next()) |p| {
+        if (p.pid <= 4) continue;
+        const name = p.getName();
+        var matches = std.ascii.eqlIgnoreCase(name, wanted) or
+            ct_session.containsIgnoreCase(name, wanted);
+        if (!matches) {
+            if (std.mem.lastIndexOfScalar(u8, name, '.')) |dot| {
+                matches = std.ascii.eqlIgnoreCase(name[0..dot], wanted);
+            }
+        }
+        if (!matches) continue;
+        found_pid = p.pid;
+        @memcpy(found_name[0..p.name_len], name);
+        found_len = p.name_len;
+        break;
+    }
+
+    if (found_pid == 0) {
+        std.debug.print("  ❌ [Auto-Attach]: no running process matches '{s}'.\n", .{wanted});
+        return;
+    }
+
+    try handleAttach(allocator, found_pid);
+    writeLiveBind(allocator, found_pid, found_name[0..found_len]);
+    std.debug.print("  [✓] Auto-attached to {s} (PID {d}).\n", .{ found_name[0..found_len], found_pid });
+}
+

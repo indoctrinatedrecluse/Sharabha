@@ -3,6 +3,7 @@ import { LiveProcesses } from "live_processes.slint";
 import { LiveSave, SaveKeyValueRowData } from "live_save.slint";
 import { LiveScan, ScanRowData } from "live_scan.slint";
 import { LiveTable, CheatTableRowData } from "live_table.slint";
+import { LiveBind } from "live_bind.slint";
 import { UpdaterState } from "updater_state.slint";
 import { LiveDiff, DiffRowData } from "live_diff.slint";
 import { LiveNetra, NetraHitData } from "live_netra.slint";
@@ -53,6 +54,9 @@ export component ThematicActionButton inherits Rectangle {
     in property <length> btn_height: 42px;
     in property <bool> tooltip_down: false;
     in property <bool> tooltip_right_align: false;
+    /// Single-line mode for dense toolbars (address-list actions): hides the
+    /// Devanagari subtitle so a row of buttons stays inside the panel.
+    in property <bool> compact: false;
 
     callback clicked();
 
@@ -73,26 +77,30 @@ export component ThematicActionButton inherits Rectangle {
     VerticalLayout {
         alignment: center;
         spacing: 1px;
-        padding-left: 6px;
-        padding-right: 6px;
+        padding-left: 4px;
+        padding-right: 4px;
 
         Text {
             text: root.text;
-            font-size: 10px;
+            font-size: root.compact ? 9px : 10px;
             font-weight: 800;
-            letter-spacing: 0.5px;
+            letter-spacing: root.compact ? 0px : 0.5px;
             color: #ffffff;
             horizontal-alignment: center;
             wrap: word-wrap;
+            overflow: elide;
+            min-width: 0px;
         }
 
-        if root.devanagari != "": Text {
+        if root.devanagari != "" && !root.compact: Text {
             text: root.devanagari;
             font-size: 9px;
             font-weight: 700;
             color: #fef08a;
             horizontal-alignment: center;
             wrap: word-wrap;
+            overflow: elide;
+            min-width: 0px;
         }
     }
 
@@ -144,6 +152,12 @@ export component ThematicActionButton inherits Rectangle {
 /* ==========================================================================
    THEMATIC COLUMN HEADER WITH DUAL ENGLISH-SANSKRIT & HOVER EXPLANATION
    ========================================================================== */
+/* Dense single-line variant used by the address-list toolbars. */
+export component CompactActionButton inherits ThematicActionButton {
+    compact: true;
+    btn_height: 24px;
+}
+
 export component ThematicColumnHeader inherits Rectangle {
     in property <string> title;
     in property <string> devanagari: "";
@@ -239,6 +253,7 @@ export component TabButton inherits Rectangle {
     callback clicked();
 
     height: 60px;
+    min-width: 132px;
     background: is_active ? #181f2c : (touch.has_hover ? #121722 : transparent);
     border-radius: 8px;
     border-width: is_active ? 1.5px : 0px;
@@ -249,20 +264,21 @@ export component TabButton inherits Rectangle {
     }
 
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        spacing: 12px;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
         alignment: center;
 
         Text {
             text: root.icon_text;
-            font-size: 22px;
+            font-size: 20px;
             vertical-alignment: center;
         }
 
         VerticalLayout {
             alignment: center;
             spacing: 2px;
+            min-width: 0px;
 
             Text {
                 text: root.title;
@@ -270,6 +286,8 @@ export component TabButton inherits Rectangle {
                 font-weight: 800;
                 letter-spacing: 0.5px;
                 color: is_active ? #ffffff : #94a3b8;
+                overflow: elide;
+                min-width: 0px;
             }
 
             Text {
@@ -277,6 +295,8 @@ export component TabButton inherits Rectangle {
                 font-size: 10px;
                 font-weight: 600;
                 color: is_active ? active_color : #64748b;
+                overflow: elide;
+                min-width: 0px;
             }
         }
     }
@@ -1172,52 +1192,227 @@ export component CheatTableRow inherits Rectangle {
     in-out property <string> val;
     in-out property <bool> is_frozen;
     in property <bool> is_script;
+    in property <bool> script_active;
+    in property <bool> is_group;
+    in property <int> depth;
+    in property <string> hotkey;
     in property <bool> is_even;
 
     callback toggle_active();
     callback write_or_run(string);
 
-    height: 34px;
-    background: root.is_even ? #141e2ecc : transparent;
+    height: root.is_group ? 28px : 32px;
+    background: root.is_group ? #16213aee : (root.is_even ? #141e2ecc : transparent);
     border-radius: 4px;
 
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 8px;
+        padding-left: 6px;
+        padding-right: 8px;
+        spacing: 6px;
 
+        // Enable / disable / folder marker
         Rectangle {
-            width: 55px;
+            width: 32px;
+            horizontal-stretch: 0;
             TouchArea {
                 mouse-cursor: pointer;
                 clicked => { root.toggle_active(); }
             }
             Text {
-                text: root.is_script ? "⚡" : (root.is_frozen ? "☑" : "☐");
-                font-size: 15px;
+                text: root.is_group ? "📁" : (root.is_script ? (root.script_active ? "⚡" : "○") : (root.is_frozen ? "☑" : "☐"));
+                font-size: root.is_group ? 13px : 15px;
                 font-weight: 700;
-                color: root.is_script ? #a855f7 : (root.is_frozen ? #22c55e : #94a3b8);
+                color: root.is_group ? #eab308 : (root.is_script ? (root.script_active ? #a855f7 : #64748b) : (root.is_frozen ? #22c55e : #94a3b8));
                 vertical-alignment: center;
+                horizontal-alignment: center;
             }
         }
 
-        Text { text: root.desc; width: 140px; font-size: 11px; color: #f8fafc; vertical-alignment: center; overflow: elide; }
-        Text { text: root.addr; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; overflow: elide; }
-        Text { text: root.val_type; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; overflow: elide; }
-        LineEdit { text <=> root.val; width: 110px; font-size: 11px; height: 26px; enabled: !root.is_script; }
+        // Description with folder indentation + hotkey chip
+        HorizontalLayout {
+            width: 200px;
+            horizontal-stretch: 0;
+            spacing: 4px;
+            Rectangle {
+                width: min(root.depth, 8) * 13px;
+                background: transparent;
+            }
+            Text {
+                text: root.desc;
+                horizontal-stretch: 1;
+                min-width: 0px;
+                font-size: 11px;
+                font-weight: root.is_group ? 800 : 400;
+                color: root.is_group ? #fbbf24 : #f8fafc;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            if (root.hotkey != "") : Rectangle {
+                width: 56px;
+                height: 18px;
+                background: #1e293bcc;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: #38bdf855;
+                Text {
+                    text: root.hotkey;
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: #38bdf8;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+
+        Text {
+            text: root.addr;
+            width: 120px;
+            horizontal-stretch: 0;
+            font-size: 10px;
+            color: #ff7b00;
+            vertical-alignment: center;
+            font-family: "Consolas, monospace";
+            overflow: elide;
+        }
+        Text {
+            text: root.val_type;
+            width: 70px;
+            horizontal-stretch: 0;
+            font-size: 9px;
+            color: #94a3b8;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        if (root.is_group) : Text {
+            text: "—";
+            width: 70px;
+            horizontal-stretch: 0;
+            font-size: 10px;
+            color: #475569;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        if (!root.is_group) : LineEdit {
+            text <=> root.val;
+            width: 70px;
+            horizontal-stretch: 0;
+            font-size: 11px;
+            height: 24px;
+            enabled: !root.is_script;
+        }
 
         HorizontalLayout {
-            spacing: 6px;
-            horizontal-stretch: 1;
+            spacing: 4px;
+            width: 72px;
+            horizontal-stretch: 0;
             alignment: start;
-            ThematicActionButton {
-                text: root.is_script ? "EXECUTE" : "WRITE";
+            if (!root.is_group) : ThematicActionButton {
+                text: root.is_script ? (root.script_active ? "DISABLE" : "ENABLE") : "WRITE";
                 devanagari: root.is_script ? "प्रयोग" : "लेखन";
-                btn_width: root.is_script ? 75px : 55px;
-                btn_height: 26px;
-                bg_color: root.is_script ? #7c3aed : #0369a1;
-                hover_color: root.is_script ? #8b5cf6 : #0284c7;
+                compact: true;
+                btn_width: 0px;
+                btn_height: 22px;
+                bg_color: root.is_script ? (root.script_active ? #b91c1c : #7c3aed) : #0369a1;
+                hover_color: root.is_script ? (root.script_active ? #dc2626 : #8b5cf6) : #0284c7;
                 clicked => { root.write_or_run(root.val); }
+            }
+        }
+
+        // Absorb any leftover width so the columns stay pinned to their cells
+        // instead of drifting apart on very wide windows.
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+    }
+}
+
+/* ==========================================================================
+   RESIZABLE PANEL SPLITTER (Vibhajana Rekha / विभजन रेखा)
+   Drag math uses absolute window coordinates: the handle itself moves while you
+   drag it, so `mouse-x - pressed-x` (what the old code used) collapses to ~0 and
+   the panel would run away or freeze. Emitting an incremental delta measured in
+   screen space keeps the drag 1:1 with the pointer.
+   ========================================================================== */
+export component PanelSplitter inherits Rectangle {
+    in property <bool> horizontal: false; // true = horizontal bar, resizes vertically
+    in property <color> accent: #ff4d2e;
+    in property <bool> enabled: true;
+
+    callback moved_by(length);
+
+    property <length> last_abs: 0px;
+    property <bool> armed: false;
+
+    background: touch.has_hover || touch.pressed ? root.accent : #1e2738aa;
+    border-radius: 5px;
+
+    HorizontalLayout {
+        alignment: center;
+        if root.horizontal : Rectangle { height: 2px; width: 26px; border-radius: 1px; background: #94a3b8cc; }
+        if !root.horizontal : Rectangle { width: 2px; height: 26px; border-radius: 1px; background: #94a3b8cc; }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: root.horizontal ? row-resize : col-resize;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up || ev.kind == PointerEventKind.cancel) {
+                root.armed = false;
+            }
+        }
+        moved => {
+            if (!self.pressed) {
+                root.armed = false;
+            } else if (!root.armed) {
+                root.armed = true;
+                root.last_abs = root.horizontal ? (self.absolute-position.y + self.mouse-y) : (self.absolute-position.x + self.mouse-x);
+            } else {
+                root.moved_by((root.horizontal ? (self.absolute-position.y + self.mouse-y) : (self.absolute-position.x + self.mouse-x)) - root.last_abs);
+                root.last_abs = root.horizontal ? (self.absolute-position.y + self.mouse-y) : (self.absolute-position.x + self.mouse-x);
+            }
+        }
+    }
+}
+
+/* Thin wrappers so a splitter fills the cross axis of its layout: a column bar
+   spans the full height, a row bar spans the full width. */
+export component VerticalSplitter inherits PanelSplitter {
+    width: 9px;
+}
+
+export component HorizontalSplitter inherits PanelSplitter {
+    horizontal: true;
+    height: 9px;
+}
+
+export component RightResizeHandle inherits Rectangle {
+    in property <color> accent: #38bdf8;
+    callback moved_by(length);
+
+    property <length> last_abs: 0px;
+    property <bool> armed: false;
+
+    width: 5px;
+    background: touch.has_hover || touch.pressed ? root.accent : transparent;
+    border-radius: 3px;
+
+    touch := TouchArea {
+        mouse-cursor: col-resize;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up || ev.kind == PointerEventKind.cancel) {
+                root.armed = false;
+            }
+        }
+        moved => {
+            if (!self.pressed) {
+                root.armed = false;
+            } else if (!root.armed) {
+                root.armed = true;
+                root.last_abs = self.absolute-position.x + self.mouse-x;
+            } else {
+                root.moved_by((self.absolute-position.x + self.mouse-x) - root.last_abs);
+                root.last_abs = self.absolute-position.x + self.mouse-x;
             }
         }
     }
@@ -1225,10 +1420,10 @@ export component CheatTableRow inherits Rectangle {
 
 export component MainWindow inherits Window {
     title: "SHARABHA — The Dual Aspect Engine (शरभ)";
-    preferred-width: 1360px;
-    preferred-height: 820px;
-    min-width: 1180px;
-    min-height: 760px;
+    preferred-width: 1580px;
+    preferred-height: 940px;
+    min-width: 1120px;
+    min-height: 700px;
     default-font-family: "Segoe UI, sans-serif";
     background: #07090d;
 
@@ -1371,6 +1566,9 @@ export component MainWindow inherits Window {
     // Resizable Panes Dimensions (Interactive Drag Splitters)
     in-out property <string> active_process_name: LiveProcesses.proc_0_name + " [PID " + LiveProcesses.proc_0_pid + "]";
     in-out property <length> rudra_left_width: 320px;
+    // Height of the "Found Addresses" panel; the Cheat Table below it takes every
+    // remaining pixel (no more dead space under the table).
+    in-out property <length> rudra_results_height: 210px;
     in-out property <length> kalyana_left_width: 270px;
     in-out property <length> jnana_left_width: 320px;
 
@@ -1795,10 +1993,10 @@ export component MainWindow inherits Window {
 
 
     // Rudra Tandava Interactive State
-    in-out property <int> active_process_pid: LiveProcesses.proc_0_pid;
+    in-out property <int> active_process_pid: LiveBind.bound ? LiveBind.pid : LiveProcesses.proc_0_pid;
     in-out property <int> selected_process_idx: 0;
-    in-out property <bool> process_bound: false;
-    in-out property <string> process_bind_status: "STANDBY // Unattached";
+    in-out property <bool> process_bound: LiveBind.bound;
+    in-out property <string> process_bind_status: LiveBind.bound ? ("BOUND // " + LiveBind.name) : "STANDBY // Unattached";
     in-out property <string> rudra_status_text: LiveScan.status_text;
 
     // Process Picker Modal (सम्पूर्ण प्रक्रिया सूची)
@@ -1869,8 +2067,13 @@ export component MainWindow inherits Window {
     in-out property <int> table_row_count: 3;
     in-out property <[CheatTableRowData]> ct_rows: LiveTable.rows;
     in-out property <int> ct_total_entries: LiveTable.total_entries;
+    in-out property <int> ct_visible_entries: LiveTable.visible_entries;
+    in-out property <int> ct_table_count: LiveTable.table_count;
+    in-out property <string> ct_filter: LiveTable.filter;
     in-out property <string> ct_file_path: LiveTable.file_path;
     in-out property <bool> is_ct_loaded: LiveTable.is_ct_table;
+    // Search box draft; committed with Enter (each commit reloads the table file).
+    in-out property <string> ct_filter_input: LiveTable.filter;
 
     // Kalyana Sthiti Interactive State
     in-out property <int> current_save_idx: 0;
@@ -2053,7 +2256,12 @@ export component MainWindow inherits Window {
     callback save_memory_table(string);
     callback load_memory_table(string);
     callback load_ct_file();
-    callback run_table_entry(string, string);
+    callback load_ct_merge();
+    callback refresh_ct_values();
+    callback clear_ct_table();
+    callback filter_ct_table(string);
+    callback auto_attach_process(string);
+    callback run_table_entry(string, string, bool);
     callback inject_dll(string);
     callback export_agamas(string);
     callback open_save_file();
@@ -2199,6 +2407,8 @@ export component MainWindow inherits Window {
                             text: "Dual Aspect Tool // Sharabha Avatar";
                             font-size: 10px;
                             color: #64748b;
+                            overflow: elide;
+                            min-width: 0px;
                         }
                     }
                 }
@@ -2368,6 +2578,7 @@ export component MainWindow inherits Window {
                 // Process Selector Panel (Resizable)
                 Rectangle {
                     width: root.rudra_left_width;
+                    horizontal-stretch: 0;
                     background: #090e1899;
                     border-radius: 10px;
                     border-width: 1px;
@@ -2590,15 +2801,9 @@ export component MainWindow inherits Window {
                 }
 
                 // Interactive Splitter Divider (Click & Drag to resize)
-                Rectangle {
-                    width: 8px;
-                    background: splitter_rudra.has_hover ? #ff4d2e : #1e2738aa;
-                    border-radius: 4px;
-                    splitter_rudra := TouchArea {
-                        mouse-cursor: col-resize;
-                        moved => {
-                            root.rudra_left_width = max(220px, min(parent.width - 400px, root.rudra_left_width + (self.mouse-x - self.pressed-x)));
-                        }
+                VerticalSplitter {
+                    moved_by(delta) => {
+                        root.rudra_left_width = clamp(220px, max(220px, parent.width - 360px), root.rudra_left_width + delta);
                     }
                 }
 
@@ -2817,7 +3022,7 @@ export component MainWindow inherits Window {
                         // UPPER TABLE: FOUND ADDRESSES (परिणाम शोधन / Found Addresses)
                         // -------------------------------------------------------------
                         Rectangle {
-                            height: 160px;
+                            height: root.rudra_results_height;
                             background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
@@ -2842,6 +3047,7 @@ export component MainWindow inherits Window {
                                         Text { text: "PREVIOUS (पूर्व)"; width: 90px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
                                         Text { text: "TYPE (रूप)"; width: 80px; font-size: 9px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
                                         Text { text: "ACTIONS (क्रिया)"; horizontal-stretch: 1; font-size: 9px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                        Rectangle { horizontal-stretch: 1; background: transparent; }
                                     }
                                 }
 
@@ -2919,11 +3125,20 @@ export component MainWindow inherits Window {
                             }
                         }
 
+                        // Draggable divider: Found Addresses <-> Cheat Table
+                        HorizontalSplitter {
+                            accent: #eab308;
+                            moved_by(delta) => {
+                                root.rudra_results_height = clamp(110px, max(110px, parent.height - 260px), root.rudra_results_height + delta);
+                            }
+                        }
+
                         // -------------------------------------------------------------
                         // LOWER TABLE: SAVED ADDRESS LIST / CHEAT TABLE (संरक्षित तालिका)
                         // -------------------------------------------------------------
                         Rectangle {
-                            height: 180px;
+                            vertical-stretch: 1;
+                            min-height: 150px;
                             background: #080d16a8;
                             border-radius: 6px;
                             border-width: 1px;
@@ -2948,89 +3163,103 @@ export component MainWindow inherits Window {
                                             vertical-alignment: center;
                                         }
                                         Text {
-                                            text: "• " + (root.is_ct_loaded ? (root.ct_total_entries + " Table Entries (" + root.ct_file_path + ")") : (root.table_row_count + " Tracked Entries"));
+                                            text: root.is_ct_loaded
+                                                ? (root.ct_visible_entries + " / " + root.ct_total_entries + " rows · " + root.ct_table_count + " table(s)")
+                                                : (root.table_row_count + " Tracked Entries");
                                             font-size: 10px;
                                             color: #64748b;
                                             vertical-alignment: center;
                                         }
+                                        if (root.ct_filter != "") : Rectangle {
+                                            background: #38bdf822;
+                                            border-radius: 3px;
+                                            border-width: 1px;
+                                            border-color: #38bdf866;
+                                            horizontal-stretch: 1;
+                                            height: 18px;
+                                            Text {
+                                                text: "FILTER: " + root.ct_filter;
+                                                font-size: 9px;
+                                                font-weight: 700;
+                                                color: #38bdf8;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                            }
+                                        }
                                     }
 
-                                    HorizontalLayout {
-                                        spacing: 6px;
-                                        ThematicActionButton {
-                                            text: "+ MANUAL ADDRESS"; devanagari: "हस्त योजन"; btn_width: 120px; btn_height: 26px;
-                                            bg_color: #1e293b; hover_color: #334155;
-                                            clicked => {
-                                                root.table_row_count = min(3, root.table_row_count + 1);
-                                                root.rudra_status_text = "Manual Address Row Added to Cheat Table";
-                                            }
+                                }
+
+                                // Action bar: table lifecycle + value refresh + search
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    CompactActionButton {
+                                        text: "LOAD .CT"; devanagari: "सीटी प्रवेश"; btn_width: 84px; btn_height: 26px;
+                                        bg_color: #ca8a04; hover_color: #eab308;
+                                        sanskrit_title: "सीटी प्रवेश // OPEN TABLE (REPLACE)";
+                                        feature_name: "Feature: Cheat Engine Table Inquest";
+                                        explanation: "Opens a .CT table, replacing the current address list while keeping the attached process.";
+                                        clicked => {
+                                            root.rudra_status_text = "🔱 Selecting Cheat Engine (.CT) Table (सीटी प्रवेश)...";
+                                            root.load_ct_file();
                                         }
-                                        ThematicActionButton {
-                                            text: "FREEZE ALL"; devanagari: "सर्व स्तम्भन"; btn_width: 90px; btn_height: 26px;
-                                            bg_color: #15803d; hover_color: #16a34a;
-                                            clicked => {
-                                                root.table_active_0 = true;
-                                                root.table_active_1 = true;
-                                                root.table_active_2 = true;
-                                                root.rudra_status_text = "All Tracked Cheat Table Entries Frozen (Stambhana Armed)";
-                                            }
+                                    }
+                                    CompactActionButton {
+                                        text: "MERGE .CT"; devanagari: "सीटी संयोग"; btn_width: 88px; btn_height: 26px;
+                                        bg_color: #7c3aed; hover_color: #8b5cf6;
+                                        sanskrit_title: "सीटी संयोग // MERGE TABLE";
+                                        feature_name: "Feature: Non-destructive Table Merge";
+                                        explanation: "Loads another .CT and appends its records to the current address list, keeping the bound process and every existing row.";
+                                        clicked => {
+                                            root.rudra_status_text = "🔱 Merging Cheat Engine Table (process + address list preserved)...";
+                                            root.load_ct_merge();
                                         }
-                                        ThematicActionButton {
-                                            text: "UNFREEZE ALL"; devanagari: "सर्व मोक्ष"; btn_width: 95px; btn_height: 26px;
-                                            bg_color: #7f1d1d; hover_color: #991b1b;
-                                            clicked => {
-                                                root.table_active_0 = false;
-                                                root.table_active_1 = false;
-                                                root.table_active_2 = false;
-                                                root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
-                                            }
+                                    }
+                                    CompactActionButton {
+                                        text: "⟳ VALUES"; devanagari: "मान नवीकरण"; btn_width: 76px; btn_height: 26px;
+                                        bg_color: #0f766e; hover_color: #14b8a6;
+                                        sanskrit_title: "मान नवीकरण // REFRESH VALUES";
+                                        feature_name: "Feature: Live Value Re-read";
+                                        explanation: "Re-reads every resolvable record from the attached process and refreshes the VALUE column.";
+                                        clicked => {
+                                            root.rudra_status_text = "⟳ Re-reading address list values...";
+                                            root.refresh_ct_values();
                                         }
-                                        ThematicActionButton {
-                                            text: "SAVE .sharabha"; devanagari: "सारिणी संग्रह"; btn_width: 105px; btn_height: 26px;
-                                            bg_color: #0369a1; hover_color: #0284c7;
-                                            sanskrit_title: "सारिणी संग्रह // SAVE TABLE";
-                                            feature_name: "Feature: Serialize Cheat Table";
-                                            explanation: "Saves tracked addresses, pointer chains, freeze sentinels, and Lua scripts to a .sharabha workspace file.";
-                                            clicked => {
-                                                root.rudra_status_text = "✓ Serializing Memory Table to " + root.table_file_path;
-                                                root.save_memory_table(root.table_file_path);
-                                            }
+                                    }
+                                    CompactActionButton {
+                                        text: "CLEAR"; devanagari: "तालिका मोचन"; btn_width: 68px; btn_height: 26px;
+                                        bg_color: #7f1d1d; hover_color: #991b1b;
+                                        sanskrit_title: "तालिका मोचन // CLEAR ADDRESS LIST";
+                                        feature_name: "Feature: Clear Address List";
+                                        explanation: "Empties the address list without touching the attached process or the scan results.";
+                                        clicked => {
+                                            root.rudra_status_text = "Address list cleared (process binding preserved)";
+                                            root.clear_ct_table();
                                         }
-                                        ThematicActionButton {
-                                            text: "LOAD .sharabha"; devanagari: "सारिणी प्रवेश"; btn_width: 105px; btn_height: 26px;
-                                            bg_color: #0d9488; hover_color: #14b8a6;
-                                            sanskrit_title: "सारिणी प्रवेश // LOAD TABLE";
-                                            feature_name: "Feature: Load Cheat Table";
-                                            explanation: "Loads persistent .sharabha workspace table, activating known records and embedded scripts.";
-                                            clicked => {
-                                                root.rudra_status_text = "✓ Loading Memory Table from " + root.table_file_path;
-                                                root.load_memory_table(root.table_file_path);
-                                            }
+                                    }
+                                    LineEdit {
+                                        placeholder-text: "SEARCH (Enter) — desc / address / hotkey";
+                                        text <=> root.ct_filter_input;
+                                        horizontal-stretch: 1;
+                                        min-width: 140px;
+                                        height: 26px;
+                                        font-size: 10px;
+                                        accepted(t) => {
+                                            root.ct_filter = t;
+                                            root.filter_ct_table(t);
                                         }
-                                        ThematicActionButton {
-                                            text: "LOAD .CT"; devanagari: "सीटी प्रवेश"; btn_width: 95px; btn_height: 26px;
-                                            bg_color: #ca8a04; hover_color: #eab308;
-                                            sanskrit_title: "सीटी प्रवेश // LOAD CHEAT TABLE (.CT)";
-                                            feature_name: "Feature: Seamless Cheat Engine Table (.CT) Inquest";
-                                            explanation: "Opens Cheat Engine .CT file, resolves multi-level pointer chains, registers symbols, and executes embedded Lua scripts.";
-                                            clicked => {
-                                                root.rudra_status_text = "🔱 Selecting Cheat Engine (.CT) Table (सीटी प्रवेश)...";
-                                                root.load_ct_file();
-                                            }
-                                        }
-                                        ThematicActionButton {
-                                            text: "INJECT DLL"; devanagari: "पाश बन्धन"; btn_width: 85px; btn_height: 26px;
-                                            bg_color: #9333ea; hover_color: #a855f7;
-                                            sanskrit_title: "पाश बन्धन // DLL INJECTION";
-                                            feature_name: "Feature: Win32 Remote Thread Injection";
-                                            explanation: "Injects native DLL into attached process via CreateRemoteThread and LoadLibraryW.";
-                                            clicked => {
-                                                root.rudra_status_text = "🔱 Pasha Bandhana: Injecting " + root.dll_inject_path + " into " + root.active_process_name;
-                                                root.inject_dll(root.dll_inject_path);
-                                            }
+                                    }
+                                    if (root.ct_filter != "") : CompactActionButton {
+                                        text: "✕ FILTER"; btn_width: 70px; btn_height: 26px;
+                                        bg_color: #1e293b; hover_color: #334155;
+                                        clicked => {
+                                            root.ct_filter_input = "";
+                                            root.ct_filter = "";
+                                            root.filter_ct_table("");
                                         }
                                     }
                                 }
+
 
                                 // Cheat Table Column Headers
                                 Rectangle {
@@ -3038,55 +3267,137 @@ export component MainWindow inherits Window {
                                     background: #0d1626cc;
                                     border-radius: 4px;
                                     HorizontalLayout {
-                                        padding-left: 10px;
-                                        padding-right: 10px;
-                                        spacing: 8px;
-                                        Text { text: "ACTIVE"; width: 55px; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; }
-                                        Text { text: "DESCRIPTION (नाम/वर्णन)"; width: 140px; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "ADDRESS (क्षेत्र)"; width: 130px; font-size: 9px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
-                                        Text { text: "TYPE (रूप)"; width: 85px; font-size: 9px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
-                                        Text { text: "VALUE (मान)"; width: 110px; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
-                                        Text { text: "ACTIONS (क्रिया)"; horizontal-stretch: 1; font-size: 9px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                        padding-left: 6px;
+                                        padding-right: 8px;
+                                        spacing: 6px;
+                                        Text { text: "ON"; width: 32px; horizontal-stretch: 0; font-size: 9px; font-weight: 800; color: #64748b; vertical-alignment: center; horizontal-alignment: center; }
+                                        Text { text: "DESCRIPTION (नाम/वर्णन)"; width: 200px; horizontal-stretch: 0; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; overflow: elide; }
+
+
+                                        Text { text: "ADDRESS (क्षेत्र)"; width: 120px; horizontal-stretch: 0; font-size: 9px; font-weight: 800; color: #ff7b00; vertical-alignment: center; }
+                                        Text { text: "TYPE (रूप)"; width: 70px; horizontal-stretch: 0; font-size: 9px; font-weight: 800; color: #94a3b8; vertical-alignment: center; }
+                                        Text { text: "VALUE (मान)"; width: 70px; horizontal-stretch: 0; font-size: 9px; font-weight: 800; color: #f8fafc; vertical-alignment: center; }
+                                        Text { text: "ACTION"; width: 72px; horizontal-stretch: 0; font-size: 9px; font-weight: 800; color: #38bdf8; vertical-alignment: center; }
+                                        Rectangle { horizontal-stretch: 1; background: transparent; }
                                     }
                                 }
 
-                                ScrollView {
-                                    VerticalLayout {
-                                        spacing: 4px;
+                                // Secondary bar: freeze / persistent table / injection
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    CompactActionButton {
+                                        text: "+ ADDRESS"; devanagari: "हस्त योजन"; btn_width: 76px; btn_height: 24px;
+                                        bg_color: #1e293b; hover_color: #334155;
+                                        clicked => {
+                                            root.table_row_count = min(3, root.table_row_count + 1);
+                                            root.rudra_status_text = "Manual Address Row Added to Cheat Table";
+                                        }
+                                    }
+                                    CompactActionButton {
+                                        text: "FREEZE ALL"; devanagari: "सर्व स्तम्भन"; btn_width: 82px; btn_height: 24px;
+                                        bg_color: #15803d; hover_color: #16a34a;
+                                        clicked => {
+                                            root.table_active_0 = true;
+                                            root.table_active_1 = true;
+                                            root.table_active_2 = true;
+                                            root.rudra_status_text = "All Tracked Cheat Table Entries Frozen (Stambhana Armed)";
+                                        }
+                                    }
+                                    CompactActionButton {
+                                        text: "UNFREEZE"; devanagari: "सर्व मोक्ष"; btn_width: 78px; btn_height: 24px;
+                                        bg_color: #7f1d1d; hover_color: #991b1b;
+                                        clicked => {
+                                            root.table_active_0 = false;
+                                            root.table_active_1 = false;
+                                            root.table_active_2 = false;
+                                            root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
+                                        }
+                                    }
+                                    CompactActionButton {
+                                        text: "SAVE TBL"; devanagari: "सारिणी संग्रह"; btn_width: 72px; btn_height: 24px;
+                                        bg_color: #0369a1; hover_color: #0284c7;
+                                        sanskrit_title: "सारिणी संग्रह // SAVE TABLE";
+                                        feature_name: "Feature: Serialize Cheat Table";
+                                        explanation: "Saves tracked addresses, pointer chains, freeze sentinels, and Lua scripts to a .sharabha workspace file.";
+                                        clicked => {
+                                            root.rudra_status_text = "✓ Serializing Memory Table to " + root.table_file_path;
+                                            root.save_memory_table(root.table_file_path);
+                                        }
+                                    }
+                                    CompactActionButton {
+                                        text: "LOAD TBL"; devanagari: "सारिणी प्रवेश"; btn_width: 72px; btn_height: 24px;
+                                        bg_color: #0d9488; hover_color: #14b8a6;
+                                        sanskrit_title: "सारिणी प्रवेश // LOAD TABLE";
+                                        feature_name: "Feature: Load Cheat Table";
+                                        explanation: "Loads persistent .sharabha workspace table, activating known records and embedded scripts.";
+                                        clicked => {
+                                            root.rudra_status_text = "✓ Loading Memory Table from " + root.table_file_path;
+                                            root.load_memory_table(root.table_file_path);
+                                        }
+                                    }
+                                    CompactActionButton {
+                                        text: "INJECT"; devanagari: "पाश बन्धन"; btn_width: 66px; btn_height: 24px;
+                                        bg_color: #9333ea; hover_color: #a855f7;
+                                        sanskrit_title: "पाश बन्धन // DLL INJECTION";
+                                        feature_name: "Feature: Win32 Remote Thread Injection";
+                                        explanation: "Injects native DLL into attached process via CreateRemoteThread and LoadLibraryW.";
+                                        clicked => {
+                                            root.rudra_status_text = "🔱 Pasha Bandhana: Injecting " + root.dll_inject_path + " into " + root.active_process_name;
+                                            root.inject_dll(root.dll_inject_path);
+                                        }
+                                    }
+                                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                                }
 
-                                        if (root.is_ct_loaded) : VerticalLayout {
-                                            spacing: 4px;
-                                            for row[idx] in root.ct_rows: CheatTableRow {
-                                                row_id: row.id;
-                                                desc: row.description;
-                                                addr: row.address;
-                                                val_type: row.val_type;
-                                                val: row.val;
-                                                is_frozen: row.is_frozen;
-                                                is_script: row.is_script;
-                                                is_even: Math.mod(idx, 2) == 0;
-                                                toggle_active => {
-                                                    if (row.is_script) {
-                                                        root.rudra_status_text = "🔱 Triggering Altar Script: " + row.description;
-                                                        root.run_table_entry(root.ct_file_path, row.id);
-                                                    } else {
-                                                        root.toggle_freeze_address(row.address, !row.is_frozen);
-                                                    }
-                                                }
-                                                write_or_run(new_val) => {
-                                                    if (row.is_script) {
-                                                        root.rudra_status_text = "🔱 Executing Altar Script [ID " + row.id + "]: " + row.description;
-                                                        root.run_table_entry(root.ct_file_path, row.id);
-                                                    } else {
-                                                        root.rudra_status_text = "RAM Written: " + row.address + " set to " + new_val;
-                                                        root.write_memory_address(row.address, new_val);
-                                                    }
-                                                }
+                                // Virtualised rows: a 12k-entry table stays smooth because
+                                // ListView only instantiates the visible slice.
+                                if (root.is_ct_loaded) : ListView {
+                                    // Pin the item width to the visible area: a ListView
+                                    // otherwise sizes items to the widest row, which makes
+                                    // proportionally-sized columns grow without bound.
+                                    content-width: parent.width;
+                                    for row[idx] in root.ct_rows: CheatTableRow {
+                                        width: 100%;
+                                        row_id: row.id;
+                                        desc: row.description;
+                                        addr: row.address;
+                                        val_type: row.val_type;
+                                        val: row.val;
+                                        is_frozen: row.is_frozen;
+                                        is_script: row.is_script;
+                                        script_active: row.script_active;
+                                        is_group: row.is_group;
+                                        depth: row.depth;
+                                        hotkey: row.hotkey;
+                                        is_even: Math.mod(idx, 2) == 0;
+                                        toggle_active => {
+                                            if (row.is_group) {
+                                                root.rudra_status_text = "📁 " + row.description;
+                                            } else if (row.is_script) {
+                                                root.rudra_status_text = (row.script_active ? "🔱 Disabling: " : "🔱 Enabling: ") + row.description;
+                                                root.run_table_entry(row.source, row.ce_id, !row.script_active);
+                                            } else {
+                                                root.rudra_status_text = "Stambhana toggled: " + row.description;
+                                                root.toggle_freeze_address(row.address, !row.is_frozen);
                                             }
                                         }
+                                        write_or_run(new_val) => {
+                                            if (row.is_script) {
+                                                root.rudra_status_text = (row.script_active ? "🔱 Disabling: " : "🔱 Enabling: ") + row.description;
+                                                root.run_table_entry(row.source, row.ce_id, !row.script_active);
+                                            } else if (row.is_group) {
+                                                root.rudra_status_text = "📁 " + row.description;
+                                            } else {
+                                                root.rudra_status_text = "RAM Written: " + row.address + " set to " + new_val;
+                                                root.write_memory_address(row.address, new_val);
+                                            }
+                                        }
+                                    }
+                                }
 
-                                        if (!root.is_ct_loaded) : VerticalLayout {
-                                            spacing: 4px;
+                                if (!root.is_ct_loaded) : ScrollView {
+                                    VerticalLayout {
+                                        spacing: 4px;
 
                                             // Table Row 0
                                             Rectangle {
@@ -3227,7 +3538,6 @@ export component MainWindow inherits Window {
                                                     }
                                                 }
                                             }
-                                        }
                                     }
                                 }
                             }

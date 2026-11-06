@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="45">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>9001</ID>
+      <Description>"[SelfCheck] AOB + alloc + db + lua"</Description>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>[ENABLE]
+aobscanmodule(mzHeader,$process,4D 5A 90 00)
+registersymbol(mzHeader)
+alloc(scratch,$1000)
+scratch:
+db 90 90 90
+{$lua}
+local base = getAddress("mzHeader")
+local scratch = getAddress("scratch")
+print(string.format("AA mzHeader=%X scratch=%X memrec=%d", base, scratch, memrec.ID))
+print("AA scratch_readable=" .. tostring(scratch ~= 0))
+{$asm}
+[DISABLE]
+unregistersymbol(mzHeader)
+dealloc(scratch)
+</AssemblerScript>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>9002</ID>
+      <Description>"[SelfCheck] Pure Lua record"</Description>
+      <VariableType>Auto Assembler Script</VariableType>
+      <LuaScript>print("AA pure lua record ok, memrec=" .. tostring(memrec.ID))</LuaScript>
+    </CheatEntry>
+  </CheatEntries>
+</CheatTable>

@@ -23,22 +23,45 @@ pub const CtEntry = struct {
     address: []const u8,
     offsets: []const usize,
     assembler_script: ?[]const u8 = null,
+    /// Legacy tables store the block in <LuaScript> instead of <AssemblerScript>.
+    lua_script: ?[]const u8 = null,
     has_lua: bool = false,
     show_as_signed: bool = false,
     color: ?u32 = null,
     is_active: bool = false,
+    /// `<GroupHeader>1</GroupHeader>` — a folder row, not an address record.
+    is_group: bool = false,
+    /// Nesting level inside `<CheatEntries>` (0 = top level).
+    depth: u16 = 0,
+    /// First `<Hotkeys><Hotkey>` key combination, e.g. "NUMPAD1" / "CTRL+H".
+    hotkey: []const u8 = "",
     resolved_address: usize = 0,
     cached_value: []const u8 = "",
     children: []const CtEntry = &.{},
 
     pub fn isScript(self: *const CtEntry) bool {
+        if (self.lua_script != null) return true;
         return std.mem.indexOf(u8, self.variable_type, "Script") != null or
             std.mem.indexOf(u8, self.variable_type, "Auto Assembler") != null or
             self.assembler_script != null;
     }
 
+    /// Raw script body regardless of which tag carried it.
+    pub fn scriptBody(self: *const CtEntry) ?[]const u8 {
+        return self.assembler_script orelse self.lua_script;
+    }
+
+    /// True when the entry is a pure Lua record (no Auto Assembler sections).
+    pub fn isLuaOnly(self: *const CtEntry) bool {
+        if (self.lua_script != null and self.assembler_script == null) return true;
+        const body = self.scriptBody() orelse return false;
+        return std.mem.indexOf(u8, body, "[ENABLE]") == null and
+            std.mem.indexOf(u8, body, "aobscan") == null and
+            std.mem.indexOf(u8, body, "alloc(") == null;
+    }
+
     pub fn extractScriptSections(self: *const CtEntry) struct { enable: ?[]const u8, disable: ?[]const u8 } {
-        const script = self.assembler_script orelse return .{ .enable = null, .disable = null };
+        const script = self.scriptBody() orelse return .{ .enable = null, .disable = null };
         var enable_code: ?[]const u8 = null;
         var disable_code: ?[]const u8 = null;
 
@@ -129,6 +152,28 @@ pub const CtTable = struct {
         try list.append(alloc, entry);
         for (entry.children) |child| {
             try appendFlattened(list, child, alloc);
+        }
+    }
+
+    /// Depth-annotated flattening used by the address-list session: keeps the
+    /// folder hierarchy visible while remaining a single scrollable list.
+    pub const FlatEntry = struct {
+        entry: CtEntry,
+        depth: u16,
+    };
+
+    pub fn flattenEntriesWithDepth(self: *const CtTable, out_allocator: std.mem.Allocator) ![]FlatEntry {
+        var list: std.ArrayList(FlatEntry) = .empty;
+        for (self.entries.items) |entry| {
+            try appendFlattenedDepth(&list, entry, 0, out_allocator);
+        }
+        return list.toOwnedSlice(out_allocator);
+    }
+
+    fn appendFlattenedDepth(list: *std.ArrayList(FlatEntry), entry: CtEntry, depth: u16, alloc: std.mem.Allocator) !void {
+        try list.append(alloc, .{ .entry = entry, .depth = depth });
+        for (entry.children) |child| {
+            try appendFlattenedDepth(list, child, depth + 1, alloc);
         }
     }
 
@@ -319,9 +364,16 @@ pub const CtParser = struct {
             }
         }
 
-        // 2. Extract Top-level <LuaScript> if present
-        if (self.extractTagContent(0, "LuaScript")) |ls| {
-            table.lua_script = try unescapeXml(table.allocator, std.mem.trim(u8, ls, " \r\n\t"));
+        // 2. Extract the table-level <LuaScript> — strictly the one that appears
+        //    *before* <CheatEntries>. Records may carry their own <LuaScript>
+        //    (CE 6.x), and grabbing the first match anywhere would run a record's
+        //    script as if it were the table's master script.
+        const entries_start = self.findTagStart(0, "CheatEntries") orelse self.source.len;
+        if (entries_start > 0) {
+            var head_parser = CtParser.init(table.allocator, self.source[0..entries_start]);
+            if (head_parser.extractTagContent(0, "LuaScript")) |ls| {
+                table.lua_script = try unescapeXml(table.allocator, std.mem.trim(u8, ls, " \r\n\t"));
+            }
         }
 
         // 3. Extract UserdefinedSymbols
@@ -346,9 +398,19 @@ pub const CtParser = struct {
         if (self.extractTagSlice(0, "CheatEntries")) |entries_slice| {
             var e_parser = CtParser.init(table.allocator, entries_slice);
             table.entries = try e_parser.parseEntriesList(table.allocator);
+            assignDepths(table.entries.items, 0);
         }
 
         return table;
+    }
+
+    /// Records the `<CheatEntries>` nesting level so the address list can indent
+    /// folders and their children exactly like Cheat Engine does.
+    fn assignDepths(entries: []CtEntry, depth: u16) void {
+        for (entries) |*entry| {
+            entry.depth = depth;
+            assignDepths(@constCast(entry.children), depth + 1);
+        }
     }
 
     fn parseEntriesList(self: *CtParser, alloc: std.mem.Allocator) anyerror!std.ArrayList(CtEntry) {
@@ -418,11 +480,52 @@ pub const CtParser = struct {
 
         // AssemblerScript
         var asm_script: ?[]const u8 = null;
+        var lua_script: ?[]const u8 = null;
         var has_lua = false;
         if (p.extractTagContent(0, "AssemblerScript")) |script_raw| {
             const unesc = try unescapeXml(alloc, script_raw);
             asm_script = unesc;
             has_lua = std.mem.indexOf(u8, unesc, "{$lua}") != null or std.mem.indexOf(u8, unesc, "LuaCall") != null;
+        }
+        // Cheat Engine 5.x/6.x tables put script records in <LuaScript>.
+        if (p.extractTagContent(0, "LuaScript")) |lua_raw| {
+            const unesc = try unescapeXml(alloc, lua_raw);
+            const trimmed_lua = std.mem.trim(u8, unesc, " \r\n\t");
+            if (trimmed_lua.len > 0) {
+                lua_script = trimmed_lua;
+                has_lua = true;
+            }
+        }
+
+        // GroupHeader (folder rows carry no address at all)
+        var is_group = false;
+        if (p.extractTagContent(0, "GroupHeader")) |gh| {
+            const trimmed_gh = std.mem.trim(u8, gh, " \r\n\t");
+            is_group = std.mem.eql(u8, trimmed_gh, "1") or std.ascii.eqlIgnoreCase(trimmed_gh, "true");
+        }
+
+        // Hotkeys -> first combination, rendered as "CTRL+H"
+        var hotkey: []const u8 = "";
+        if (p.extractTagSlice(0, "Hotkeys")) |hk_slice| {
+            if (CtParser.init(alloc, hk_slice).extractTagSlice(0, "Hotkey")) |one_hotkey| {
+                var hk_p = CtParser.init(alloc, one_hotkey);
+                if (hk_p.extractTagSlice(0, "Keys")) |keys_slice| {
+                    var keys_p = CtParser.init(alloc, keys_slice);
+                    var keys: std.ArrayList(u8) = .empty;
+                    var k_pos: usize = 0;
+                    while (keys_p.extractTagContent(k_pos, "Key")) |key_raw| {
+                        const key = std.mem.trim(u8, key_raw, " \r\n\t");
+                        if (key.len > 0) {
+                            if (keys.items.len > 0) try keys.append(alloc, '+');
+                            for (key) |kc| try keys.append(alloc, std.ascii.toUpper(kc));
+                        }
+                        const close = std.mem.indexOfPos(u8, keys_slice, k_pos, "</Key>") orelse break;
+                        k_pos = close + "</Key>".len;
+                        if (keys.items.len > 48) break;
+                    }
+                    if (keys.items.len > 0) hotkey = keys.items;
+                }
+            }
         }
 
         // Children entries
@@ -440,9 +543,12 @@ pub const CtParser = struct {
             .address = address,
             .offsets = offsets_list.items,
             .assembler_script = asm_script,
+            .lua_script = lua_script,
             .has_lua = has_lua,
             .show_as_signed = show_as_signed,
             .color = color,
+            .is_group = is_group,
+            .hotkey = hotkey,
             .children = children,
         };
     }

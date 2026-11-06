@@ -11,6 +11,8 @@ pub const engine_service = @import("memory/engine_service.zig");
 pub const injector = @import("memory/injector.zig");
 pub const table = @import("memory/table.zig");
 pub const ct_parser = @import("memory/ct_parser.zig");
+pub const ct_session = @import("memory/ct_session.zig");
+pub const aa_interp = @import("memory/aa_interp.zig");
 pub const breakpoint = @import("memory/breakpoint.zig");
 
 pub const entropy = @import("save/entropy.zig");
@@ -36,7 +38,7 @@ pub fn printBanner() void {
     std.debug.print(
         \\
         \\========================================================================
-        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.5.3)
+        \\  🦁🐦 SHARABHA (शरभेश्वर) — The Dual Aspect Engine (v0.5.4)
         \\  [Kalyana Sthiti: Calm / शान्त]   │   [Rudra Tandava: Violent / उग्र]
         \\  ॐ नमः शरभाय — Subduing Narasimha & The Untamed Process
         \\========================================================================
@@ -56,6 +58,8 @@ test {
     _ = injector;
     _ = table;
     _ = ct_parser;
+    _ = ct_session;
+    _ = aa_interp;
     _ = breakpoint;
     _ = entropy;
     _ = fuzzy;

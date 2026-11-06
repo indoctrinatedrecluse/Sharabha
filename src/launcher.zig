@@ -121,7 +121,12 @@ pub fn main() !void {
         "--on save_memory_table \"zig-out/bin/SharabhaCli.exe --save-table $1\" " ++
         "--on load_memory_table \"zig-out/bin/SharabhaCli.exe --load-table $1\" " ++
         "--on load_ct_file \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_ct.ps1\" " ++
-        "--on run_table_entry \"zig-out/bin/SharabhaCli.exe --run-ct-entry \\\"$1\\\" $2\" " ++
+        "--on load_ct_merge \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/open_ct.ps1 -Merge\" " ++
+        "--on refresh_ct_values \"zig-out/bin/SharabhaCli.exe --refresh-ct\" " ++
+        "--on clear_ct_table \"zig-out/bin/SharabhaCli.exe --clear-ct\" " ++
+        "--on filter_ct_table \"zig-out/bin/SharabhaCli.exe --filter-ct \\\"$1\\\"\" " ++
+        "--on auto_attach_process \"zig-out/bin/SharabhaCli.exe --attach-name $1\" " ++
+        "--on run_table_entry \"zig-out/bin/SharabhaCli.exe --run-ct-entry \\\"$1\\\" $2 $3\" " ++
         "--on inject_dll \"zig-out/bin/SharabhaCli.exe --inject-dll $1\" " ++
         "--on export_agamas \"zig-out/bin/SharabhaCli.exe --export-agamas $1\" " ++
         "--on filter_save_rows \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File tools/filter_save.ps1 \\\"$1\\\"\" " ++

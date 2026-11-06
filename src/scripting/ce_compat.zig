@@ -14,43 +14,52 @@ const engine_mod = @import("engine.zig");
 const c = engine_mod.c;
 
 /// Global symbol table registry for user-defined symbols (registerSymbol / getAddress)
+///
+/// The registry owns its own allocator on purpose: symbols are registered from
+/// table loads, Auto Assembler scripts and Lua blocks, each of which may run
+/// inside a short-lived arena. Keying off the caller's allocator left dangling
+/// keys/storage behind as soon as that arena was released.
 var global_symbols: ?std.StringHashMap(usize) = null;
-var global_allocator: ?std.mem.Allocator = null;
 
-fn getSymbolMap(allocator: std.mem.Allocator) *std.StringHashMap(usize) {
+fn getSymbolMap() *std.StringHashMap(usize) {
     if (global_symbols == null) {
-        global_symbols = std.StringHashMap(usize).init(allocator);
-        global_allocator = allocator;
+        global_symbols = std.StringHashMap(usize).init(std.heap.page_allocator);
     }
     return &global_symbols.?;
 }
 
 pub fn registerSymbol(name: []const u8, address: usize, allocator: std.mem.Allocator) !void {
-    const map = getSymbolMap(allocator);
-    const key = try allocator.dupe(u8, name);
+    _ = allocator;
+    const map = getSymbolMap();
+    if (map.getEntry(name)) |entry| {
+        entry.value_ptr.* = address;
+        return;
+    }
+    const key = try std.heap.page_allocator.dupe(u8, name);
     try map.put(key, address);
 }
 
 pub fn deinitSymbols() void {
     if (global_symbols) |*map| {
-        if (global_allocator) |alloc| {
-            var it = map.keyIterator();
-            while (it.next()) |k| {
-                alloc.free(k.*);
-            }
-            map.deinit();
+        var it = map.keyIterator();
+        while (it.next()) |k| {
+            std.heap.page_allocator.free(k.*);
         }
+        map.deinit();
         global_symbols = null;
-        global_allocator = null;
     }
 }
 
 pub fn unregisterSymbol(name: []const u8) void {
     if (global_symbols) |*map| {
         if (std.mem.eql(u8, name, "*")) {
+            var it = map.keyIterator();
+            while (it.next()) |k| {
+                std.heap.page_allocator.free(k.*);
+            }
             map.clearRetainingCapacity();
-        } else {
-            _ = map.remove(name);
+        } else if (map.fetchRemove(name)) |removed| {
+            std.heap.page_allocator.free(removed.key);
         }
     }
 }
@@ -60,6 +69,255 @@ pub fn lookupSymbol(name: []const u8) ?usize {
         return map.get(name);
     }
     return null;
+}
+
+// ============================================================================
+// BINDING PERSISTENCE
+//
+// Cheat Engine tables "auto-attach": their scripts call openProcess("game.exe")
+// and from that moment every record resolves against that target. Sharabha's Lua
+// VM only lives for the length of one CLI call, so the attach has to be written
+// down: `assets/memory/active_pid.txt` for the engine and `src/ui/live_bind.slint`
+// so the auto-reloading UI shows the newly hooked process.
+// ============================================================================
+
+const file_io = struct {
+    const GENERIC_WRITE: u32 = 0x40000000;
+    const CREATE_ALWAYS: u32 = 2;
+    const FILE_ATTRIBUTE_NORMAL: u32 = 0x80;
+
+    pub extern "kernel32" fn CreateFileA(
+        lpFileName: [*:0]const u8,
+        dwDesiredAccess: u32,
+        dwShareMode: u32,
+        lpSecurityAttributes: ?*anyopaque,
+        dwCreationDisposition: u32,
+        dwFlagsAndAttributes: u32,
+        hTemplateFile: ?*anyopaque,
+    ) callconv(.winapi) ?*anyopaque;
+
+    pub extern "kernel32" fn WriteFile(
+        hFile: *anyopaque,
+        lpBuffer: [*]const u8,
+        nNumberOfBytesToWrite: u32,
+        lpNumberOfBytesWritten: ?*u32,
+        lpOverlapped: ?*anyopaque,
+    ) callconv(.winapi) i32;
+
+    pub extern "kernel32" fn CreateDirectoryA(lpPathName: [*:0]const u8, lpSecurityAttributes: ?*anyopaque) callconv(.winapi) i32;
+    pub extern "kernel32" fn GetCurrentDirectoryA(nBufferLength: u32, lpBuffer: [*]u8) callconv(.winapi) u32;
+    pub extern "kernel32" fn GetFileAttributesA(lpFileName: [*:0]const u8) callconv(.winapi) u32;
+};
+
+fn writeTextFile(path: [*:0]const u8, text: []const u8) void {
+    const handle = file_io.CreateFileA(path, file_io.GENERIC_WRITE, 3, null, file_io.CREATE_ALWAYS, file_io.FILE_ATTRIBUTE_NORMAL, null) orelse return;
+    var written: u32 = 0;
+    _ = file_io.WriteFile(handle, text.ptr, @intCast(text.len), &written, null);
+    _ = win.CloseHandle(handle);
+}
+
+const file_read = struct {
+    const GENERIC_READ: u32 = 0x80000000;
+    const OPEN_EXISTING: u32 = 3;
+    const FILE_ATTRIBUTE_NORMAL: u32 = 0x80;
+    const INVALID_HANDLE_VALUE: *anyopaque = @ptrFromInt(std.math.maxInt(usize));
+
+    pub extern "kernel32" fn CreateFileA(
+        lpFileName: [*:0]const u8,
+        dwDesiredAccess: u32,
+        dwShareMode: u32,
+        lpSecurityAttributes: ?*anyopaque,
+        dwCreationDisposition: u32,
+        dwFlagsAndAttributes: u32,
+        hTemplateFile: ?*anyopaque,
+    ) callconv(.winapi) ?*anyopaque;
+
+    pub extern "kernel32" fn ReadFile(
+        hFile: *anyopaque,
+        lpBuffer: [*]u8,
+        nNumberOfBytesToRead: u32,
+        lpNumberOfBytesRead: ?*u32,
+        lpOverlapped: ?*anyopaque,
+    ) callconv(.winapi) i32;
+};
+
+fn readTextFile(path: [*:0]const u8, buffer: []u8) ?usize {
+    const handle = file_read.CreateFileA(path, file_read.GENERIC_READ, 3, null, file_read.OPEN_EXISTING, file_read.FILE_ATTRIBUTE_NORMAL, null) orelse return null;
+    var read: u32 = 0;
+    const ok = file_read.ReadFile(handle, buffer.ptr, @intCast(buffer.len), &read, null);
+    _ = win.CloseHandle(handle);
+    if (ok == 0) return null;
+    return read;
+}
+
+/// Directory that owns `assets\` and `src\ui\`. The dev layout runs with the repo
+/// root as CWD; a packaged install runs from `bin\`, so the trailing `bin` is
+/// stripped when the CWD has no `assets` folder of its own.
+fn projectBase(buf: []u8) []const u8 {
+    const cwd_len = file_io.GetCurrentDirectoryA(@intCast(buf.len), buf.ptr);
+    if (cwd_len == 0 or cwd_len > buf.len) return ".";
+    const cwd = buf[0..cwd_len];
+    if (dirHasEntry(cwd, "assets")) return cwd;
+
+    if (std.fs.path.dirname(cwd)) |parent| {
+        if (dirHasEntry(parent, "assets")) {
+            const copy_len = @min(parent.len, buf.len);
+            @memcpy(buf[0..copy_len], parent[0..copy_len]);
+            return buf[0..copy_len];
+        }
+    }
+    return cwd;
+}
+
+fn zPath(buf: []u8, comptime fmt: []const u8, args: anytype) ?[:0]const u8 {
+    if (buf.len < 2) return null;
+    const text = std.fmt.bufPrint(buf[0 .. buf.len - 1], fmt, args) catch return null;
+    buf[text.len] = 0;
+    return buf[0..text.len :0];
+}
+
+fn dirHasEntry(dir: []const u8, child: []const u8) bool {
+    var tmp: [1024]u8 = undefined;
+    const full = zPath(&tmp, "{s}\\{s}", .{ dir, child }) orelse return false;
+    return file_io.GetFileAttributesA(full.ptr) != 0xFFFFFFFF;
+}
+
+fn buildPath(buf: []u8, relative: []const u8) ?[:0]const u8 {
+    var base_buf: [1024]u8 = undefined;
+    const base = projectBase(&base_buf);
+    return zPath(buf, "{s}\\{s}", .{ base, relative });
+}
+
+// ============================================================================
+// SYMBOL PERSISTENCE
+//
+// `registersymbol` / `aobscanmodule` produce addresses that the matching
+// [DISABLE] section needs later ("dealloc(scratch)", "unregistersymbol(x)").
+// Those sections run in a *different* CLI process, so the registry is mirrored to
+// `assets/memory/ct_symbols.tsv` and rehydrated at Lua start-up.
+// ============================================================================
+
+const SYMBOLS_FILE = "assets\\memory\\ct_symbols.tsv";
+
+pub fn persistSymbols() void {
+    const map = getSymbolMap();
+
+    var base_buf: [1024]u8 = undefined;
+    const base = projectBase(&base_buf);
+    ensureDir(base, "assets");
+    ensureDir(base, "assets\\memory");
+
+    var path_buf: [1200]u8 = undefined;
+    const path = buildPath(&path_buf, SYMBOLS_FILE) orelse return;
+
+    var text: std.ArrayList(u8) = .empty;
+    defer text.deinit(std.heap.page_allocator);
+
+    var it = map.iterator();
+    while (it.next()) |kv| {
+        text.print(std.heap.page_allocator, "{s}={X}\n", .{ kv.key_ptr.*, kv.value_ptr.* }) catch return;
+        if (text.items.len > 256 * 1024) break;
+    }
+    writeTextFile(path.ptr, text.items);
+}
+
+fn ensureDir(base: []const u8, relative: []const u8) void {
+    var tmp: [1024]u8 = undefined;
+    const full = zPath(&tmp, "{s}\\{s}", .{ base, relative }) orelse return;
+    _ = file_io.CreateDirectoryA(full.ptr, null);
+}
+
+pub fn loadPersistedSymbols() void {
+    var path_buf: [1200]u8 = undefined;
+    const path = buildPath(&path_buf, SYMBOLS_FILE) orelse return;
+
+    const buf = std.heap.page_allocator.alloc(u8, 512 * 1024) catch return;
+    defer std.heap.page_allocator.free(buf);
+
+    const read = readTextFile(path.ptr, buf) orelse return;
+    var lines = std.mem.splitScalar(u8, buf[0..read], '\n');
+    while (lines.next()) |raw| {
+        const line = std.mem.trim(u8, raw, " \r\n\t");
+        if (line.len == 0) continue;
+        const eq = std.mem.indexOfScalar(u8, line, '=') orelse continue;
+        const name = line[0..eq];
+        const addr = std.fmt.parseInt(usize, line[eq + 1 ..], 16) catch continue;
+        if (name.len == 0 or addr == 0) continue;
+        registerSymbol(name, addr, std.heap.page_allocator) catch {};
+    }
+}
+
+fn writeLiveBindSlint(pid: u32, name: []const u8) void {
+    var base_buf: [1024]u8 = undefined;
+    const base = projectBase(&base_buf);
+    ensureDir(base, "src");
+    ensureDir(base, "src\\ui");
+
+    var buf: [512]u8 = undefined;
+    var safe: [96]u8 = undefined;
+    var safe_len: usize = 0;
+    for (name) |ch| {
+        if (safe_len >= safe.len) break;
+        if (ch == '"' or ch == '\\') {
+            safe[safe_len] = '_';
+        } else {
+            safe[safe_len] = ch;
+        }
+        safe_len += 1;
+    }
+
+    const text = std.fmt.bufPrint(
+        &buf,
+        "// Auto-generated by Sharabha Rudra Tandava Memory Inquest Engine\n" ++
+            "// Bound target process (Netra Bandhana)\n" ++
+            "export global LiveBind {{\n" ++
+            "    in property <int> pid: {d};\n" ++
+            "    in property <string> name: \"{s}\";\n" ++
+            "    in property <bool> bound: {s};\n" ++
+            "}}\n",
+        .{ pid, safe[0..safe_len], if (pid != 0) "true" else "false" },
+    ) catch return;
+
+    var path_buf: [1200]u8 = undefined;
+    const path = buildPath(&path_buf, "src\\ui\\live_bind.slint") orelse return;
+    writeTextFile(path.ptr, text);
+}
+
+/// Persists an attach performed by `openProcess()` / `getProcessIDFromProcessName`.
+fn persistBinding(pid: u32, name: []const u8) void {
+    var base_buf: [1024]u8 = undefined;
+    const base = projectBase(&base_buf);
+    ensureDir(base, "assets");
+    ensureDir(base, "assets\\memory");
+    ensureDir(base, "src");
+    ensureDir(base, "src\\ui");
+
+    var path_buf: [1200]u8 = undefined;
+
+    if (pid == 0) {
+        if (buildPath(&path_buf, "assets\\memory\\active_pid.txt")) |path| writeTextFile(path.ptr, "0\n");
+        writeLiveBindSlint(0, "");
+        return;
+    }
+
+    var pid_buf: [32]u8 = undefined;
+    const text = std.fmt.bufPrint(&pid_buf, "{d}\n", .{pid}) catch return;
+    if (buildPath(&path_buf, "assets\\memory\\active_pid.txt")) |path| writeTextFile(path.ptr, text);
+
+    var name_buf: [260]u8 = undefined;
+    var name_len: usize = 0;
+    var iter = process.ProcessIterator.init() catch {
+        writeLiveBindSlint(pid, name);
+        return;
+    };
+    defer iter.deinit();
+    while (iter.next()) |p| {
+        if (p.pid != pid) continue;
+        @memcpy(name_buf[0..p.name_len], p.getName());
+        name_len = p.name_len;
+        break;
+    }
+    writeLiveBindSlint(pid, if (name_len > 0) name_buf[0..name_len] else name);
 }
 
 /// Resolves an address or expression like "14023A10", "bg3.exe+0x24A266F", or "movedPtr"
@@ -190,12 +448,139 @@ fn ceOpenProcess(L: ?*c.lua_State) callconv(.c) c_int {
             c.lua_pushboolean(l, 0);
             return 1;
         };
+        // Cheat Engine keeps the newly opened process for the whole table; the
+        // CLI process is short-lived, so record it for the engine and the UI.
+        persistBinding(target_pid, name_for_binding(target_pid));
         c.lua_pushboolean(l, 1);
         return 1;
     }
 
     c.lua_pushboolean(l, 0);
     return 1;
+}
+
+/// Process name used in `live_bind.slint`; empty when the PID vanished.
+fn name_for_binding(pid: u32) []const u8 {
+    _ = pid;
+    return "";
+}
+
+fn ceTargetIs64Bit(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_pushboolean(l, 1);
+    return 1;
+}
+
+/// `getProcessList()` — array of `{ pid, Name, ProcessName }` entries, enough for
+/// the auto-attach loops published tables use (`for i=1,#list do ...`).
+fn ceGetProcessList(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_newtable(l);
+
+    var iter = process.ProcessIterator.init() catch return 1;
+    defer iter.deinit();
+
+    var index: c.lua_Integer = 0;
+    while (iter.next()) |entry| {
+        if (entry.pid <= 4) continue;
+        index += 1;
+        const name = entry.getName();
+
+        c.lua_newtable(l);
+        c.lua_pushinteger(l, @as(c.lua_Integer, entry.pid));
+        c.lua_setfield(l, -2, "pid");
+        c.lua_pushinteger(l, @as(c.lua_Integer, entry.pid));
+        c.lua_setfield(l, -2, "ProcessID");
+        c.lua_pushlstring(l, name.ptr, name.len);
+        c.lua_setfield(l, -2, "Name");
+        c.lua_pushlstring(l, name.ptr, name.len);
+        c.lua_setfield(l, -2, "ProcessName");
+
+        c.lua_rawseti(l, -2, @intCast(index));
+        if (index >= 4096) break;
+    }
+
+    return 1;
+}
+
+/// `AOBScan(pattern)` — returns `"ADDRESS"` (or nil) like Cheat Engine.
+fn ceAobScan(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    const inst = engine_mod.ScriptEngine.active_instance orelse {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    const pattern = engine_mod.luaToString(l, 1) orelse {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    if (inst.target_pid == 0) {
+        c.lua_pushnil(l);
+        return 1;
+    }
+
+    const aa_interp = @import("../memory/aa_interp.zig");
+    var proc = process.ProcessHandle.open(inst.target_pid) catch {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    defer proc.close();
+
+    const hit = aa_interp.scanProcessPattern(inst.allocator, &proc, pattern) orelse {
+        c.lua_pushnil(l);
+        return 1;
+    };
+
+    var buf: [32]u8 = undefined;
+    const text = std.fmt.bufPrint(&buf, "{X}", .{hit.address}) catch {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    c.lua_pushlstring(l, text.ptr, text.len);
+    return 1;
+}
+
+/// `AOBScanModule(pattern, module)` — module-scoped signature scan.
+fn ceAobScanModule(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    const inst = engine_mod.ScriptEngine.active_instance orelse {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    const pattern = engine_mod.luaToString(l, 1) orelse {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    const module = engine_mod.luaToString(l, 2) orelse "$process";
+    if (inst.target_pid == 0) {
+        c.lua_pushnil(l);
+        return 1;
+    }
+
+    const aa_interp = @import("../memory/aa_interp.zig");
+    var proc = process.ProcessHandle.open(inst.target_pid) catch {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    defer proc.close();
+
+    const hit = aa_interp.scanModulePattern(inst.allocator, &proc, module, pattern) orelse {
+        c.lua_pushnil(l);
+        return 1;
+    };
+
+    var buf: [32]u8 = undefined;
+    const text = std.fmt.bufPrint(&buf, "{X}", .{hit.address}) catch {
+        c.lua_pushnil(l);
+        return 1;
+    };
+    c.lua_pushlstring(l, text.ptr, text.len);
+    return 1;
+}
+
+/// `showMessage(text)` — CE surfaces it as a dialog; we route it to the Lua log.
+fn ceShowMessage(L: ?*c.lua_State) callconv(.c) c_int {
+    return ceMessageDialog(L);
 }
 
 fn ceGetProcessIDFromProcessName(L: ?*c.lua_State) callconv(.c) c_int {
@@ -843,6 +1228,10 @@ fn ceGetAddressList(L: ?*c.lua_State) callconv(.c) c_int {
     c.lua_newtable(l);
     c.lua_pushcclosure(l, ceGetMemoryRecordByID, 0);
     c.lua_setfield(l, -2, "getMemoryRecordByID");
+    c.lua_pushcclosure(l, ceGetMemoryRecordByID, 0);
+    c.lua_setfield(l, -2, "getMemoryRecordByDescription");
+    c.lua_pushinteger(l, 0);
+    c.lua_setfield(l, -2, "Count");
     return 1;
 }
 
@@ -865,6 +1254,11 @@ fn dummyNoop(L: ?*c.lua_State) callconv(.c) c_int {
 
 pub fn registerCeCompatibility(engine: *engine_mod.ScriptEngine) void {
     const L = engine.L orelse return;
+
+    // Rehydrate symbols produced by earlier runs: the [DISABLE] half of a script
+    // ("dealloc(scratch)", "unregistersymbol(x)") runs in a later process and
+    // needs the addresses the [ENABLE] half allocated.
+    loadPersistedSymbols();
 
     // 1. Set global `syntaxcheck = false`
     c.lua_pushboolean(L, 0);
@@ -950,6 +1344,20 @@ pub fn registerCeCompatibility(engine: *engine_mod.ScriptEngine) void {
     c.lua_setglobal(L, "createMenuItem");
     c.lua_pushcclosure(L, ceGetAddressList, 0);
     c.lua_setglobal(L, "getAddressList");
+
+    // 9. Table-driving helpers used by auto-attach / auto-scan records
+    c.lua_pushcclosure(L, ceGetProcessList, 0);
+    c.lua_setglobal(L, "getProcessList");
+    c.lua_pushcclosure(L, ceTargetIs64Bit, 0);
+    c.lua_setglobal(L, "targetIs64Bit");
+    c.lua_pushcclosure(L, ceTargetIs64Bit, 0);
+    c.lua_setglobal(L, "targetIs64BitOS");
+    c.lua_pushcclosure(L, ceAobScan, 0);
+    c.lua_setglobal(L, "AOBScan");
+    c.lua_pushcclosure(L, ceAobScanModule, 0);
+    c.lua_setglobal(L, "AOBScanModule");
+    c.lua_pushcclosure(L, ceShowMessage, 0);
+    c.lua_setglobal(L, "showMessage");
 }
 
 // ============================================================================

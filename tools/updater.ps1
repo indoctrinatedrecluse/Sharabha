@@ -18,7 +18,7 @@ param(
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectDir = if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
 $stateFile = Join-Path $projectDir "src\ui\updater_state.slint"
-$currentVersion = "v0.5.3"
+$currentVersion = "v0.5.4"
 $repoUri = "https://api.github.com/repos/indoctrinatedrecluse/Sharabha/releases/latest"
 $cacheFile = Join-Path $env:TEMP "sharabha_latest_release.json"
 

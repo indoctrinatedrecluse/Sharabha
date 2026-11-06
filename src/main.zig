@@ -310,12 +310,59 @@ pub fn main() !void {
     }
 
     if (std.mem.indexOf(u8, cmd_utf8, "--load-ct")) |idx| {
-        const path_raw = std.mem.trim(u8, cmd_utf8[idx + "--load-ct".len..], " \"'");
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--load-ct".len..], " \t\r\n");
+
+        // A trailing `--merge` / `--keep` keeps the attached process and the
+        // current address list intact instead of replacing them.
+        var merge = false;
+        var path_raw = args_raw;
+        if (std.mem.endsWith(u8, args_raw, "--merge")) {
+            merge = true;
+            path_raw = std.mem.trim(u8, args_raw[0 .. args_raw.len - "--merge".len], " \t");
+        } else if (std.mem.endsWith(u8, args_raw, "--keep")) {
+            merge = true;
+            path_raw = std.mem.trim(u8, args_raw[0 .. args_raw.len - "--keep".len], " \t");
+        }
+        path_raw = std.mem.trim(u8, path_raw, " \"'");
         const path = if (path_raw.len > 0) path_raw else "D:\\Mods\\BG3\\bg3.CT";
-        Sharabha.engine_service.handleLoadCt(allocator, path) catch |err| {
+        Sharabha.engine_service.handleLoadCtEx(allocator, path, merge) catch |err| {
             std.debug.print("  ❌ [Load .CT Table Failed]: {s} ({s})\n", .{ @errorName(err), path });
             // tools\open_ct.ps1 inspects $LASTEXITCODE: a swallowed failure would
             // report success to the UI and leave the stale table on screen.
+            std.process.exit(1);
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--refresh-ct") != null) {
+        Sharabha.engine_service.handleRefreshCt(allocator) catch |err| {
+            std.debug.print("  ❌ [Refresh .CT Values Failed]: {s}\n", .{@errorName(err)});
+            std.process.exit(1);
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--clear-ct") != null) {
+        Sharabha.engine_service.handleClearCt(allocator) catch |err| {
+            std.debug.print("  ❌ [Clear Address List Failed]: {s}\n", .{@errorName(err)});
+            std.process.exit(1);
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--filter-ct")) |idx| {
+        const query = std.mem.trim(u8, cmd_utf8[idx + "--filter-ct".len..], " \"'\r\n");
+        Sharabha.engine_service.handleFilterCt(allocator, query) catch |err| {
+            std.debug.print("  ❌ [Filter Address List Failed]: {s}\n", .{@errorName(err)});
+            std.process.exit(1);
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--attach-name")) |idx| {
+        const name = std.mem.trim(u8, cmd_utf8[idx + "--attach-name".len..], " \"'\r\n");
+        Sharabha.engine_service.handleAttachByName(allocator, name) catch |err| {
+            std.debug.print("  ❌ [Auto-Attach Failed]: {s}\n", .{@errorName(err)});
             std.process.exit(1);
         };
         return;
@@ -325,20 +372,23 @@ pub fn main() !void {
         var args_raw = std.mem.trim(u8, cmd_utf8[idx + "--run-ct-entry".len..], " \t\r\n");
         var path: []const u8 = "D:\\Mods\\BG3\\bg3.CT";
         var entry_id: []const u8 = "1";
+        var entry_mode: ?[]const u8 = null;
 
         if (args_raw.len > 0 and args_raw[0] == '"') {
             const close_q = std.mem.indexOfPos(u8, args_raw, 1, "\"") orelse args_raw.len;
             path = args_raw[1..close_q];
-            if (close_q + 1 < args_raw.len) {
-                entry_id = std.mem.trim(u8, args_raw[close_q + 1 ..], " \"'\t\r\n");
-            }
+            const rest = if (close_q + 1 < args_raw.len) args_raw[close_q + 1 ..] else "";
+            var parts = std.mem.tokenizeAny(u8, rest, " \t\r\n\"'");
+            if (parts.next()) |e| entry_id = e;
+            if (parts.next()) |mode| entry_mode = mode;
         } else {
-            var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+            var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n\"'");
             if (parts.next()) |p| path = p;
             if (parts.next()) |e| entry_id = e;
+            if (parts.next()) |mode| entry_mode = mode;
         }
 
-        Sharabha.engine_service.handleRunCtEntry(allocator, path, entry_id) catch |err| {
+        Sharabha.engine_service.handleRunCtEntryEx(allocator, path, entry_id, entry_mode) catch |err| {
             std.debug.print("  ❌ [Run .CT Entry Failed]: {s}\n", .{@errorName(err)});
             return;
         };

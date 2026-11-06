@@ -11,6 +11,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.4] - 2026-11-06
+
+### Added
+- **Session-backed Cheat Engine address list (`src/memory/ct_session.zig`)**: the whole `.CT` pipeline now folds tables into a persistent session (`assets/tables/ct_session.tsv`) instead of regenerating a throwaway 50-row dump.
+  - Loads are **additive or destructive on demand**: `--load-ct <path>` replaces the address list, `--load-ct <path> --merge` (UI: **MERGE .CT**, `tools/open_ct.ps1 -Merge`) appends another table while keeping the bound process, every existing row and the active search filter. Re-merging the same file refreshes its rows instead of duplicating 12k entries.
+  - Rows remember their origin `.CT`, Cheat Engine record id, nesting depth, hotkey, script enable state and frozen flag, so a script row keeps working after a merge and the "enabled" checkmark survives the UI reload.
+  - New CLI surface: `--refresh-ct` (re-read every resolvable value), `--clear-ct` (empty the list, keep the process), `--filter-ct <query>` (case-insensitive search across description / address / type / hotkey) and `--attach-name <exe>` (attach by process name).
+- **Auto Assembler interpreter (`src/memory/aa_interp.zig`)**: `.CT` script records are Auto Assembler, not Lua. The new interpreter executes the subset published tables actually use — `[ENABLE]`/`[DISABLE]`, `{$lua}` … `{$asm}` blocks, `aobscanmodule`, `aobscan`, `alloc`/`globalalloc`, `dealloc`, `registersymbol`/`unregistersymbol`, `label`, `define`, `assert`, `db`/`dw`/`dd`/`dq` data patches and `nop`. Instruction lines that need a real assembler are counted and reported instead of aborting the script, so the symbol/pointer half of a table still comes alive.
+  - Signature scans are chunked *with a 1-byte overlap*, so a match spanning a chunk boundary is never missed; process-wide `aobscan` walks modules first and then private committed regions under a byte budget.
+  - `[DISABLE]` sections work across processes: the symbol registry is mirrored to `assets/memory/ct_symbols.tsv` and rehydrated on the next run, so `dealloc(scratch)` / `unregistersymbol(x)` resolve the addresses the `[ENABLE]` pass allocated.
+- **Table-driven auto-attach**: `openProcess()` / `getProcessIDFromProcessName()` now persist the PID (`assets/memory/active_pid.txt`) and publish `src/ui/live_bind.slint`, so a table whose script (or button) attaches the game rebinds the whole page instead of only the ephemeral Lua VM. `handleAttach` mirrors the same binding, and `--attach-name` gives the UI a direct path.
+- **Cheat Engine Lua surface extended** (`src/scripting/ce_compat.zig`): `getProcessList()`, `targetIs64Bit()`, `AOBScan()`, `AOBScanModule()`, `showMessage()`, plus `getAddressList().Count` / `getMemoryRecordByDescription`.
+- **Resizable, space-filling Cheat Engine page** (`src/ui/app.slint`):
+  - New `PanelSplitter` / `VerticalSplitter` / `HorizontalSplitter` components. Drag math is measured in **absolute window coordinates** (`absolute-position + mouse-x/y`) so the handle tracks the pointer 1:1 even though it moves while you drag; the old `mouse-x - pressed-x` form accumulated the total delta on every move and ran away.
+  - The "Found Addresses" panel is now pixel-resizable via a horizontal divider, and the address list below it **takes every remaining pixel** (`vertical-stretch: 1`) instead of leaving dead space at the bottom.
+  - The address list is a virtualised `ListView` (12 866 rows from the Elden Ring table render instantly), with folder rows (`<GroupHeader>`), per-level indentation, hotkey chips and an ENABLE/DISABLE toggle that reflects the persisted script state.
+  - New address-list toolbars: LOAD .CT, MERGE .CT, ⟳ VALUES, CLEAR, search (Enter commits) + FILTER reset, and a secondary bar with + ADDRESS, FREEZE ALL, UNFREEZE, SAVE TBL, LOAD TBL, INJECT. `ThematicActionButton` gained a `compact` mode (single line) so dense toolbars fit; tab buttons, the logo block and the table columns are now elided/anchored so the header stops forcing a wider-than-window layout. Default window grew to 1580×940.
+- `--run-ct-entry` accepts an explicit `enable`/`disable` mode (UI passes it as the third `$3` argument), and script rows now run their real `[ENABLE]`/`[DISABLE]` halves.
+
+### Changed
+- `.CT` record values are resolved with Cheat Engine's pointer semantics **and** the symbol table: `statsPtr+8` style bases (previously parsed as garbage → 0) now resolve, values are formatted per record type (`4 Bytes`, `8 Bytes`, `Float`, `Double`, `String`, `Array of Bytes`), and a stale `active_pid.txt` is treated as unbound instead of reading through a dead PID.
+- `live_table.slint` carries `ce_id`, `source`, `depth`, `hotkey`, `is_group`, `script_active`, `filter`, `visible_entries` and `table_count`; the 50-row hard cap is gone (bounded by `MAX_LIVE_ROWS = 20 000`).
+- Address expressions are parsed as hexadecimal (Cheat Engine semantics: `sym+10` means `+0x10`), with decimal only as a fallback.
+- The table-level `<LuaScript>` is now taken strictly from the header region (before `<CheatEntries>`); record-level `<LuaScript>` blocks (CE 6.x) are no longer executed as if they were master scripts.
+
+### Fixed
+- `.CT` records with symbol-based addresses or `[ENABLE]`/`[DISABLE]` Auto Assembler sections no longer fail with Lua syntax errors ("all `.CT` scripts are broken") — they run through the Auto Assembler interpreter.
+- `--load-ct` no longer destroys the current session: the process binding, address list and filter survive a merge.
+- The left process panel splitter no longer accelerates/freezes while dragging.
+
+---
+
 ## [0.5.3] - 2026-11-05
 
 ### Fixed

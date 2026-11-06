@@ -13,7 +13,10 @@
 ================================================================================
 #>
 param(
-    [string]$TargetFilePath = ""
+    [string]$TargetFilePath = "",
+    # -Merge keeps the attached process and the current address list, appending the
+    # opened table's records instead of replacing them.
+    [switch]$Merge
 )
 
 $ErrorActionPreference = "Continue"
@@ -110,7 +113,11 @@ if (-not $cliExe) {
 }
 
 Write-Host "🔱 Invoking SharabhaCli --load-ct on '$selectedPath'..."
-& $cliExe --load-ct "$selectedPath"
+if ($Merge) {
+    & $cliExe --load-ct "$selectedPath" --merge
+} else {
+    & $cliExe --load-ct "$selectedPath"
+}
 $cliExit = $LASTEXITCODE
 if ($cliExit -ne 0) {
     Write-Host "[!] SharabhaCli --load-ct exited with code $cliExit."
