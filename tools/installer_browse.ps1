@@ -25,12 +25,24 @@ if ($res -eq [System.Windows.Forms.DialogResult]::OK -and $f.SelectedPath) {
     $escapedPath = $chosen.Replace("\", "\\").Replace('"', '\"')
     $stateFile = Join-Path $projectDir "src\ui\installer_state.slint"
 
+    function Get-ProjectVersion {
+        $zon = Join-Path $projectDir "build.zig.zon"
+        if (Test-Path $zon) {
+            $txt = Get-Content $zon -Raw
+            if ($txt -match '\.version\s*=\s*"([^"]+)"') {
+                return $Matches[1].Trim()
+            }
+        }
+        return "0.6.0"
+    }
+    $installedVersion = Get-ProjectVersion
+
     $lines = @(
         "// Sharabha Installer Dynamic State Configuration",
         "// Automatically updated by installer_browse.ps1",
         "export global InstallerState {",
         "    in property <bool> is_already_installed: $($isInstalled.ToString().ToLower());",
-        "    in property <string> installed_version: `"0.5.4`";",
+        "    in property <string> installed_version: `"$installedVersion`";",
         "    in property <string> detected_install_path: `"$escapedPath`";",
         "}"
     )

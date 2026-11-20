@@ -465,7 +465,7 @@ test "ct_session round-trips rows, filter and script state through TSV" {
         .{ .entry = sampleEntry(2, "Health\nBroken", "statsPtr+8", "4 Bytes"), .depth = 1 },
         .{ .entry = sampleEntry(3, "Character 1", "", "Group Header"), .depth = 0 },
     };
-    const stats = try session.importTable("D:\\Mods\\BG3\\bg3.CT", "bg3", &flat, true);
+    const stats = try session.importTable("assets/tables/bg3.CT", "bg3", &flat, true);
     try std.testing.expectEqual(@as(usize, 3), stats.added);
     try std.testing.expectEqual(@as(usize, 3), session.rows.items.len);
 
@@ -475,7 +475,7 @@ test "ct_session round-trips rows, filter and script state through TSV" {
     try std.testing.expectEqual(@as(u16, 1), session.rows.items[1].depth);
 
     // Script state survives serialisation (this is what the UI toggles)
-    try std.testing.expect(session.setScriptActive("D:\\Mods\\BG3\\bg3.CT", 1, true));
+    try std.testing.expect(session.setScriptActive("assets/tables/bg3.CT", 1, true));
     session.filter = "health";
     try std.testing.expectEqual(@as(usize, 1), session.visibleRowCount());
 
@@ -491,7 +491,7 @@ test "ct_session round-trips rows, filter and script state through TSV" {
     try std.testing.expect(restored.rows.items[0].script_active);
     try std.testing.expectEqualStrings("God Mode\t[tab]", restored.rows.items[0].description);
     try std.testing.expectEqualStrings("Health\nBroken", restored.rows.items[1].description);
-    try std.testing.expectEqualStrings("D:\\Mods\\BG3\\bg3.CT", restored.rows.items[1].source);
+    try std.testing.expectEqualStrings("assets/tables/bg3.CT", restored.rows.items[1].source);
     try std.testing.expectEqual(@as(usize, 1), restored.tables.items.len);
 }
 

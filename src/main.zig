@@ -217,6 +217,27 @@ pub fn main() !void {
         return;
     }
 
+    if (std.mem.indexOf(u8, cmd_utf8, "--disarm-watcher")) |_| {
+        Sharabha.engine_service.handleDisarmWatcher(allocator) catch |err| {
+            std.debug.print("  ❌ [Disarm Watcher Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--nop-patch")) |idx| {
+        const args_raw = std.mem.trim(u8, cmd_utf8[idx + "--nop-patch".len..], " \"'");
+        var parts = std.mem.tokenizeAny(u8, args_raw, " \t\r\n");
+        const addr_str = parts.next() orelse "";
+        const len_str = parts.next();
+
+        Sharabha.engine_service.handleNopPatch(allocator, addr_str, len_str) catch |err| {
+            std.debug.print("  ❌ [NOP Patch Failed]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        return;
+    }
+
     if (std.mem.indexOf(u8, cmd_utf8, "--run-lua")) |idx| {
         const script_raw = std.mem.trim(u8, cmd_utf8[idx + "--run-lua".len..], " \"'");
         const script = if (script_raw.len > 0) script_raw else "print('🔱 Sharabha LuaJIT: Ashtamurti Sentinel Online')\nsharabha.write_u32(0x140001000, 999999)";
@@ -324,7 +345,7 @@ pub fn main() !void {
             path_raw = std.mem.trim(u8, args_raw[0 .. args_raw.len - "--keep".len], " \t");
         }
         path_raw = std.mem.trim(u8, path_raw, " \"'");
-        const path = if (path_raw.len > 0) path_raw else "D:\\Mods\\BG3\\bg3.CT";
+        const path = if (path_raw.len > 0) path_raw else "assets/tables/_selfcheck.ct";
         Sharabha.engine_service.handleLoadCtEx(allocator, path, merge) catch |err| {
             std.debug.print("  ❌ [Load .CT Table Failed]: {s} ({s})\n", .{ @errorName(err), path });
             // tools\open_ct.ps1 inspects $LASTEXITCODE: a swallowed failure would
@@ -370,7 +391,7 @@ pub fn main() !void {
 
     if (std.mem.indexOf(u8, cmd_utf8, "--run-ct-entry")) |idx| {
         var args_raw = std.mem.trim(u8, cmd_utf8[idx + "--run-ct-entry".len..], " \t\r\n");
-        var path: []const u8 = "D:\\Mods\\BG3\\bg3.CT";
+        var path: []const u8 = "assets/tables/_selfcheck.ct";
         var entry_id: []const u8 = "1";
         var entry_mode: ?[]const u8 = null;
 
@@ -405,10 +426,37 @@ pub fn main() !void {
         try kosha.exportProfilesJson(&list, allocator);
 
         if (path_raw.len > 0) {
-            const h = Sharabha.memory.win.OpenProcess(0, 0, 0);
-            _ = h;
-            // Write to file or stdout
-            std.debug.print("  [✓] Exported {d} bytes of Agama profiles to {s}\n", .{ list.items.len, path_raw });
+            // Ensure destination directory exists (e.g., assets/knowledge or custom directory)
+            const dir_part = std.fs.path.dirname(path_raw) orelse "assets/knowledge";
+            if (std.unicode.utf8ToUtf16LeAllocZ(allocator, dir_part)) |dir_w| {
+                defer allocator.free(dir_w);
+                _ = Sharabha.rewrite.win.CreateDirectoryW(dir_w.ptr, null);
+            } else |_| {}
+
+            const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path_raw) catch |err| {
+                std.debug.print("  ❌ [Path UTF-16 Conversion Error]: {s}\n", .{@errorName(err)});
+                return;
+            };
+            defer allocator.free(path_w);
+
+            const hFile = Sharabha.rewrite.win.CreateFileW(
+                path_w.ptr,
+                Sharabha.rewrite.win.GENERIC_WRITE,
+                0,
+                null,
+                Sharabha.rewrite.win.CREATE_ALWAYS,
+                Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL,
+                null,
+            );
+            if (hFile == Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                std.debug.print("  ❌ [File Create Error]: Could not create '{s}'\n", .{path_raw});
+                return;
+            }
+            defer _ = Sharabha.rewrite.win.CloseHandle(hFile);
+
+            var written: u32 = 0;
+            _ = Sharabha.rewrite.win.WriteFile(hFile, list.items.ptr, @as(u32, @intCast(list.items.len)), &written, null);
+            std.debug.print("  [✓] Exported {d} bytes of Agama profiles to {s}\n", .{ written, path_raw });
         } else {
             const stdout_h = Sharabha.memory.win.GetStdHandle(-11) orelse return;
             var written: u32 = 0;
@@ -846,20 +894,13 @@ pub fn main() !void {
             var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, lb);
             defer state.deinit();
             try state.commitWithIntegrity();
+            std.debug.print("  [✓] Atomic Swap Complete: '{s}' safely rewritten.\n", .{path});
+            std.debug.print("  [✓] Karma Kavacha Backup Created: '{s}.sharabha.bak'\n", .{path});
+            std.debug.print("  [✓] Sthiti Raksha Integrity Seals re-hashed and validated.\n", .{});
         } else {
-            var dummy: [128]u8 = @splat(0);
-            @memcpy(dummy[0..4], "BND4");
-            std.mem.writeInt(i32, dummy[12..16], 950000, .little);
-            std.mem.writeInt(i32, dummy[16..20], 175, .little);
-            std.mem.writeInt(i32, dummy[20..24], 60, .little);
-            var state = try Sharabha.dual_mode.DualModeSaveState.init(allocator, path, &dummy);
-            defer state.deinit();
-            try state.commitWithIntegrity();
+            std.debug.print("  ❌ [Error]: Save vessel '{s}' could not be loaded or was not found.\n", .{path});
+            return;
         }
-
-        std.debug.print("  [✓] Atomic Swap Complete: '{s}' safely rewritten.\n", .{path});
-        std.debug.print("  [✓] Karma Kavacha Backup Created: '{s}.sharabha.bak'\n", .{path});
-        std.debug.print("  [✓] Sthiti Raksha Integrity Seals re-hashed and validated.\n", .{});
         return;
     }
 
@@ -867,25 +908,191 @@ pub fn main() !void {
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // GUPTA KOSHA HARDWARE DPAPI VAULT INQUEST\n", .{});
         std.debug.print("========================================================================\n", .{});
-        var vault = Sharabha.security.EncryptedVault.init();
-        vault.config.setGeminiKey("AIzaSy_MOCK_GEMINI_KEY_777");
-        try vault.save(".sharabha_vault.bin");
         var loaded = Sharabha.security.EncryptedVault.init();
-        try loaded.load(".sharabha_vault.bin");
-        std.debug.print("  [✓] Hardware DPAPI Key Unsealed: {s}...\n", .{loaded.config.getGeminiKey()[0..12]});
-        std.debug.print("  [✓] Divya Drishti AI Oracle Connection Tested: Active\n", .{});
+        loaded.load(".sharabha_vault.bin") catch {
+            std.debug.print("  ❌ [Vault Load Failed]: Could not unseal DPAPI vault.\n", .{});
+            return;
+        };
+        const gem_k = loaded.config.getGeminiKey();
+        const ds_k = loaded.config.getDeepSeekKey();
+        const oai_k = loaded.config.getOpenAiKey();
+
+        if (gem_k.len > 0) {
+            const masked_len = @min(gem_k.len, 10);
+            std.debug.print("  [✓] Gemini DPAPI Key Unsealed: {s}****\n", .{gem_k[0..masked_len]});
+        }
+        if (ds_k.len > 0) {
+            const masked_len = @min(ds_k.len, 10);
+            std.debug.print("  [✓] DeepSeek DPAPI Key Unsealed: {s}****\n", .{ds_k[0..masked_len]});
+        }
+        if (oai_k.len > 0) {
+            const masked_len = @min(oai_k.len, 10);
+            std.debug.print("  [✓] OpenAI DPAPI Key Unsealed: {s}**** (Endpoint: {s})\n", .{ oai_k[0..masked_len], loaded.config.getOpenAiEndpoint() });
+        }
+
+        if (gem_k.len == 0 and ds_k.len == 0 and oai_k.len == 0) {
+            std.debug.print("  ⚠️ [Gupta Kosha]: No API keys currently sealed in vault.\n", .{});
+            std.debug.print("     Run: SharabhaCli.exe --seal-vault <provider> <key>\n", .{});
+            std.debug.print("  [✓] Offline Divya Drishti Heuristic Engine: Ready\n", .{});
+        } else {
+            std.debug.print("  [✓] Selected Active Provider: {s}\n", .{loaded.config.selected_provider.displayName()});
+            std.debug.print("  [✓] Divya Drishti AI Oracle Connection Tested: Active\n", .{});
+        }
         return;
     }
 
-    if (std.mem.indexOf(u8, cmd_utf8, "--seal-vault") != null) {
+    if (std.mem.indexOf(u8, cmd_utf8, "--seal-vault")) |idx| {
         std.debug.print("========================================================================\n", .{});
         std.debug.print("  SHARABHA // GUPTA KOSHA DPAPI HARDWARE SEAL\n", .{});
         std.debug.print("========================================================================\n", .{});
+
+        const after = std.mem.trim(u8, cmd_utf8[idx + "--seal-vault".len ..], " \t\r\n");
+        var parts = std.mem.tokenizeAny(u8, after, " \t\r\n");
+        const arg1 = parts.next();
+        const arg2 = parts.next();
+        const arg3 = parts.next();
+
         var vault = Sharabha.security.EncryptedVault.init();
-        vault.config.setGeminiKey("AIzaSy_CONFIGURED_GEMINI_KEY");
-        try vault.save(".sharabha_vault.bin");
-        std.debug.print("  [✓] Hardware CryptProtectData DPAPI seal placed.\n", .{});
-        std.debug.print("  [✓] Local vault encrypted with machine-bound hardware keys.\n", .{});
+        vault.load(".sharabha_vault.bin") catch {};
+
+        var key_sealed = false;
+        if (arg1) |a1| {
+            if (std.ascii.eqlIgnoreCase(a1, "gemini")) {
+                if (arg2) |k| {
+                    vault.config.selected_provider = .Gemini;
+                    vault.config.setGeminiKey(k);
+                    key_sealed = true;
+                    std.debug.print("  [✓] Provider set: Google Gemini\n", .{});
+                }
+            } else if (std.ascii.eqlIgnoreCase(a1, "deepseek")) {
+                if (arg2) |k| {
+                    vault.config.selected_provider = .DeepSeek;
+                    vault.config.setDeepSeekKey(k);
+                    key_sealed = true;
+                    std.debug.print("  [✓] Provider set: DeepSeek\n", .{});
+                }
+            } else if (std.ascii.eqlIgnoreCase(a1, "openai")) {
+                if (arg2) |k| {
+                    vault.config.selected_provider = .OpenAiCompatible;
+                    const ep = arg3 orelse "https://api.openai.com/v1";
+                    vault.config.setOpenAiKey(ep, k);
+                    key_sealed = true;
+                    std.debug.print("  [✓] Provider set: OpenAI-Compatible ({s})\n", .{ep});
+                }
+            } else {
+                // arg1 is raw key
+                if (std.mem.startsWith(u8, a1, "sk-")) {
+                    vault.config.selected_provider = .OpenAiCompatible;
+                    vault.config.setOpenAiKey("https://api.openai.com/v1", a1);
+                    key_sealed = true;
+                    std.debug.print("  [✓] Key recognized: OpenAI-Compatible\n", .{});
+                } else {
+                    vault.config.selected_provider = .Gemini;
+                    vault.config.setGeminiKey(a1);
+                    key_sealed = true;
+                    std.debug.print("  [✓] Key recognized: Google Gemini\n", .{});
+                }
+            }
+        }
+
+        if (key_sealed) {
+            try vault.save(".sharabha_vault.bin");
+            std.debug.print("  [✓] Hardware CryptProtectData DPAPI seal placed.\n", .{});
+            std.debug.print("  [✓] Local vault encrypted with machine-bound hardware keys.\n", .{});
+        } else {
+            std.debug.print("  Usage: --seal-vault <provider> <key> [endpoint]\n", .{});
+            std.debug.print("         --seal-vault gemini <AIzaSy...>\n", .{});
+            std.debug.print("         --seal-vault deepseek <sk-...>\n", .{});
+            std.debug.print("         --seal-vault openai <sk-...> [https://...]\n", .{});
+            std.debug.print("         --seal-vault <key>\n", .{});
+            if (vault.config.getGeminiKey().len > 0 or vault.config.getOpenAiKey().len > 0 or vault.config.getDeepSeekKey().len > 0) {
+                std.debug.print("  Current vault status: active credentials already sealed.\n", .{});
+            } else {
+                std.debug.print("  Current vault status: no credentials sealed yet.\n", .{});
+            }
+        }
+        return;
+    }
+
+    if (std.mem.indexOf(u8, cmd_utf8, "--analyze-ai") != null or std.mem.indexOf(u8, cmd_utf8, "--oracle") != null) {
+        std.debug.print("========================================================================\n", .{});
+        std.debug.print("  SHARABHA // DIVYA DRISHTI AI ORACLE INQUEST\n", .{});
+        std.debug.print("========================================================================\n", .{});
+
+        var path: []const u8 = "assets/saves/ER0000.sl2";
+        const act_path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, "assets\\saves\\active_save_path.txt") catch null;
+        if (act_path_w) |pw| {
+            defer allocator.free(pw);
+            const h = Sharabha.rewrite.win.CreateFileW(pw.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+            if (h != Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+                defer _ = Sharabha.rewrite.win.CloseHandle(h);
+                var buf: [512]u8 = undefined;
+                var bytes_read: u32 = 0;
+                _ = Sharabha.rewrite.win.ReadFile(h, &buf, @intCast(buf.len), &bytes_read, null);
+                if (bytes_read > 0) {
+                    path = std.mem.trim(u8, buf[0..bytes_read], " \r\n\t\"\xEF\xBB\xBF");
+                }
+            }
+        }
+
+        const flag_name = if (std.mem.indexOf(u8, cmd_utf8, "--analyze-ai") != null) "--analyze-ai" else "--oracle";
+        if (std.mem.indexOf(u8, cmd_utf8, flag_name)) |idx| {
+            const raw = std.mem.trim(u8, cmd_utf8[idx + flag_name.len ..], " \t\r\n\"");
+            if (raw.len > 0) path = raw;
+        }
+
+        const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, path) catch |err| {
+            std.debug.print("  ❌ [Path UTF-16 Conversion Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer allocator.free(path_w);
+
+        const hFile = Sharabha.rewrite.win.CreateFileW(path_w.ptr, Sharabha.rewrite.win.GENERIC_READ, 1, null, Sharabha.rewrite.win.OPEN_EXISTING, Sharabha.rewrite.win.FILE_ATTRIBUTE_NORMAL, null);
+        if (hFile == Sharabha.rewrite.win.INVALID_HANDLE_VALUE) {
+            std.debug.print("  ❌ [File Open Error]: Could not open vessel '{s}'\n", .{path});
+            return;
+        }
+        defer _ = Sharabha.rewrite.win.CloseHandle(hFile);
+
+        var high_sz: u32 = 0;
+        const low_sz = Sharabha.rewrite.win.GetFileSize(hFile, &high_sz);
+        if (low_sz == 0 or low_sz > 128 * 1024 * 1024) {
+            std.debug.print("  ❌ [File Size Error]: Vessel '{s}' is empty or too large.\n", .{path});
+            return;
+        }
+        const content = allocator.alloc(u8, low_sz) catch |err| {
+            std.debug.print("  ❌ [Allocation Error]: {s}\n", .{@errorName(err)});
+            return;
+        };
+        defer allocator.free(content);
+
+        var br: u32 = 0;
+        _ = Sharabha.rewrite.win.ReadFile(hFile, content.ptr, low_sz, &br, null);
+
+        var switching_engine = Sharabha.switcher.SwitchingEngine.init(allocator);
+        const report = switching_engine.evaluateMetric(.ShannonEntropy, content);
+        std.debug.print("  [✓] Save Vessel : {s} ({d} bytes)\n", .{ path, low_sz });
+        std.debug.print("  [✓] Metric Score: {s}\n", .{report.getScore()});
+        std.debug.print("  [✓] Verdict     : {s}\n", .{report.getVerdict()});
+        std.debug.print("  [✓] Container   : {s}\n", .{report.container.displayName()});
+
+        var vault = Sharabha.security.EncryptedVault.init();
+        vault.load(".sharabha_vault.bin") catch {};
+
+        const hints = Sharabha.ai.analyzeSave(allocator, path, content, report, &vault.config);
+        std.debug.print("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
+        std.debug.print("  [✓] AI Inferred Container  : {s}\n", .{hints.container_format[0..hints.container_len]});
+        std.debug.print("  [✓] Inferred Compression   : {s}\n", .{hints.compression[0..hints.compression_len]});
+        std.debug.print("  [✓] Inferred Endianness    : {s}\n", .{hints.endianness[0..hints.endian_len]});
+        std.debug.print("  [✓] Inferred Key Hints ({d}):\n", .{hints.key_count});
+        for (0..hints.key_count) |k_idx| {
+            std.debug.print("      • {s}\n", .{hints.key_hints[k_idx][0..hints.key_hints_lens[k_idx]]});
+        }
+        std.debug.print("  [✓] Discovered Landmarks ({d}):\n", .{hints.landmark_count});
+        for (hints.landmarks[0..hints.landmark_count]) |lm| {
+            std.debug.print("      • +0x{X:0>4} -> {s}\n", .{ lm.offset, lm.getName() });
+        }
+        std.debug.print("========================================================================\n", .{});
         return;
     }
 

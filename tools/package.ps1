@@ -1,8 +1,19 @@
 param(
-    [string]$Tag = "v0.5.4"
+    [string]$Tag = ""
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+
+if (-not $Tag) {
+    $zon = Join-Path $projectRoot "build.zig.zon"
+    if (Test-Path $zon) {
+        $txt = Get-Content $zon -Raw
+        if ($txt -match '\.version\s*=\s*"([^"]+)"') {
+            $Tag = "v" + $Matches[1].Trim().TrimStart('v', 'V')
+        }
+    }
+    if (-not $Tag) { $Tag = "v0.6.0" }
+}
 
 Write-Host "========================================================================"
 Write-Host "  SHARABHA // PACKAGING RELEASE ARTIFACTS ($Tag)"

@@ -33,9 +33,12 @@ pub const win = struct {
     pub const PAGE_NOACCESS: u32 = 0x01;
     pub const PAGE_READONLY: u32 = 0x02;
     pub const PAGE_READWRITE: u32 = 0x04;
+    pub const PAGE_WRITECOPY: u32 = 0x08;
     pub const PAGE_EXECUTE: u32 = 0x10;
     pub const PAGE_EXECUTE_READ: u32 = 0x20;
     pub const PAGE_EXECUTE_READWRITE: u32 = 0x40;
+    pub const PAGE_EXECUTE_WRITECOPY: u32 = 0x80;
+    pub const PAGE_GUARD: u32 = 0x100;
 
     pub const INFINITE: u32 = 0xFFFFFFFF;
     pub const WAIT_OBJECT_0: u32 = 0x00000000;
@@ -84,11 +87,23 @@ pub const win = struct {
     pub extern "kernel32" fn VirtualAllocEx(hProcess: HANDLE, lpAddress: ?*anyopaque, dwSize: usize, flAllocationType: u32, flProtect: u32) callconv(.winapi) ?*anyopaque;
     pub extern "kernel32" fn VirtualFreeEx(hProcess: HANDLE, lpAddress: ?*anyopaque, dwSize: usize, dwFreeType: u32) callconv(.winapi) i32;
     pub extern "kernel32" fn VirtualProtectEx(hProcess: HANDLE, lpAddress: ?*anyopaque, dwSize: usize, flNewProtect: u32, lpflOldProtect: *u32) callconv(.winapi) i32;
+    pub extern "kernel32" fn VirtualQueryEx(hProcess: HANDLE, lpAddress: ?*const anyopaque, lpBuffer: *MEMORY_BASIC_INFORMATION, dwLength: usize) callconv(.winapi) usize;
     pub extern "kernel32" fn CreateRemoteThread(hProcess: HANDLE, lpThreadAttributes: ?*anyopaque, dwStackSize: usize, lpStartAddress: ?*const anyopaque, lpParameter: ?*anyopaque, dwCreationFlags: u32, lpThreadId: ?*u32) callconv(.winapi) ?HANDLE;
     pub extern "kernel32" fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: u32) callconv(.winapi) u32;
     pub extern "kernel32" fn GetExitCodeThread(hThread: HANDLE, lpExitCode: *u32) callconv(.winapi) i32;
     pub extern "kernel32" fn GetProcAddress(hModule: HMODULE, lpProcName: [*:0]const u8) callconv(.winapi) ?*const anyopaque;
     pub extern "kernel32" fn GetModuleHandleW(lpModuleName: ?[*:0]const u16) callconv(.winapi) ?HMODULE;
+
+    pub const MEMORY_BASIC_INFORMATION = extern struct {
+        BaseAddress: ?*anyopaque,
+        AllocationBase: ?*anyopaque,
+        AllocationProtect: u32,
+        PartitionId: u16,
+        RegionSize: usize,
+        State: u32,
+        Protect: u32,
+        Type: u32,
+    };
 };
 
 pub const ProcessIterator = struct {
@@ -240,6 +255,37 @@ pub const ProcessHandle = struct {
     pub fn writeMemory(self: *const ProcessHandle, address: usize, buffer: []const u8) !usize {
         var bytes_written: usize = 0;
         const ptr: ?*anyopaque = @ptrFromInt(address);
+
+        // Memory Safety Sentinel: Query page protection via VirtualQueryEx before writing
+        var mbi: win.MEMORY_BASIC_INFORMATION = undefined;
+        const q_len = win.VirtualQueryEx(self.handle, ptr, &mbi, @sizeOf(win.MEMORY_BASIC_INFORMATION));
+        if (q_len > 0) {
+            // Ensure page is committed memory
+            if (mbi.State != win.MEM_COMMIT) return error.MemoryNotCommitted;
+
+            // Check if page has no-access or guard page protection
+            if ((mbi.Protect & win.PAGE_NOACCESS) != 0 or (mbi.Protect & win.PAGE_GUARD) != 0) {
+                return error.MemoryProtectionViolation;
+            }
+
+            // Determine if page is already writable
+            const is_writable = (mbi.Protect & (win.PAGE_READWRITE | win.PAGE_WRITECOPY | win.PAGE_EXECUTE_READWRITE | win.PAGE_EXECUTE_WRITECOPY)) != 0;
+
+            if (!is_writable) {
+                // Read-only or code page: temporarily grant execute-read-write to safely write
+                var old_protect: u32 = 0;
+                const new_protect = if ((mbi.Protect & 0xF0) != 0) win.PAGE_EXECUTE_READWRITE else win.PAGE_READWRITE;
+                if (win.VirtualProtectEx(self.handle, ptr, buffer.len, new_protect, &old_protect) == 0) {
+                    return error.VirtualProtectFailed;
+                }
+                defer _ = win.VirtualProtectEx(self.handle, ptr, buffer.len, old_protect, &old_protect);
+
+                const ok = win.WriteProcessMemory(self.handle, ptr, buffer.ptr, buffer.len, &bytes_written);
+                if (ok == 0) return error.WriteMemoryFailed;
+                return bytes_written;
+            }
+        }
+
         const ok = win.WriteProcessMemory(self.handle, ptr, buffer.ptr, buffer.len, &bytes_written);
         if (ok == 0) return error.WriteMemoryFailed;
         return bytes_written;

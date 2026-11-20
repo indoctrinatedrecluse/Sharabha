@@ -24,6 +24,18 @@ $projectRoot = if ($SourcePath -and (Test-Path $SourcePath)) {
     if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
 }
 
+function Get-InstalledProjectVersion {
+    $zon = Join-Path $projectRoot "build.zig.zon"
+    if (Test-Path $zon) {
+        $txt = Get-Content $zon -Raw
+        if ($txt -match '\.version\s*=\s*"([^"]+)"') {
+            return $Matches[1].Trim()
+        }
+    }
+    return "0.6.0"
+}
+$displayVersion = Get-InstalledProjectVersion
+
 Write-Host "========================================================================"
 Write-Host "  SHARABHA // CONSECRATING APPLICATION VESSEL (प्रतिष्ठापन)"
 Write-Host "========================================================================"
@@ -109,7 +121,7 @@ if ($makeDesktop) {
     $shortcut.TargetPath = $mainExe
     $shortcut.WorkingDirectory = $TargetPath
     $shortcut.IconLocation = "$icoPath, 0"
-    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.5.4)'
+    $shortcut.Description = "Sharabha (शरभेश्वर) - The Dual Aspect Engine (v$displayVersion)"
     $shortcut.Save()
     Write-Host "    [✓] Desktop shortcut created: $shortcutPath" -ForegroundColor Green
 }
@@ -121,7 +133,7 @@ if ($makeStartMenu) {
     $shortcut.TargetPath = $mainExe
     $shortcut.WorkingDirectory = $TargetPath
     $shortcut.IconLocation = "$icoPath, 0"
-    $shortcut.Description = 'Sharabha (शरभेश्वर) - The Dual Aspect Engine (v0.5.4)'
+    $shortcut.Description = "Sharabha (शरभेश्वर) - The Dual Aspect Engine (v$displayVersion)"
     $shortcut.Save()
     Write-Host "    [✓] Start Menu shortcut created: $shortcutPath" -ForegroundColor Green
 }
@@ -133,7 +145,7 @@ if (-not (Test-Path $regKey)) {
     New-Item -Path $regKey -Force | Out-Null
 }
 Set-ItemProperty -Path $regKey -Name "DisplayName" -Value "Sharabha (शरभेश्वर) - The Dual Aspect Engine" -Force
-Set-ItemProperty -Path $regKey -Name "DisplayVersion" -Value "0.5.4" -Force
+Set-ItemProperty -Path $regKey -Name "DisplayVersion" -Value $displayVersion -Force
 Set-ItemProperty -Path $regKey -Name "Publisher" -Value "Indoctrinated Recluse" -Force
 Set-ItemProperty -Path $regKey -Name "DisplayIcon" -Value "$icoPath, 0" -Force
 Set-ItemProperty -Path $regKey -Name "InstallLocation" -Value $TargetPath -Force
@@ -146,7 +158,7 @@ Write-Host "  [OK] CONSECRATION COMPLETE // SHARABHA READY FOR TEMPLE LAUNCH!" -
 Write-Host "========================================================================"
 
 # 7. Complete Consecration
-if ($LaunchAfter) {
+if ($doLaunch) {
     Write-Host "  - Awakening Sharabha Native Engine in Background..." -ForegroundColor Yellow
     Start-Process -FilePath $mainExe -WorkingDirectory $TargetPath
 }

@@ -14,6 +14,18 @@ $detectedPath = $defaultInstallPath
 $isInstalled = $false
 $installedVersion = ""
 
+function Get-ProjectVersion {
+    $zon = Join-Path $baseDir "build.zig.zon"
+    if (Test-Path $zon) {
+        $txt = Get-Content $zon -Raw
+        if ($txt -match '\.version\s*=\s*"([^"]+)"') {
+            return $Matches[1].Trim()
+        }
+    }
+    return "0.6.0"
+}
+$projVer = Get-ProjectVersion
+
 # 1. Check Windows Uninstall Registry for Existing Sharabha Registration
 $regKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sharabha"
 if (Test-Path $regKey) {
@@ -36,11 +48,11 @@ if (-not $isInstalled) {
     if (Test-Path (Join-Path $defaultInstallPath "bin\Sharabha.exe")) {
         $detectedPath = $defaultInstallPath
         $isInstalled = $true
-        $installedVersion = "0.5.4"
+        $installedVersion = $projVer
     } elseif (Test-Path "C:\Software\Sharabha\bin\Sharabha.exe") {
         $detectedPath = "C:\Software\Sharabha"
         $isInstalled = $true
-        $installedVersion = "0.5.4"
+        $installedVersion = $projVer
     }
 }
 

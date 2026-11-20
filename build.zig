@@ -47,6 +47,7 @@ pub fn build(b: *std.Build) void {
     mod.addIncludePath(b.path("deps/luajit/include"));
     mod.addLibraryPath(b.path("deps/luajit/lib"));
     mod.linkSystemLibrary("lua51", .{});
+    mod.linkSystemLibrary("wininet", .{});
 
     const cli_exe = b.addExecutable(.{
         .name = "SharabhaCli",
@@ -65,6 +66,7 @@ pub fn build(b: *std.Build) void {
     cli_exe.root_module.addIncludePath(b.path("deps/luajit/include"));
     cli_exe.root_module.addLibraryPath(b.path("deps/luajit/lib"));
     cli_exe.root_module.linkSystemLibrary("lua51", .{});
+    cli_exe.root_module.linkSystemLibrary("wininet", .{});
     cli_exe.root_module.addWin32ResourceFile(.{ .file = b.path("res/sharabha.rc") });
 
     b.installArtifact(cli_exe);

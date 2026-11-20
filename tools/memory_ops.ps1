@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Position=0)]
-    [ValidateSet("Attach", "Scan", "Rescan", "Write", "Freeze", "Reset", "List", "PointerScan", "PointerResolve", "Disasm", "WatchWrites", "FreezeStatus")]
+    [ValidateSet("Attach", "Scan", "Rescan", "Write", "Freeze", "Reset", "List", "PointerScan", "PointerResolve", "Disasm", "WatchWrites", "FreezeStatus", "DisarmWatcher", "NopPatch")]
     [string]$Action = "Scan",
 
     [Parameter(Position=1)]
@@ -27,7 +27,8 @@ param(
     [string]$BaseOffset = "0x0",
     [string[]]$Offsets = @(),
     [int]$InstructionCount = 16,
-    [int]$TimeoutMs = 3000
+    [int]$TimeoutMs = 3000,
+    [int]$ByteCount = 3
 )
 
 $cliExe = Join-Path $PSScriptRoot "..\zig-out\bin\SharabhaCli.exe"
@@ -99,5 +100,15 @@ switch ($Action) {
             exit 1
         }
         & $cliExe --watch-writes $TargetAddress $TimeoutMs
+    }
+    "DisarmWatcher" {
+        & $cliExe --disarm-watcher
+    }
+    "NopPatch" {
+        if (-not $TargetAddress) {
+            Write-Error "TargetAddress required for NopPatch action."
+            exit 1
+        }
+        & $cliExe --nop-patch $TargetAddress $ByteCount
     }
 }

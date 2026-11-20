@@ -866,7 +866,7 @@ pub fn readCtFile(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
 }
 
 test "CtParser parses real-world BG3.CT if available" {
-    const file_path = "D:\\Mods\\BG3\\bg3.CT";
+    const file_path = "assets/tables/bg3.CT";
     const bytes = readCtFile(std.testing.allocator, file_path) catch return;
     defer std.testing.allocator.free(bytes);
 

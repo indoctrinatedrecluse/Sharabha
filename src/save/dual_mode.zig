@@ -397,7 +397,7 @@ test "DualModeSaveState - Deterministic Suzerain Sordland Profile Recognition" {
 
 test "DualModeSaveState - Real Suzerain FinalSave file verification" {
     const allocator = std.testing.allocator;
-    const real_path = "D:\\Projects\\Suzerain-save-editor\\FinalSave_11-12-2025_22-14-25.json";
+    const real_path = "assets/saves/SuzerainSave.json";
 
     const path_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, real_path) catch return;
     defer allocator.free(path_w);

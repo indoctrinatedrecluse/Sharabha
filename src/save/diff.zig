@@ -10,6 +10,7 @@ const fuzzy = @import("fuzzy.zig");
 const gvas = @import("gvas.zig");
 const unity = @import("unity.zig");
 const rpgmaker = @import("rpgmaker.zig");
+const renpy = @import("renpy.zig");
 
 pub const MutationKind = enum {
     Modified,
@@ -653,6 +654,163 @@ pub fn diffRpgMakerSaves(
     return report;
 }
 
+/// Compares two Ren'Py saves (.save) and produces typed property deltas
+pub fn diffRenPySaves(
+    child_allocator: std.mem.Allocator,
+    save_a: *const renpy.RenpySave,
+    save_b: *const renpy.RenpySave,
+    file_a_name: []const u8,
+    file_b_name: []const u8,
+) !*SaveDiffReport {
+    const arena = try child_allocator.create(std.heap.ArenaAllocator);
+    arena.* = std.heap.ArenaAllocator.init(child_allocator);
+    errdefer {
+        arena.deinit();
+        child_allocator.destroy(arena);
+    }
+    const alloc = arena.allocator();
+
+    var mutation_list: std.ArrayList(DiffMutation) = .empty;
+
+    // Check all fields in B against A
+    for (save_b.fields.items) |field_b| {
+        var found_a: ?renpy.RenpyField = null;
+        for (save_a.fields.items) |fa| {
+            if (std.mem.eql(u8, fa.path, field_b.path)) {
+                found_a = fa;
+                break;
+            }
+        }
+
+        if (found_a) |field_a| {
+            const val_a = field_a.value();
+            const val_b = field_b.value();
+            var changed = false;
+            var old_str: []const u8 = "";
+            var new_str: []const u8 = "";
+            var delta_str: []const u8 = "";
+            var inf_type: fuzzy.InferredType = .RawBinary;
+
+            switch (val_b) {
+                .Int => |ib| {
+                    if (val_a == .Int) {
+                        const ia = val_a.Int;
+                        if (ia != ib) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "{d}", .{ia});
+                            new_str = try std.fmt.allocPrint(alloc, "{d}", .{ib});
+                            const diff = ib - ia;
+                            delta_str = try std.fmt.allocPrint(alloc, "{s}{d}", .{ if (diff >= 0) "+" else "", diff });
+                            inf_type = .Int64LE;
+                        }
+                    }
+                },
+                .Float => |fb| {
+                    if (val_a == .Float) {
+                        const fa_val = val_a.Float;
+                        if (fa_val != fb) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "{d:.2}", .{fa_val});
+                            new_str = try std.fmt.allocPrint(alloc, "{d:.2}", .{fb});
+                            const diff = fb - fa_val;
+                            delta_str = try std.fmt.allocPrint(alloc, "{s}{d:.2}", .{ if (diff >= 0) "+" else "", diff });
+                            inf_type = .Float64LE;
+                        }
+                    }
+                },
+                .Bool => |bb| {
+                    if (val_a == .Bool) {
+                        const ba = val_a.Bool;
+                        if (ba != bb) {
+                            changed = true;
+                            old_str = if (ba) "true" else "false";
+                            new_str = if (bb) "true" else "false";
+                            delta_str = if (bb) "Toggled TRUE" else "Toggled FALSE";
+                            inf_type = .RawBinary;
+                        }
+                    }
+                },
+                .Str => |sb| {
+                    if (val_a == .Str) {
+                        const sa = val_a.Str;
+                        if (!std.mem.eql(u8, sa, sb)) {
+                            changed = true;
+                            old_str = try std.fmt.allocPrint(alloc, "'{s}'", .{sa});
+                            new_str = try std.fmt.allocPrint(alloc, "'{s}'", .{sb});
+                            delta_str = "String Mutated";
+                            inf_type = .StringAscii;
+                        }
+                    }
+                },
+            }
+
+            if (changed) {
+                try mutation_list.append(alloc, .{
+                    .offset = field_b.node.off,
+                    .length = field_b.node.len,
+                    .key_name = try alloc.dupe(u8, field_b.path),
+                    .kind = .Modified,
+                    .inferred_type = inf_type,
+                    .old_val_str = old_str,
+                    .new_val_str = new_str,
+                    .delta_str = delta_str,
+                    .confidence = 100,
+                    .hex_preview = try alloc.dupe(u8, "RENPY_PROPERTY"),
+                });
+            }
+        } else {
+            // Added field in B
+            try mutation_list.append(alloc, .{
+                .offset = field_b.node.off,
+                .length = field_b.node.len,
+                .key_name = try alloc.dupe(u8, field_b.path),
+                .kind = .Added,
+                .inferred_type = .RawBinary,
+                .old_val_str = "<absent>",
+                .new_val_str = "<present>",
+                .delta_str = "+New Field",
+                .confidence = 100,
+                .hex_preview = try alloc.dupe(u8, "RENPY_NEW"),
+            });
+        }
+    }
+
+    // Check for removed fields in A
+    for (save_a.fields.items) |field_a| {
+        var found_b = false;
+        for (save_b.fields.items) |fb| {
+            if (std.mem.eql(u8, fb.path, field_a.path)) {
+                found_b = true;
+                break;
+            }
+        }
+        if (!found_b) {
+            try mutation_list.append(alloc, .{
+                .offset = field_a.node.off,
+                .length = field_a.node.len,
+                .key_name = try alloc.dupe(u8, field_a.path),
+                .kind = .Removed,
+                .inferred_type = .RawBinary,
+                .old_val_str = "<present>",
+                .new_val_str = "<absent>",
+                .delta_str = "-Removed Field",
+                .confidence = 100,
+                .hex_preview = try alloc.dupe(u8, "RENPY_REMOVED"),
+            });
+        }
+    }
+
+    const report = try alloc.create(SaveDiffReport);
+    report.* = .{
+        .arena = arena,
+        .file_a_name = try alloc.dupe(u8, file_a_name),
+        .file_b_name = try alloc.dupe(u8, file_b_name),
+        .total_mutations = mutation_list.items.len,
+        .mutations = mutation_list.items,
+    };
+    return report;
+}
+
 test "Kala Chakra: Binary Save Diff Detects Mutations and Deltas" {
     const alloc = std.testing.allocator;
 
@@ -807,4 +965,27 @@ test "Kala Chakra: RPG Maker Save Diff Detects Mutations and Deltas" {
     try std.testing.expectEqualStrings("+350", report.mutations[2].delta_str);   // HP
     try std.testing.expectEqualStrings("+957", report.mutations[3].delta_str);   // Var 1
     try std.testing.expectEqualStrings("Toggled TRUE", report.mutations[4].delta_str); // Switch 1
+}
+
+test "Kala Chakra: Ren'Py Save Diff Detects Mutations and Deltas" {
+    const alloc = std.testing.allocator;
+
+    const bytes_a = try renpy.buildSyntheticSave(alloc);
+    defer alloc.free(bytes_a);
+
+    var save_a = try renpy.RenpySave.parse(alloc, bytes_a);
+    defer save_a.deinit();
+
+    var save_b = try renpy.RenpySave.parse(alloc, bytes_a);
+    defer save_b.deinit();
+
+    try save_b.applyEdit("gold", "99999");
+    try save_b.applyEdit("unlocked", "false");
+
+    const report = try diffRenPySaves(alloc, &save_a, &save_b, "SaveA.save", "SaveB.save");
+    defer report.deinit(alloc);
+
+    try std.testing.expectEqual(@as(usize, 2), report.total_mutations);
+    try std.testing.expectEqualStrings("+98999", report.mutations[0].delta_str);
+    try std.testing.expectEqualStrings("Toggled FALSE", report.mutations[1].delta_str);
 }

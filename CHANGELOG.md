@@ -11,6 +11,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-11-20
+
+### Added
+- **Cheat Engine Lua API Parity (`src/scripting/ce_compat.zig`)**:
+  - Implemented full `AddressList` binding connected to active session records in `assets/tables/ct_session.tsv` via `ct_session.Session`.
+  - Added `.Count`, `:getCount()`, `[index]` array indexing, and `:getMemoryRecord(index)`.
+  - Added `getMemoryRecordByID(id)` and `getMemoryRecordByDescription(desc)` to both global Lua scope and `AddressList` metatable.
+  - Implemented `MemoryRecord` userdata metatable with both OOP method calls (`:getDescription()`, `:setDescription(s)`, `:getAddress()`, `:setAddress(s)`, `:getValue()`, `:setValue(v)`, `:getActive()`, `:setActive(b)`, `:getCurrentAddress()`, `:getID()`) and field indexing (`ID`, `Index`, `Description`, `Address`, `CurrentAddress`, `Value`, `Active`, `Type`, `VarType`).
+  - Added unit test suite in `ce_compat.zig` validating table enumeration, ID/description lookups, address resolution, and value mutation.
+- **AI Save Oracle Network Client & Heuristic Fallback (`src/ai/analyzer.zig`)**:
+  - Implemented native Win32 `wininet.dll` HTTPS networking client (`sendHttpsPost`) utilizing system TLS/HTTPS Schannel support.
+  - Added live online analysis for Google Gemini (`gemini-2.5-flash:generateContent`) and OpenAI / DeepSeek (`/v1/chat/completions`).
+  - Added dynamic DPAPI vault CLI commands: `--seal-vault <provider> <key> [endpoint]`, `--test-vault` (with masked credential verification), and `--analyze-ai <save_file>`.
+  - Built resilient offline heuristic analyzer (`deduceHeuristicHints`) using Shannon entropy, container headers (GVAS, Ren'Py, Capcom DSSS v2, etc.), and variable landmark scanning with automatic fallback on network or key failure.
+- **Memory Safety Hardening & Hardware Watcher Disarming (`src/memory/process.zig`, `src/main.zig`)**:
+  - Added `--nop-patch <addr> <len>` for zeroing instructions with original opcode backup logging.
+  - Added `--disarm-watcher` to safely clear hardware debug registers (`DR0`–`DR3`, `DR7`) across all target threads without crashing the host process.
+  - Hardened memory write routines (`writeMemory`) with `VirtualQueryEx` page protection checks against uncommitted, guard, and no-access memory pages.
+- **Universal Save Differ Extensions (`src/save/diff.zig`, `tools/diff_saves.ps1`)**:
+  - Added visual save diffing support for Ren'Py visual novels and RPG Maker save files alongside Unreal Engine 5 GVAS and raw scalar clusters.
+  - Added Capcom RE Engine DSSS container v2 support to deterministic save parsing.
+
+### Changed
+- **Save Engine Dual-Mode Ordering (`src/save/dual_mode.zig`)**:
+  - Save engine always prioritizes 100% curated deterministic records at the top for recognized games (Suzerain, GVAS, Ren'Py, Capcom RE Engine DSSS), followed by fuzzy heuristic scan candidates.
+- **Auto-Updater Asset Discovery (`tools/updater.ps1`)**:
+  - Broadened GitHub release asset detection to accept `*setup*.exe`, `*installer*.exe`, and `*.exe`.
+  - Dynamic discovery of setup executables in temporary extraction directories.
+  - `Stop-Process` safely closes `Sharabha`, `SharabhaCli`, and `slint-viewer` before installer hand-off to avoid file-locking conflicts.
+  - Preserved `active_tab` across update checks and dismissals to prevent unexpected UI navigation.
+- **Zero Console Flashing**:
+  - Wired Win32 `--run-silent` CLI flag and `$ProgressPreference = 'SilentlyContinue'` to cloak all backend tool executions (`memory_ops.ps1`, `open_ct.ps1`, `diff_saves.ps1`, `updater.ps1`, `filter_save.ps1`).
+
+### Removed
+- Removed 76 lines of legacy scalar properties (`row_0_offset..row_9_val`) in `src/ui/live_save.slint`.
+- Removed unused scalar properties (`found_addr_0..3`, `found_freeze_0..3`) in `src/memory/engine_service.zig` and `src/ui/live_scan.slint`.
+- Eliminated all hardcoded personal paths across scripts, tests, and source files.
+
+---
+
 ## [0.5.4] - 2026-11-06
 
 ### Added

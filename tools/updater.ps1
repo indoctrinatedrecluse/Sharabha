@@ -18,7 +18,18 @@ param(
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectDir = if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
 $stateFile = Join-Path $projectDir "src\ui\updater_state.slint"
-$currentVersion = "v0.5.4"
+
+function Get-CurrentProjectVersion {
+    $zonPath = Join-Path $projectDir "build.zig.zon"
+    if (Test-Path $zonPath) {
+        $zonText = Get-Content $zonPath -Raw
+        if ($zonText -match '\.version\s*=\s*"([^"]+)"') {
+            return "v" + $Matches[1].Trim().TrimStart('v', 'V')
+        }
+    }
+    return "v0.6.0"
+}
+$currentVersion = Get-CurrentProjectVersion
 $repoUri = "https://api.github.com/repos/indoctrinatedrecluse/Sharabha/releases/latest"
 $cacheFile = Join-Path $env:TEMP "sharabha_latest_release.json"
 
@@ -98,7 +109,22 @@ function Write-UpdaterState([hashtable]$p) {
     $isDownloading = if ($p.ContainsKey("is_downloading")) { $p.is_downloading.ToString().ToLower() } else { "false" }
     $isReady = if ($p.ContainsKey("is_ready")) { $p.is_ready.ToString().ToLower() } else { "false" }
     $isModalOpen = if ($p.ContainsKey("is_modal_open")) { $p.is_modal_open.ToString().ToLower() } else { "false" }
-    $tabVal = if ($p.ContainsKey("active_tab")) { [int]$p.active_tab } else { $ActiveTab }
+    $tabVal = if ($p.ContainsKey("active_tab") -and [int]$p.active_tab -ge 0) {
+        [int]$p.active_tab
+    } elseif ($ActiveTab -ge 0) {
+        $ActiveTab
+    } else {
+        $existingTab = -1
+        if (Test-Path $stateFile) {
+            try {
+                $curContent = [System.IO.File]::ReadAllText($stateFile)
+                if ($curContent -match 'in property <int> active_tab:\s*(-?\d+);') {
+                    $existingTab = [int]$Matches[1]
+                }
+            } catch {}
+        }
+        $existingTab
+    }
     $curVer = if ($p.ContainsKey("current_version")) { $p.current_version } else { $currentVersion }
     $latVer = if ($p.ContainsKey("latest_version")) { $p.latest_version } else { $currentVersion }
     $title = Escape-SlintString $p.release_title
@@ -132,17 +158,28 @@ function Write-UpdaterState([hashtable]$p) {
 
     $content = [string]::Join("`r`n", $lines)
     $tempFile = "$stateFile.tmp"
+    $bakFile = "$stateFile.bak"
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($tempFile, $content, $utf8NoBom)
 
     # Atomic swap with retry
     for ($attempt = 0; $attempt -lt 5; $attempt++) {
         try {
-            [System.IO.File]::Copy($tempFile, $stateFile, $true)
-            [System.IO.File]::Delete($tempFile)
+            if ([System.IO.File]::Exists($stateFile)) {
+                [System.IO.File]::Replace($tempFile, $stateFile, $bakFile)
+                if (Test-Path $bakFile) { Remove-Item $bakFile -Force -ErrorAction SilentlyContinue }
+            } else {
+                [System.IO.File]::Move($tempFile, $stateFile)
+            }
             break
         } catch {
             Start-Sleep -Milliseconds 50
+            if ($attempt -eq 4) {
+                try {
+                    [System.IO.File]::Copy($tempFile, $stateFile, $true)
+                    [System.IO.File]::Delete($tempFile)
+                } catch {}
+            }
         }
     }
 }
@@ -275,10 +312,10 @@ if ($Download) {
         if (-not $release) {
             throw "No release metadata available (GitHub unreachable and no cached release)."
         }
-        $setupAsset = $release.assets | Where-Object { $_.name -like "*setup.exe" } | Select-Object -First 1
+        $setupAsset = $release.assets | Where-Object { $_.name -like "*setup*.exe" -or $_.name -like "*installer*.exe" -or $_.name -like "*.exe" } | Select-Object -First 1
 
         if (-not $setupAsset) {
-            throw "No setup.exe asset found in release $($release.tag_name)"
+            throw "No setup.exe asset found in release $($release.tag_name). Release assets may still be uploading or available directly on GitHub."
         }
 
         $downloadUrl = $setupAsset.browser_download_url
@@ -457,7 +494,7 @@ if ($Install) {
     if (-not $targetExe -or -not (Test-Path -LiteralPath $targetExe)) {
         $updateDir = Join-Path $env:TEMP "Sharabha-Update"
         if (Test-Path $updateDir) {
-            $latestExe = Get-ChildItem -Path $updateDir -Filter "*setup.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            $latestExe = Get-ChildItem -Path $updateDir -Filter "*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if ($latestExe) { $targetExe = $latestExe.FullName }
         }
     }
@@ -506,9 +543,9 @@ if ($Install) {
     # overwrites `bin\Sharabha.exe`, so launching it while the engine is still mapped
     # would surface a files-in-use dialog. The bounded wait keeps the handover
     # deterministic, and every step stays console-free.
-    Stop-Process -Name "Sharabha", "slint-viewer" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "Sharabha", "SharabhaCli", "slint-viewer" -Force -ErrorAction SilentlyContinue
     for ($attempt = 0; $attempt -lt 20; $attempt++) {
-        if (-not (Get-Process -Name "Sharabha", "slint-viewer" -ErrorAction SilentlyContinue)) { break }
+        if (-not (Get-Process -Name "Sharabha", "SharabhaCli", "slint-viewer" -ErrorAction SilentlyContinue)) { break }
         Start-Sleep -Milliseconds 150
     }
 

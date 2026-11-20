@@ -56,6 +56,11 @@ pub const win = struct {
     ) callconv(.winapi) i32;
 
     pub extern "kernel32" fn DeleteFileW(lpFileName: [*:0]const u16) callconv(.winapi) i32;
+
+    pub extern "kernel32" fn CreateDirectoryW(
+        lpPathName: [*:0]const u16,
+        lpSecurityAttributes: ?*anyopaque,
+    ) callconv(.winapi) i32;
 };
 
 pub const SafeRewriteError = error{

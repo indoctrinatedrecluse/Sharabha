@@ -1449,7 +1449,7 @@ fn buildSyntheticPickle(a: std.mem.Allocator) !std.ArrayList(u8) {
     return out;
 }
 
-fn buildSyntheticSave(a: std.mem.Allocator) ![]u8 {
+pub fn buildSyntheticSave(a: std.mem.Allocator) ![]u8 {
     var pickle = try buildSyntheticPickle(a);
     defer pickle.deinit(a);
     const body = try zlibCompress(a, pickle.items);

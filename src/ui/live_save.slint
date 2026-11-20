@@ -12,98 +12,162 @@ export global LiveSave {
     in property <int> active_tab_hint: 1;
     in property <bool> skip_splash_hint: true;
     in property <bool> is_deterministic_profile: true;
-    in property <string> filename: "SampleUnity.es3";
-    in property <string> game_title: "UNITY ENGINE // Aikya Sutra (à¤à¤•à¥à¤¯ à¤¸à¥‚à¤¤à¥à¤° // EasySave3 Vessel)";
-    in property <string> checksum_info: "Sthiti Raksha: MD5 Seal Active [8C822D38B2E042B8]";
-    in property <string> metric_verdict: "Unity Engine EasySave 3 Format (ES3 JSON Typed Dictionary)";
-    in property <string> metric_score: "329 Bytes Analyzed";
-    in property <string> status_feedback: "Loaded: SampleUnity.es3 (329 Bytes, 5 Key-Values, Ranked by Confidence Descending)";
-    in property <int> total_extracted_count: 5;
+    in property <string> filename: "SampleUe5.sav";
+    in property <string> game_title: "UNREAL ENGINE 4/5 // Maya Sutra (माया सूत्र // GVAS Vessel)";
+    in property <string> checksum_info: "Sthiti Raksha: MD5 Seal Active [BCDD9D218F905DCD]";
+    in property <string> metric_verdict: "Unreal Engine Save Vessel (UE 5.2 - /Script/SharabhaGame.HeroSave)";
+    in property <string> metric_score: "289 Bytes Analyzed";
+    in property <string> status_feedback: "Loaded: SampleUe5.sav (289 Bytes, 69 Key-Values, Ranked by Confidence Descending)";
+    in property <int> total_extracted_count: 69;
     in property <string> search_filter: "";
-    in property <int> filtered_count: 5;
+    in property <int> filtered_count: 69;
 
     in property <[SaveKeyValueRowData]> rows: [
-        { offset: "ES3: PlayerName", key: "PlayerName", type_name: "Value (ES3)", conf: "100% Curated Aikya Sutra", hex: "45 53 33 00", val: "Arjuna" },
-        { offset: "ES3: PlayerMana", key: "PlayerMana", type_name: "Value (ES3)", conf: "100% Curated Aikya Sutra", hex: "45 53 33 00", val: "250" },
-        { offset: "ES3: PlayerHealth", key: "PlayerHealth", type_name: "Value (ES3)", conf: "100% Curated Aikya Sutra", hex: "45 53 33 00", val: "100.00" },
-        { offset: "ES3: PlayerGold", key: "PlayerGold", type_name: "Value (ES3)", conf: "100% Curated Aikya Sutra", hex: "45 53 33 00", val: "123456" },
-        { offset: "ES3: IsHardcore", key: "IsHardcore", type_name: "Value (ES3)", conf: "100% Curated Aikya Sutra", hex: "45 53 33 00", val: "False" }
+        { offset: "HEADER:SaveGameClass", key: "Engine.SaveGameClass", type_name: "Class Identifier", conf: "100% Curated Maya Sutra", hex: "00 00 00 00", val: "'/Script/SharabhaGame.HeroSave'" },
+        { offset: "HEADER:EngineVersion", key: "Engine.Version", type_name: "Version String", conf: "100% Curated Maya Sutra", hex: "47 56 41 53", val: "UE 5.2.1 (++UE5+Release-5.2)" },
+        { offset: "GVAS: PlayerName", key: "PlayerName", type_name: "String (StrProperty)", conf: "100% Curated Maya Sutra", hex: "22 53 54 52", val: "'Sharabheshwara'" },
+        { offset: "GVAS: PlayerGold", key: "PlayerGold", type_name: "i32 (IntProperty)", conf: "100% Curated Maya Sutra", hex: "31 DE 0B 00", val: "777777" },
+        { offset: "GVAS: MovementSpeed", key: "MovementSpeed", type_name: "f32 (FloatProperty)", conf: "100% Curated Maya Sutra", hex: "00 40 E1 43", val: "450.5" },
+        { offset: "GVAS: IsHardcore", key: "IsHardcore", type_name: "bool (BoolProperty)", conf: "100% Curated Maya Sutra", hex: "01 00 00 00", val: "true" },
+        { offset: "0x011A", key: "TIMESTAMP [0x011A]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 4E 6F", val: "1867382784" },
+        { offset: "0x0112", key: "TIMESTAMP [0x0112]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "68 77 61 72", val: "1918990184" },
+        { offset: "0x010E", key: "TIMESTAMP [0x010E]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "62 68 65 73", val: "1936025698" },
+        { offset: "0x010A", key: "TIMESTAMP [0x010A]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "68 61 72 61", val: "1634885992" },
+        { offset: "0x0106", key: "TIMESTAMP [0x0106]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 00 53", val: "1392508928" },
+        { offset: "0x00F6", key: "TIMESTAMP [0x00F6]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "70 65 72 74", val: "1953654128" },
+        { offset: "0x00F2", key: "TIMESTAMP [0x00F2]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "72 50 72 6F", val: "1869762674" },
+        { offset: "0x00EE", key: "TIMESTAMP [0x00EE]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 53 74", val: "1951596544" },
+        { offset: "0x00E6", key: "TIMESTAMP [0x00E6]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "72 4E 61 6D", val: "1835093618" },
+        { offset: "0x00E2", key: "TIMESTAMP [0x00E2]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "6C 61 79 65", val: "1702453612" },
+        { offset: "0x00DE", key: "TIMESTAMP [0x00DE]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 00 50", val: "1342177280" },
+        { offset: "0x00CA", key: "TIMESTAMP [0x00CA]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "70 65 72 74", val: "1953654128" },
+        { offset: "0x00C6", key: "TIMESTAMP [0x00C6]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "74 50 72 6F", val: "1869762676" },
+        { offset: "0x00C2", key: "TIMESTAMP [0x00C2]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "46 6C 6F 61", val: "1634692166" },
+        { offset: "0x00B6", key: "TIMESTAMP [0x00B6]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "6E 74 53 70", val: "1884517486" },
+        { offset: "0x00B2", key: "TIMESTAMP [0x00B2]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "76 65 6D 65", val: "1701668214" },
+        { offset: "0x00AE", key: "TIMESTAMP [0x00AE]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 4D 6F", val: "1867317248" },
+        { offset: "0x0098", key: "lProperty", type_name: "ASCII Tag / Keyword", conf: "90% Identifier", hex: "6C 50 72 6F", val: "'lProperty'" },
+        { offset: "0x0094", key: "TIMESTAMP [0x0094]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 42 6F 6F", val: "1869562368" },
+        { offset: "0x008C", key: "TIMESTAMP [0x008C]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "63 6F 72 65", val: "1701998435" },
+        { offset: "0x0088", key: "TIMESTAMP [0x0088]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "48 61 72 64", val: "1685217608" },
+        { offset: "0x0084", key: "TIMESTAMP [0x0084]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 49 73", val: "1934163968" },
+        { offset: "0x0070", key: "TIMESTAMP [0x0070]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "65 72 74 79", val: "2037674597" },
+        { offset: "0x006C", key: "TIMESTAMP [0x006C]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "50 72 6F 70", val: "1886351952" },
+        { offset: "0x0068", key: "TIMESTAMP [0x0068]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 49 6E 74", val: "1953384704" },
+        { offset: "0x0060", key: "TIMESTAMP [0x0060]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "47 6F 6C 64", val: "1684827975" },
+        { offset: "0x005C", key: "TIMESTAMP [0x005C]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "61 79 65 72", val: "1919252833" },
+        { offset: "0x0058", key: "TIMESTAMP [0x0058]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "00 00 50 6C", val: "1817182208" },
+        { offset: "0x0050", key: "TIMESTAMP [0x0050]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "6F 53 61 76", val: "1986089839" },
+        { offset: "0x004C", key: "TIMESTAMP [0x004C]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "2E 48 65 72", val: "1919240238" },
+        { offset: "0x0048", key: "TIMESTAMP [0x0048]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "47 61 6D 65", val: "1701667143" },
+        { offset: "0x0044", key: "TIMESTAMP [0x0044]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "61 62 68 61", val: "1634230881" },
+        { offset: "0x0040", key: "TIMESTAMP [0x0040]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "53 68 61 72", val: "1918986323" },
+        { offset: "0x0038", key: "TIMESTAMP [0x0038]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "2F 53 63 72", val: "1919111983" },
+        { offset: "0x0020", key: "TIMESTAMP [0x0020]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "52 65 6C 65", val: "1701602642" },
+        { offset: "0x0000", key: "TIMESTAMP [0x0000]", type_name: "u32 (Epoch Seconds)", conf: "90% Probable Timestamp", hex: "47 56 41 53", val: "1396790855" },
+        { offset: "0x0116", key: "RESOURCE [0x0116]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "61 00 05 00", val: "327777" },
+        { offset: "0x00FA", key: "RESOURCE [0x00FA]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "79 00 13 00", val: "1245305" },
+        { offset: "0x00EA", key: "RESOURCE [0x00EA]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "65 00 0C 00", val: "786533" },
+        { offset: "0x00CE", key: "RESOURCE [0x00CE]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "79 00 04 00", val: "262265" },
+        { offset: "0x00BA", key: "RESOURCE [0x00BA]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "65 65 64 00", val: "6579557" },
+        { offset: "0x00AA", key: "RESOURCE [0x00AA]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "01 00 0E 00", val: "917505" },
+        { offset: "0x0090", key: "RESOURCE [0x0090]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "00 0D 00 00", val: "3328" },
+        { offset: "0x0080", key: "RESOURCE [0x0080]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "0B 00 0B 00", val: "720907" },
+        { offset: "0x0074", key: "RESOURCE [0x0074]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "00 04 00 00", val: "1024" },
+        { offset: "0x0064", key: "RESOURCE [0x0064]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "00 0C 00 00", val: "3072" },
+        { offset: "0x0054", key: "RESOURCE [0x0054]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "65 00 0B 00", val: "720997" },
+        { offset: "0x0028", key: "RESOURCE [0x0028]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "35 2E 32 00", val: "3288629" },
+        { offset: "0x0014", key: "RESOURCE [0x0014]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "00 00 12 00", val: "1179648" },
+        { offset: "0x000C", key: "RESOURCE [0x000C]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "05 00 02 00", val: "131077" },
+        { offset: "0x0008", key: "RESOURCE [0x0008]", type_name: "i32 (Probable Currency/XP)", conf: "85% Game Resource", hex: "06 02 00 00", val: "518" },
+        { offset: "0x00BE", key: "STAT_OR_LEVEL [0x00BE]", type_name: "i32 (Attribute / Level)", conf: "80% Player Attribute", hex: "0E 00 00 00", val: "14" },
+        { offset: "0x0034", key: "STAT_OR_LEVEL [0x0034]", type_name: "i32 (Attribute / Level)", conf: "80% Player Attribute", hex: "1E 00 00 00", val: "30" },
+        { offset: "0x002C", key: "STAT_OR_LEVEL [0x002C]", type_name: "i32 (Attribute / Level)", conf: "80% Player Attribute", hex: "03 00 00 00", val: "3" },
+        { offset: "0x0010", key: "STAT_OR_LEVEL [0x0010]", type_name: "i32 (Attribute / Level)", conf: "80% Player Attribute", hex: "01 00 00 00", val: "1" },
+        { offset: "0x0004", key: "STAT_OR_LEVEL [0x0004]", type_name: "i32 (Attribute / Level)", conf: "80% Player Attribute", hex: "03 00 00 00", val: "3" },
+        { offset: "0x0102", key: "VAR_0x0102", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "00 00 00 0F", val: "251658240 (0x0F000000)" },
+        { offset: "0x00DA", key: "VAR_0x00DA", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "40 E1 43 0B", val: "188997952 (0x0B43E140)" },
+        { offset: "0x007C", key: "VAR_0x007C", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "00 00 31 DE", val: "-567214080 (0xDE310000)" },
+        { offset: "0x003C", key: "VAR_0x003C", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "69 70 74 2F", val: "796160105 (0x2F747069)" },
+        { offset: "0x0024", key: "VAR_0x0024", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "61 73 65 2D", val: "761623393 (0x2D657361)" },
+        { offset: "0x001C", key: "VAR_0x001C", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "55 45 35 2B", val: "724911445 (0x2B354555)" },
+        { offset: "0x0018", key: "VAR_0x0018", type_name: "u32 (Raw Word)", conf: "50% Candidate Variable", hex: "00 00 2B 2B", val: "724238336 (0x2B2B0000)" }
     ];
 
-    in property <string> row_0_offset: "ES3: PlayerName";
-    in property <string> row_0_key: "PlayerName";
-    in property <string> row_0_type: "Value (ES3)";
-    in property <string> row_0_conf: "100% Curated Aikya Sutra";
-    in property <string> row_0_hex: "45 53 33 00";
-    in property <string> row_0_val: "Arjuna";
-    in property <string> row_1_offset: "ES3: PlayerMana";
-    in property <string> row_1_key: "PlayerMana";
-    in property <string> row_1_type: "Value (ES3)";
-    in property <string> row_1_conf: "100% Curated Aikya Sutra";
-    in property <string> row_1_hex: "45 53 33 00";
-    in property <string> row_1_val: "250";
-    in property <string> row_2_offset: "ES3: PlayerHealth";
-    in property <string> row_2_key: "PlayerHealth";
-    in property <string> row_2_type: "Value (ES3)";
-    in property <string> row_2_conf: "100% Curated Aikya Sutra";
-    in property <string> row_2_hex: "45 53 33 00";
-    in property <string> row_2_val: "100.00";
-    in property <string> row_3_offset: "ES3: PlayerGold";
+    in property <string> row_0_offset: "HEADER:SaveGameClass";
+    in property <string> row_0_key: "Engine.SaveGameClass";
+    in property <string> row_0_type: "Class Identifier";
+    in property <string> row_0_conf: "100% Curated Maya Sutra";
+    in property <string> row_0_hex: "00 00 00 00";
+    in property <string> row_0_val: "'/Script/SharabhaGame.HeroSave'";
+    in property <string> row_1_offset: "HEADER:EngineVersion";
+    in property <string> row_1_key: "Engine.Version";
+    in property <string> row_1_type: "Version String";
+    in property <string> row_1_conf: "100% Curated Maya Sutra";
+    in property <string> row_1_hex: "47 56 41 53";
+    in property <string> row_1_val: "UE 5.2.1 (++UE5+Release-5.2)";
+    in property <string> row_2_offset: "GVAS: PlayerName";
+    in property <string> row_2_key: "PlayerName";
+    in property <string> row_2_type: "String (StrProperty)";
+    in property <string> row_2_conf: "100% Curated Maya Sutra";
+    in property <string> row_2_hex: "22 53 54 52";
+    in property <string> row_2_val: "'Sharabheshwara'";
+    in property <string> row_3_offset: "GVAS: PlayerGold";
     in property <string> row_3_key: "PlayerGold";
-    in property <string> row_3_type: "Value (ES3)";
-    in property <string> row_3_conf: "100% Curated Aikya Sutra";
-    in property <string> row_3_hex: "45 53 33 00";
-    in property <string> row_3_val: "123456";
-    in property <string> row_4_offset: "ES3: IsHardcore";
-    in property <string> row_4_key: "IsHardcore";
-    in property <string> row_4_type: "Value (ES3)";
-    in property <string> row_4_conf: "100% Curated Aikya Sutra";
-    in property <string> row_4_hex: "45 53 33 00";
-    in property <string> row_4_val: "False";
-    in property <string> row_5_offset: "";
-    in property <string> row_5_key: "";
-    in property <string> row_5_type: "";
-    in property <string> row_5_conf: "";
-    in property <string> row_5_hex: "";
-    in property <string> row_5_val: "";
-    in property <string> row_6_offset: "";
-    in property <string> row_6_key: "";
-    in property <string> row_6_type: "";
-    in property <string> row_6_conf: "";
-    in property <string> row_6_hex: "";
-    in property <string> row_6_val: "";
-    in property <string> row_7_offset: "";
-    in property <string> row_7_key: "";
-    in property <string> row_7_type: "";
-    in property <string> row_7_conf: "";
-    in property <string> row_7_hex: "";
-    in property <string> row_7_val: "";
-    in property <string> row_8_offset: "";
-    in property <string> row_8_key: "";
-    in property <string> row_8_type: "";
-    in property <string> row_8_conf: "";
-    in property <string> row_8_hex: "";
-    in property <string> row_8_val: "";
-    in property <string> row_9_offset: "";
-    in property <string> row_9_key: "";
-    in property <string> row_9_type: "";
-    in property <string> row_9_conf: "";
-    in property <string> row_9_hex: "";
-    in property <string> row_9_val: "";
-    in property <string> field_0_tag: "PlayerName";
-    in property <string> field_0_type: "Value (ES3)";
-    in property <string> field_0_hex: "45 53 33 00";
-    in property <string> field_0_val: "Arjuna";
-    in property <string> field_1_tag: "PlayerMana";
-    in property <string> field_1_type: "Value (ES3)";
-    in property <string> field_1_hex: "45 53 33 00";
-    in property <string> field_1_val: "250";
-    in property <string> field_2_tag: "PlayerHealth";
-    in property <string> field_2_type: "Value (ES3)";
-    in property <string> field_2_hex: "45 53 33 00";
-    in property <string> field_2_val: "100.00";
+    in property <string> row_3_type: "i32 (IntProperty)";
+    in property <string> row_3_conf: "100% Curated Maya Sutra";
+    in property <string> row_3_hex: "31 DE 0B 00";
+    in property <string> row_3_val: "777777";
+    in property <string> row_4_offset: "GVAS: MovementSpeed";
+    in property <string> row_4_key: "MovementSpeed";
+    in property <string> row_4_type: "f32 (FloatProperty)";
+    in property <string> row_4_conf: "100% Curated Maya Sutra";
+    in property <string> row_4_hex: "00 40 E1 43";
+    in property <string> row_4_val: "450.5";
+    in property <string> row_5_offset: "GVAS: IsHardcore";
+    in property <string> row_5_key: "IsHardcore";
+    in property <string> row_5_type: "bool (BoolProperty)";
+    in property <string> row_5_conf: "100% Curated Maya Sutra";
+    in property <string> row_5_hex: "01 00 00 00";
+    in property <string> row_5_val: "true";
+    in property <string> row_6_offset: "0x011A";
+    in property <string> row_6_key: "TIMESTAMP [0x011A]";
+    in property <string> row_6_type: "u32 (Epoch Seconds)";
+    in property <string> row_6_conf: "90% Probable Timestamp";
+    in property <string> row_6_hex: "00 00 4E 6F";
+    in property <string> row_6_val: "1867382784";
+    in property <string> row_7_offset: "0x0112";
+    in property <string> row_7_key: "TIMESTAMP [0x0112]";
+    in property <string> row_7_type: "u32 (Epoch Seconds)";
+    in property <string> row_7_conf: "90% Probable Timestamp";
+    in property <string> row_7_hex: "68 77 61 72";
+    in property <string> row_7_val: "1918990184";
+    in property <string> row_8_offset: "0x010E";
+    in property <string> row_8_key: "TIMESTAMP [0x010E]";
+    in property <string> row_8_type: "u32 (Epoch Seconds)";
+    in property <string> row_8_conf: "90% Probable Timestamp";
+    in property <string> row_8_hex: "62 68 65 73";
+    in property <string> row_8_val: "1936025698";
+    in property <string> row_9_offset: "0x010A";
+    in property <string> row_9_key: "TIMESTAMP [0x010A]";
+    in property <string> row_9_type: "u32 (Epoch Seconds)";
+    in property <string> row_9_conf: "90% Probable Timestamp";
+    in property <string> row_9_hex: "68 61 72 61";
+    in property <string> row_9_val: "1634885992";
+    in property <string> field_0_tag: "Engine.SaveGameClass";
+    in property <string> field_0_type: "Class Identifier";
+    in property <string> field_0_hex: "00 00 00 00";
+    in property <string> field_0_val: "'/Script/SharabhaGame.HeroSave'";
+    in property <string> field_1_tag: "Engine.Version";
+    in property <string> field_1_type: "Version String";
+    in property <string> field_1_hex: "47 56 41 53";
+    in property <string> field_1_val: "UE 5.2.1 (++UE5+Release-5.2)";
+    in property <string> field_2_tag: "PlayerName";
+    in property <string> field_2_type: "String (StrProperty)";
+    in property <string> field_2_hex: "22 53 54 52";
+    in property <string> field_2_val: "'Sharabheshwara'";
     in property <string> field_3_tag: "PlayerGold";
-    in property <string> field_3_type: "Value (ES3)";
-    in property <string> field_3_hex: "45 53 33 00";
-    in property <string> field_3_val: "123456";
+    in property <string> field_3_type: "i32 (IntProperty)";
+    in property <string> field_3_hex: "31 DE 0B 00";
+    in property <string> field_3_val: "777777";
 }

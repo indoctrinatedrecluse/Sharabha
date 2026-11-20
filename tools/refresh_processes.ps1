@@ -2,14 +2,32 @@
 # Queries active OS tasks and generates src/ui/live_processes.slint
 
 param(
-    [string]$OutPath = "src\ui\live_processes.slint"
+    [string]$OutPath = "src\ui\live_processes.slint",
+    [string]$Filter = ""
 )
 
-$allProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Id -gt 4 } | Sort-Object -Descending { [bool]$_.MainWindowTitle }, WorkingSet64
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectDir = if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
+if (-not [System.IO.Path]::IsPathRooted($OutPath)) {
+    $OutPath = Join-Path $projectDir $OutPath
+}
+
+$allProcs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Id -gt 4 }
+
+$trimmedFilter = if ($Filter) { $Filter.Trim() } else { "" }
+if ($trimmedFilter -ne "") {
+    $allProcs = @($allProcs | Where-Object {
+        ($_.ProcessName -and $_.ProcessName.IndexOf($trimmedFilter, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+        ([string]$_.Id).IndexOf($trimmedFilter, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+        ($_.MainWindowTitle -and $_.MainWindowTitle.IndexOf($trimmedFilter, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+    })
+}
+
+$sortedProcs = @($allProcs | Sort-Object -Descending { [bool]$_.MainWindowTitle }, WorkingSet64)
 
 $items = @()
 $seen = @{}
-foreach ($p in $allProcs) {
+foreach ($p in $sortedProcs) {
     if ($seen[$p.ProcessName]) { continue }
     $seen[$p.ProcessName] = $true
     $items += $p
@@ -17,9 +35,11 @@ foreach ($p in $allProcs) {
 }
 
 if ($items.Count -lt 12) {
-    foreach ($p in $allProcs) {
-        $items += $p
-        if ($items.Count -ge 12) { break }
+    foreach ($p in $sortedProcs) {
+        if (-not ($items | Where-Object { $_.Id -eq $p.Id })) {
+            $items += $p
+            if ($items.Count -ge 12) { break }
+        }
     }
 }
 
@@ -41,9 +61,9 @@ for ($i = 0; $i -lt 12; $i++) {
         $ramStr = "$ramMb MB"
         $arch = if ([System.Environment]::Is64BitOperatingSystem) { "x64 Native" } else { "x86 Native" }
     } else {
-        $name = "idle.exe"
+        $name = ""
         $pidVal = 0
-        $t = "System Idle"
+        $t = if ($trimmedFilter -ne "") { "No additional matching processes" } else { "System Idle" }
         $ramStr = "0 MB"
         $arch = "x64 Native"
     }
@@ -60,4 +80,11 @@ $lines += "}"
 
 $content = [string]::Join("`r`n", $lines)
 [System.IO.File]::WriteAllText($OutPath, $content, [System.Text.Encoding]::UTF8)
-Write-Output "LiveProcesses generated at $OutPath"
+
+# Touch src\ui\app.slint to trigger auto-reload in slint-viewer
+$appSlint = Join-Path $projectDir "src\ui\app.slint"
+if (Test-Path $appSlint) {
+    (Get-Item $appSlint).LastWriteTime = Get-Date
+}
+
+Write-Output "LiveProcesses generated at $OutPath with filter '$trimmedFilter'"

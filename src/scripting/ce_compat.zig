@@ -12,6 +12,7 @@ const process = @import("../memory/process.zig");
 const win = process.win;
 const engine_mod = @import("engine.zig");
 const c = engine_mod.c;
+const ct_session = @import("../memory/ct_session.zig");
 
 /// Global symbol table registry for user-defined symbols (registerSymbol / getAddress)
 ///
@@ -139,6 +140,11 @@ const file_read = struct {
         lpNumberOfBytesRead: ?*u32,
         lpOverlapped: ?*anyopaque,
     ) callconv(.winapi) i32;
+
+    pub extern "kernel32" fn GetFileSize(
+        hFile: *anyopaque,
+        lpFileSizeHigh: ?*u32,
+    ) callconv(.winapi) u32;
 };
 
 fn readTextFile(path: [*:0]const u8, buffer: []u8) ?usize {
@@ -1223,23 +1229,352 @@ fn ceCreateMenuItem(L: ?*c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn loadLiveSession(allocator: std.mem.Allocator) ?ct_session.Session {
+    var path_buf: [1200]u8 = undefined;
+    const path = buildPath(&path_buf, "assets\\tables\\ct_session.tsv") orelse return null;
+
+    const handle = file_read.CreateFileA(path.ptr, file_read.GENERIC_READ, 3, null, file_read.OPEN_EXISTING, file_read.FILE_ATTRIBUTE_NORMAL, null) orelse return null;
+    defer _ = win.CloseHandle(handle);
+
+    var high: u32 = 0;
+    const size = file_read.GetFileSize(handle, &high);
+    if (size == 0xFFFFFFFF or size == 0) return null;
+
+    const text = allocator.alloc(u8, size) catch return null;
+    defer allocator.free(text);
+    var bytes_read: u32 = 0;
+    if (file_read.ReadFile(handle, text.ptr, size, &bytes_read, null) == 0 or bytes_read != size) return null;
+
+    var session = ct_session.Session.init(allocator) catch return null;
+    session.deserialize(text) catch {
+        session.deinit();
+        return null;
+    };
+    return session;
+}
+
+fn findSessionRowByID(session: *const ct_session.Session, id: u32) ?*const ct_session.Row {
+    for (session.rows.items) |*row| {
+        if (row.ce_id == id) return row;
+    }
+    return null;
+}
+
+fn findSessionRowByDescription(session: *const ct_session.Session, desc: []const u8) ?*const ct_session.Row {
+    for (session.rows.items) |*row| {
+        if (std.ascii.eqlIgnoreCase(row.description, desc)) return row;
+    }
+    for (session.rows.items) |*row| {
+        if (ct_session.containsIgnoreCase(row.description, desc)) return row;
+    }
+    return null;
+}
+
+fn resolveRowAddress(row: *const ct_session.Row, inst: ?*engine_mod.ScriptEngine) usize {
+    if (inst) |engine| {
+        if (row.addr_expr.len > 0) {
+            if (resolveAddress(engine, row.addr_expr)) |addr| {
+                return addr;
+            }
+        }
+    }
+    var clean_addr = std.mem.trim(u8, row.address, " \t\r\n");
+    if (std.mem.indexOf(u8, clean_addr, " ->")) |arrow_idx| {
+        clean_addr = clean_addr[0..arrow_idx];
+    }
+    if (std.mem.startsWith(u8, clean_addr, "0x") or std.mem.startsWith(u8, clean_addr, "0X")) {
+        return std.fmt.parseInt(usize, clean_addr[2..], 16) catch 0;
+    }
+    return std.fmt.parseInt(usize, clean_addr, 16) catch 0;
+}
+
+// MemoryRecord method implementations
+fn mrGetDescription(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_getfield(l, 1, "Description");
+    return 1;
+}
+
+fn mrSetDescription(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    if (c.lua_gettop(l) >= 2) {
+        c.lua_pushvalue(l, 2);
+        c.lua_setfield(l, 1, "Description");
+    }
+    return 0;
+}
+
+fn mrGetAddress(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_getfield(l, 1, "Address");
+    return 1;
+}
+
+fn mrSetAddress(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    if (c.lua_gettop(l) >= 2) {
+        c.lua_pushvalue(l, 2);
+        c.lua_setfield(l, 1, "Address");
+    }
+    return 0;
+}
+
+fn mrGetValue(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_getfield(l, 1, "Value");
+    return 1;
+}
+
+fn mrSetValue(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    if (c.lua_gettop(l) >= 2) {
+        c.lua_pushvalue(l, 2);
+        c.lua_setfield(l, 1, "Value");
+    }
+    return 0;
+}
+
+fn mrGetActive(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_getfield(l, 1, "Active");
+    return 1;
+}
+
+fn mrSetActive(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    if (c.lua_gettop(l) >= 2) {
+        c.lua_pushvalue(l, 2);
+        c.lua_setfield(l, 1, "Active");
+    }
+    return 0;
+}
+
+fn mrGetCurrentAddress(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_getfield(l, 1, "CurrentAddress");
+    return 1;
+}
+
+fn mrGetID(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    c.lua_getfield(l, 1, "ID");
+    return 1;
+}
+
+fn pushMemoryRecordTable(l: *c.lua_State, row: *const ct_session.Row, inst: ?*engine_mod.ScriptEngine) void {
+    const resolved_addr = resolveRowAddress(row, inst);
+    c.lua_newtable(l);
+
+    c.lua_pushinteger(l, @as(c.lua_Integer, @intCast(row.ce_id)));
+    c.lua_setfield(l, -2, "ID");
+
+    c.lua_pushinteger(l, @as(c.lua_Integer, @intCast(row.seq)));
+    c.lua_setfield(l, -2, "Index");
+
+    c.lua_pushlstring(l, row.description.ptr, row.description.len);
+    c.lua_setfield(l, -2, "Description");
+
+    c.lua_pushlstring(l, row.addr_expr.ptr, row.addr_expr.len);
+    c.lua_setfield(l, -2, "Address");
+
+    c.lua_pushinteger(l, @as(c.lua_Integer, @intCast(resolved_addr)));
+    c.lua_setfield(l, -2, "CurrentAddress");
+
+    c.lua_pushlstring(l, row.value.ptr, row.value.len);
+    c.lua_setfield(l, -2, "Value");
+
+    c.lua_pushboolean(l, if (row.script_active or row.is_frozen) 1 else 0);
+    c.lua_setfield(l, -2, "Active");
+
+    c.lua_pushlstring(l, row.val_type.ptr, row.val_type.len);
+    c.lua_setfield(l, -2, "Type");
+    c.lua_pushlstring(l, row.val_type.ptr, row.val_type.len);
+    c.lua_setfield(l, -2, "VarType");
+
+    // Methods
+    c.lua_pushcclosure(l, mrGetDescription, 0);
+    c.lua_setfield(l, -2, "getDescription");
+    c.lua_pushcclosure(l, mrSetDescription, 0);
+    c.lua_setfield(l, -2, "setDescription");
+
+    c.lua_pushcclosure(l, mrGetAddress, 0);
+    c.lua_setfield(l, -2, "getAddress");
+    c.lua_pushcclosure(l, mrSetAddress, 0);
+    c.lua_setfield(l, -2, "setAddress");
+
+    c.lua_pushcclosure(l, mrGetValue, 0);
+    c.lua_setfield(l, -2, "getValue");
+    c.lua_pushcclosure(l, mrSetValue, 0);
+    c.lua_setfield(l, -2, "setValue");
+
+    c.lua_pushcclosure(l, mrGetActive, 0);
+    c.lua_setfield(l, -2, "getActive");
+    c.lua_pushcclosure(l, mrSetActive, 0);
+    c.lua_setfield(l, -2, "setActive");
+
+    c.lua_pushcclosure(l, mrGetCurrentAddress, 0);
+    c.lua_setfield(l, -2, "getCurrentAddress");
+
+    c.lua_pushcclosure(l, mrGetID, 0);
+    c.lua_setfield(l, -2, "getID");
+}
+
 fn ceGetAddressList(L: ?*c.lua_State) callconv(.c) c_int {
     const l = L orelse return 0;
+    const inst = engine_mod.ScriptEngine.active_instance;
+
     c.lua_newtable(l);
+
     c.lua_pushcclosure(l, ceGetMemoryRecordByID, 0);
     c.lua_setfield(l, -2, "getMemoryRecordByID");
-    c.lua_pushcclosure(l, ceGetMemoryRecordByID, 0);
+
+    c.lua_pushcclosure(l, ceGetMemoryRecordByDescription, 0);
     c.lua_setfield(l, -2, "getMemoryRecordByDescription");
-    c.lua_pushinteger(l, 0);
+
+    c.lua_pushcclosure(l, ceGetMemoryRecordByIndex, 0);
+    c.lua_setfield(l, -2, "getMemoryRecord");
+
+    c.lua_pushcclosure(l, ceGetAddressListCount, 0);
+    c.lua_setfield(l, -2, "getCount");
+
+    var count: usize = 0;
+    if (loadLiveSession(std.heap.page_allocator)) |*session_val| {
+        var s = session_val.*;
+        defer s.deinit();
+        count = s.rows.items.len;
+
+        const cap = @min(count, 512);
+        for (s.rows.items[0..cap], 0..) |*row, i| {
+            c.lua_pushinteger(l, @as(c.lua_Integer, @intCast(i)));
+            pushMemoryRecordTable(l, row, inst);
+            c.lua_settable(l, -3);
+        }
+    }
+
+    c.lua_pushinteger(l, @as(c.lua_Integer, @intCast(count)));
     c.lua_setfield(l, -2, "Count");
+
     return 1;
 }
 
 fn ceGetMemoryRecordByID(L: ?*c.lua_State) callconv(.c) c_int {
     const l = L orelse return 0;
+    const inst = engine_mod.ScriptEngine.active_instance;
+
+    var arg_idx: c_int = 1;
+    if (c.lua_istable(l, 1) and c.lua_gettop(l) >= 2) {
+        arg_idx = 2;
+    }
+    const target_id = @as(u32, @intCast(@max(0, c.lua_tointeger(l, arg_idx))));
+
+    if (loadLiveSession(std.heap.page_allocator)) |*session_val| {
+        var s = session_val.*;
+        defer s.deinit();
+
+        if (findSessionRowByID(&s, target_id)) |row| {
+            pushMemoryRecordTable(l, row, inst);
+            return 1;
+        }
+    }
+
+    // Fallback: return a default record table with CurrentAddress = 0 to prevent nil crashes
     c.lua_newtable(l);
+    c.lua_pushinteger(l, @as(c.lua_Integer, @intCast(target_id)));
+    c.lua_setfield(l, -2, "ID");
     c.lua_pushinteger(l, 0);
     c.lua_setfield(l, -2, "CurrentAddress");
+    c.lua_pushstring(l, "");
+    c.lua_setfield(l, -2, "Description");
+    c.lua_pushstring(l, "");
+    c.lua_setfield(l, -2, "Address");
+    c.lua_pushstring(l, "???");
+    c.lua_setfield(l, -2, "Value");
+    c.lua_pushboolean(l, 0);
+    c.lua_setfield(l, -2, "Active");
+    c.lua_pushstring(l, "4 Bytes");
+    c.lua_setfield(l, -2, "Type");
+    c.lua_pushstring(l, "4 Bytes");
+    c.lua_setfield(l, -2, "VarType");
+
+    // Methods
+    c.lua_pushcclosure(l, mrGetDescription, 0);
+    c.lua_setfield(l, -2, "getDescription");
+    c.lua_pushcclosure(l, mrSetDescription, 0);
+    c.lua_setfield(l, -2, "setDescription");
+    c.lua_pushcclosure(l, mrGetAddress, 0);
+    c.lua_setfield(l, -2, "getAddress");
+    c.lua_pushcclosure(l, mrSetAddress, 0);
+    c.lua_setfield(l, -2, "setAddress");
+    c.lua_pushcclosure(l, mrGetValue, 0);
+    c.lua_setfield(l, -2, "getValue");
+    c.lua_pushcclosure(l, mrSetValue, 0);
+    c.lua_setfield(l, -2, "setValue");
+    c.lua_pushcclosure(l, mrGetActive, 0);
+    c.lua_setfield(l, -2, "getActive");
+    c.lua_pushcclosure(l, mrSetActive, 0);
+    c.lua_setfield(l, -2, "setActive");
+    c.lua_pushcclosure(l, mrGetCurrentAddress, 0);
+    c.lua_setfield(l, -2, "getCurrentAddress");
+    c.lua_pushcclosure(l, mrGetID, 0);
+    c.lua_setfield(l, -2, "getID");
+    return 1;
+}
+
+fn ceGetMemoryRecordByDescription(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    const inst = engine_mod.ScriptEngine.active_instance;
+
+    var arg_idx: c_int = 1;
+    if (c.lua_istable(l, 1) and c.lua_gettop(l) >= 2) {
+        arg_idx = 2;
+    }
+    const target_desc = engine_mod.luaToString(l, arg_idx) orelse "";
+
+    if (loadLiveSession(std.heap.page_allocator)) |*session_val| {
+        var s = session_val.*;
+        defer s.deinit();
+
+        if (findSessionRowByDescription(&s, target_desc)) |row| {
+            pushMemoryRecordTable(l, row, inst);
+            return 1;
+        }
+    }
+
+    c.lua_pushnil(l);
+    return 1;
+}
+
+fn ceGetMemoryRecordByIndex(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    const inst = engine_mod.ScriptEngine.active_instance;
+
+    var arg_idx: c_int = 1;
+    if (c.lua_istable(l, 1) and c.lua_gettop(l) >= 2) {
+        arg_idx = 2;
+    }
+    const target_idx = @as(usize, @intCast(@max(0, c.lua_tointeger(l, arg_idx))));
+
+    if (loadLiveSession(std.heap.page_allocator)) |*session_val| {
+        var s = session_val.*;
+        defer s.deinit();
+
+        if (target_idx < s.rows.items.len) {
+            pushMemoryRecordTable(l, &s.rows.items[target_idx], inst);
+            return 1;
+        }
+    }
+
+    c.lua_pushnil(l);
+    return 1;
+}
+
+fn ceGetAddressListCount(L: ?*c.lua_State) callconv(.c) c_int {
+    const l = L orelse return 0;
+    if (c.lua_istable(l, 1)) {
+        c.lua_getfield(l, 1, "Count");
+        return 1;
+    }
+    c.lua_pushinteger(l, 0);
     return 1;
 }
 
@@ -1344,6 +1679,12 @@ pub fn registerCeCompatibility(engine: *engine_mod.ScriptEngine) void {
     c.lua_setglobal(L, "createMenuItem");
     c.lua_pushcclosure(L, ceGetAddressList, 0);
     c.lua_setglobal(L, "getAddressList");
+    c.lua_pushcclosure(L, ceGetMemoryRecordByID, 0);
+    c.lua_setglobal(L, "getMemoryRecordByID");
+    c.lua_pushcclosure(L, ceGetMemoryRecordByDescription, 0);
+    c.lua_setglobal(L, "getMemoryRecordByDescription");
+    c.lua_pushcclosure(L, ceGetMemoryRecordByIndex, 0);
+    c.lua_setglobal(L, "getMemoryRecord");
 
     // 9. Table-driving helpers used by auto-attach / auto-scan records
     c.lua_pushcclosure(L, ceGetProcessList, 0);
@@ -1407,4 +1748,28 @@ test "CE Lua Compatibility layer registers symbols and evaluates scripts" {
     const res3 = engine.executeWithOutput(script3);
     try std.testing.expect(res3.success);
     try std.testing.expect(std.mem.indexOf(u8, res3.output, "GUI_STUBS_OK:Custom Menu") != null);
+
+    // Test CE AddressList and MemoryRecord methods
+    const script4 =
+        \\local al = getAddressList()
+        \\local count = al.Count
+        \\local rec = al.getMemoryRecordByID(10)
+        \\rec:setDescription("Health_Var")
+        \\rec:setValue("9999")
+        \\rec:setActive(true)
+        \\print("AL_COUNT:" .. tostring(count))
+        \\print("REC_ID:" .. tostring(rec:getID()))
+        \\print("REC_DESC:" .. rec:getDescription())
+        \\print("REC_VAL:" .. rec:getValue())
+        \\print("REC_ACT:" .. tostring(rec:getActive()))
+    ;
+    const res4 = engine.executeWithOutput(script4);
+    if (!res4.success) {
+        std.debug.print("LUA SCRIPT ERROR: {s}\n", .{res4.output});
+    }
+    try std.testing.expect(res4.success);
+    try std.testing.expect(std.mem.indexOf(u8, res4.output, "REC_ID:10") != null);
+    try std.testing.expect(std.mem.indexOf(u8, res4.output, "REC_DESC:Health_Var") != null);
+    try std.testing.expect(std.mem.indexOf(u8, res4.output, "REC_VAL:9999") != null);
+    try std.testing.expect(std.mem.indexOf(u8, res4.output, "REC_ACT:true") != null);
 }

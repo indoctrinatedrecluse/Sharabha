@@ -444,9 +444,11 @@ export component DocsArticleTile inherits Rectangle {
     in property <string> category: "THEORY";
     in property <color> tag_color: #eab308;
     in property <bool> is_selected: false;
+    in property <bool> visible_in_filter: true;
     callback clicked();
 
-    height: 48px;
+    visible: root.visible_in_filter;
+    height: root.visible_in_filter ? 48px : 0px;
     background: is_selected ? #1e293ecc : (touch.has_hover ? #141c2bcc : #0a0f19aa);
     border-radius: 6px;
     border-width: is_selected ? 1.5px : (touch.has_hover ? 1px : 0px);
@@ -526,7 +528,8 @@ export component ProcessPickerRow inherits Rectangle {
     in property <bool> is_selected: false;
     callback clicked();
 
-    height: 46px;
+    visible: root.proc_name != "";
+    height: root.proc_name != "" ? 46px : 0px;
     background: is_selected ? #1e3a5fcc : (touch.has_hover ? #17253ecc : #0d1524aa);
     border-radius: 6px;
     border-width: is_selected ? 1.5px : 1px;
@@ -2016,55 +2019,9 @@ export component MainWindow inherits Window {
     in-out property <string> data_type_name: LiveScan.data_type;
     in-out property <[ScanRowData]> scan_rows: LiveScan.rows;
 
-    // Upper Table: Found Addresses (परिणाम शोधन)
-    in-out property <bool> found_freeze_0: LiveScan.found_freeze_0;
-    in-out property <string> found_addr_0: LiveScan.found_addr_0;
-    in-out property <string> found_val_0: LiveScan.found_val_0;
-    in-out property <string> found_prev_0: LiveScan.found_prev_0;
-    in-out property <string> found_type_0: LiveScan.found_type_0;
-
-    in-out property <bool> found_freeze_1: LiveScan.found_freeze_1;
-    in-out property <string> found_addr_1: LiveScan.found_addr_1;
-    in-out property <string> found_val_1: LiveScan.found_val_1;
-    in-out property <string> found_prev_1: LiveScan.found_prev_1;
-    in-out property <string> found_type_1: LiveScan.found_type_1;
-
-    in-out property <bool> found_freeze_2: LiveScan.found_freeze_2;
-    in-out property <string> found_addr_2: LiveScan.found_addr_2;
-    in-out property <string> found_val_2: LiveScan.found_val_2;
-    in-out property <string> found_prev_2: LiveScan.found_prev_2;
-    in-out property <string> found_type_2: LiveScan.found_type_2;
-
-    in-out property <bool> found_freeze_3: LiveScan.found_freeze_3;
-    in-out property <string> found_addr_3: LiveScan.found_addr_3;
-    in-out property <string> found_val_3: LiveScan.found_val_3;
-    in-out property <string> found_prev_3: LiveScan.found_prev_3;
-    in-out property <string> found_type_3: LiveScan.found_type_3;
-
     in-out property <int> found_count: LiveScan.total_matches;
-    in-out property <bool> freeze_row1: false;
-    in-out property <bool> freeze_row2: false;
 
     // Lower Table: Saved Address List / Cheat Table (संरक्षित स्मृति तालिका)
-    in-out property <bool> table_active_0: true;
-    in-out property <string> table_desc_0: "Target_Variable_01";
-    in-out property <string> table_addr_0: "0x7FF74A8014E4";
-    in-out property <string> table_type_0: "4 Bytes (i32)";
-    in-out property <string> table_val_0: "100";
-
-    in-out property <bool> table_active_1: false;
-    in-out property <string> table_desc_1: "Counter_Register";
-    in-out property <string> table_addr_1: "0x7FF74A801520";
-    in-out property <string> table_type_1: "4 Bytes (i32)";
-    in-out property <string> table_val_1: "100";
-
-    in-out property <bool> table_active_2: false;
-    in-out property <string> table_desc_2: "Resource_Capacity";
-    in-out property <string> table_addr_2: "0x14023A10";
-    in-out property <string> table_type_2: "4 Bytes (i32)";
-    in-out property <string> table_val_2: "100";
-
-    in-out property <int> table_row_count: 3;
     in-out property <[CheatTableRowData]> ct_rows: LiveTable.rows;
     in-out property <int> ct_total_entries: LiveTable.total_entries;
     in-out property <int> ct_visible_entries: LiveTable.visible_entries;
@@ -2093,116 +2050,8 @@ export component MainWindow inherits Window {
     in-out property <length> col_width_conf: 95px;
     in-out property <length> col_width_hex: 85px;
 
-    // 10 Unified Extracted Key-Value Rows (सर्वेक्षण सारणी)
-    in-out property <string> save_row_0_offset: LiveSave.row_0_offset;
-    in-out property <string> save_row_0_key: LiveSave.row_0_key;
-    in-out property <string> save_row_0_type: LiveSave.row_0_type;
-    in-out property <string> save_row_0_conf: LiveSave.row_0_conf;
-    in-out property <string> save_row_0_hex: LiveSave.row_0_hex;
-    in-out property <string> save_row_0_val: LiveSave.row_0_val;
-
-    in-out property <string> save_row_1_offset: LiveSave.row_1_offset;
-    in-out property <string> save_row_1_key: LiveSave.row_1_key;
-    in-out property <string> save_row_1_type: LiveSave.row_1_type;
-    in-out property <string> save_row_1_conf: LiveSave.row_1_conf;
-    in-out property <string> save_row_1_hex: LiveSave.row_1_hex;
-    in-out property <string> save_row_1_val: LiveSave.row_1_val;
-
-    in-out property <string> save_row_2_offset: LiveSave.row_2_offset;
-    in-out property <string> save_row_2_key: LiveSave.row_2_key;
-    in-out property <string> save_row_2_type: LiveSave.row_2_type;
-    in-out property <string> save_row_2_conf: LiveSave.row_2_conf;
-    in-out property <string> save_row_2_hex: LiveSave.row_2_hex;
-    in-out property <string> save_row_2_val: LiveSave.row_2_val;
-
-    in-out property <string> save_row_3_offset: LiveSave.row_3_offset;
-    in-out property <string> save_row_3_key: LiveSave.row_3_key;
-    in-out property <string> save_row_3_type: LiveSave.row_3_type;
-    in-out property <string> save_row_3_conf: LiveSave.row_3_conf;
-    in-out property <string> save_row_3_hex: LiveSave.row_3_hex;
-    in-out property <string> save_row_3_val: LiveSave.row_3_val;
-
-    in-out property <string> save_row_4_offset: LiveSave.row_4_offset;
-    in-out property <string> save_row_4_key: LiveSave.row_4_key;
-    in-out property <string> save_row_4_type: LiveSave.row_4_type;
-    in-out property <string> save_row_4_conf: LiveSave.row_4_conf;
-    in-out property <string> save_row_4_hex: LiveSave.row_4_hex;
-    in-out property <string> save_row_4_val: LiveSave.row_4_val;
-
-    in-out property <string> save_row_5_offset: LiveSave.row_5_offset;
-    in-out property <string> save_row_5_key: LiveSave.row_5_key;
-    in-out property <string> save_row_5_type: LiveSave.row_5_type;
-    in-out property <string> save_row_5_conf: LiveSave.row_5_conf;
-    in-out property <string> save_row_5_hex: LiveSave.row_5_hex;
-    in-out property <string> save_row_5_val: LiveSave.row_5_val;
-
-    in-out property <string> save_row_6_offset: LiveSave.row_6_offset;
-    in-out property <string> save_row_6_key: LiveSave.row_6_key;
-    in-out property <string> save_row_6_type: LiveSave.row_6_type;
-    in-out property <string> save_row_6_conf: LiveSave.row_6_conf;
-    in-out property <string> save_row_6_hex: LiveSave.row_6_hex;
-    in-out property <string> save_row_6_val: LiveSave.row_6_val;
-
-    in-out property <string> save_row_7_offset: LiveSave.row_7_offset;
-    in-out property <string> save_row_7_key: LiveSave.row_7_key;
-    in-out property <string> save_row_7_type: LiveSave.row_7_type;
-    in-out property <string> save_row_7_conf: LiveSave.row_7_conf;
-    in-out property <string> save_row_7_hex: LiveSave.row_7_hex;
-    in-out property <string> save_row_7_val: LiveSave.row_7_val;
-
-    in-out property <string> save_row_8_offset: LiveSave.row_8_offset;
-    in-out property <string> save_row_8_key: LiveSave.row_8_key;
-    in-out property <string> save_row_8_type: LiveSave.row_8_type;
-    in-out property <string> save_row_8_conf: LiveSave.row_8_conf;
-    in-out property <string> save_row_8_hex: LiveSave.row_8_hex;
-    in-out property <string> save_row_8_val: LiveSave.row_8_val;
-
-    in-out property <string> save_row_9_offset: LiveSave.row_9_offset;
-    in-out property <string> save_row_9_key: LiveSave.row_9_key;
-    in-out property <string> save_row_9_type: LiveSave.row_9_type;
-    in-out property <string> save_row_9_conf: LiveSave.row_9_conf;
-    in-out property <string> save_row_9_hex: LiveSave.row_9_hex;
-    in-out property <string> save_row_9_val: LiveSave.row_9_val;
-
-    // Generic Dynamic Save Fields (यथार्थ क्षेत्र विश्लेषक)
-    in-out property <string> save_field_0_tag: LiveSave.field_0_tag;
-    in-out property <string> save_field_0_type: LiveSave.field_0_type;
-    in-out property <string> save_field_0_hex: LiveSave.field_0_hex;
-    in-out property <string> save_field_0_val: LiveSave.field_0_val;
-
-    in-out property <string> save_field_1_tag: LiveSave.field_1_tag;
-    in-out property <string> save_field_1_type: LiveSave.field_1_type;
-    in-out property <string> save_field_1_hex: LiveSave.field_1_hex;
-    in-out property <string> save_field_1_val: LiveSave.field_1_val;
-
-    in-out property <string> save_field_2_tag: LiveSave.field_2_tag;
-    in-out property <string> save_field_2_type: LiveSave.field_2_type;
-    in-out property <string> save_field_2_hex: LiveSave.field_2_hex;
-    in-out property <string> save_field_2_val: LiveSave.field_2_val;
-
-    in-out property <string> save_field_3_tag: LiveSave.field_3_tag;
-    in-out property <string> save_field_3_type: LiveSave.field_3_type;
-    in-out property <string> save_field_3_hex: LiveSave.field_3_hex;
-    in-out property <string> save_field_3_val: LiveSave.field_3_val;
-
-    in-out property <string> save_field_4_tag: "RECORD [0x0020]";
-    in-out property <string> save_field_4_type: "f32 (Float IEEE 754)";
-    in-out property <string> save_field_4_hex: "00 60 76 44";
-    in-out property <string> save_field_4_val: "985.50";
-
-    in-out property <string> save_field_5_tag: "RECORD [0x0028]";
-    in-out property <string> save_field_5_type: "ASCII String [8]";
-    in-out property <string> save_field_5_hex: "53 41 56 45 5F 52 45 43";
-    in-out property <string> save_field_5_val: "SAVE_REC";
-
-    // Legacy Save Aliases for backwards compatibility
-    in-out property <string> save_runes_val: "950,000";
-    in-out property <string> save_level_val: "175";
-    in-out property <string> save_vigor_val: "60";
-    in-out property <string> save_gold_val: "250,000";
-
     // Jnana Kosha Interactive State
-    in-out property <string> jnana_status_msg: "SurrealDB Embedded Knowledge Graph Online";
+    in-out property <string> jnana_status_msg: "Agama Deterministic Knowledge Graph Online";
     in-out property <string> jnana_search_query: "";
 
     // Engine State Properties
@@ -2242,7 +2091,41 @@ export component MainWindow inherits Window {
 
     // Callbacks to Zig core
     callback refresh_processes();
+    callback filter_processes(string);
     callback attach_process(int);
+
+    pure function matches_doc_tile(cat: int, q: string, idx: int) -> bool {
+        if (cat == 1 && !(idx == 1 || idx == 2 || idx == 3 || idx == 10 || idx == 11)) { return false; }
+        if (cat == 2 && !(idx == 4)) { return false; }
+        if (cat == 3 && !(idx == 5 || idx == 6)) { return false; }
+        if (cat == 4 && !(idx == 7 || idx == 8 || idx == 9 || idx == 11)) { return false; }
+        if (cat == 5 && !(idx == 9 || idx == 10)) { return false; }
+        if (q == "") { return true; }
+        if (idx == 0) { return q == "ashtamurti" || q == "core" || q == "canvas" || q == "chitrapata" || q == "dual"; }
+        if (idx == 1) { return q == "rudra" || q == "scan" || q == "scanner" || q == "memory" || q == "ram"; }
+        if (idx == 2) { return q == "freeze" || q == "stambhana" || q == "lock" || q == "hold"; }
+        if (idx == 3) { return q == "aob" || q == "mudra" || q == "sutra" || q == "pattern" || q == "signature"; }
+        if (idx == 4) { return q == "kalyana" || q == "save" || q == "forge" || q == "editor" || q == "slot"; }
+        if (idx == 5) { return q == "shannon" || q == "entropy" || q == "metric" || q == "compression"; }
+        if (idx == 6) { return q == "chi" || q == "chi-square" || q == "monte carlo" || q == "density" || q == "distribution"; }
+        if (idx == 7) { return q == "checksum" || q == "sthiti raksha" || q == "crc32" || q == "md5" || q == "hash"; }
+        if (idx == 8) { return q == "atomic" || q == "sankalpa" || q == "swap" || q == "commit" || q == "integrity"; }
+        if (idx == 9) { return q == "vault" || q == "dpapi" || q == "gupta" || q == "kosha" || q == "encryption" || q == "secret"; }
+        if (idx == 10) { return q == "lua" || q == "luajit" || q == "altar" || q == "script" || q == "scripting"; }
+        if (idx == 11) { return q == "palette" || q == "command" || q == "codex" || q == "hotkey" || q == "shortcut"; }
+        return true;
+    }
+
+    pure function matches_profile_query(q: string, idx: int) -> bool {
+        if (q == "") { return true; }
+        if (idx == 0) { return q == "suzerain" || q == "torpor" || q == "rizia" || q == "sordland"; }
+        if (idx == 1) { return q == "mass effect" || q == "mele" || q == "bioware" || q == "paragon" || q == "shepard"; }
+        if (idx == 2) { return q == "capcom" || q == "re engine" || q == "re4" || q == "dd2" || q == "mhw" || q == "dsss"; }
+        if (idx == 3) { return q == "unreal" || q == "ue4" || q == "ue5" || q == "gvas"; }
+        if (idx == 4) { return q == "unity" || q == "nrbf" || q == "es3" || q == "playerprefs"; }
+        if (idx == 5) { return q == "rpg" || q == "rpg maker" || q == "renpy" || q == "pickle" || q == "ruby"; }
+        return true;
+    }
     callback start_memory_scan(string, string);
     callback rescan_memory(string, string);
     callback reset_memory_scan();
@@ -2253,6 +2136,8 @@ export component MainWindow inherits Window {
     callback scan_pointer(string);
     callback disassemble_address(string);
     callback watch_address_writes(string);
+    callback patch_memory_nop(string, int);
+    callback disarm_hardware_watcher();
     callback save_memory_table(string);
     callback load_memory_table(string);
     callback load_ct_file();
@@ -2641,11 +2526,13 @@ export component MainWindow inherits Window {
                         }
 
                         LineEdit {
+                            text <=> root.process_modal_search;
                             placeholder-text: "Filter process name or PID (e.g. game.exe)...";
                             height: 36px;
+                            accepted(q) => { root.filter_processes(q); }
                         }
 
-                        // Active Process Mock List
+                        // Active Process Real List
                         Rectangle {
                             background: #080d16a8;
                             border-radius: 6px;
@@ -2657,7 +2544,8 @@ export component MainWindow inherits Window {
                                 spacing: 4px;
 
                                 Rectangle {
-                                    height: 34px;
+                                    visible: LiveProcesses.proc_0_name != "";
+                                    height: LiveProcesses.proc_0_name != "" ? 34px : 0px;
                                     background: root.selected_process_idx == 0 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 0 ? 1px : 0px;
@@ -2681,7 +2569,8 @@ export component MainWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 34px;
+                                    visible: LiveProcesses.proc_1_name != "";
+                                    height: LiveProcesses.proc_1_name != "" ? 34px : 0px;
                                     background: root.selected_process_idx == 1 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 1 ? 1px : 0px;
@@ -2705,7 +2594,8 @@ export component MainWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 34px;
+                                    visible: LiveProcesses.proc_2_name != "";
+                                    height: LiveProcesses.proc_2_name != "" ? 34px : 0px;
                                     background: root.selected_process_idx == 2 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 2 ? 1px : 0px;
@@ -2729,7 +2619,8 @@ export component MainWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 34px;
+                                    visible: LiveProcesses.proc_3_name != "";
+                                    height: LiveProcesses.proc_3_name != "" ? 34px : 0px;
                                     background: root.selected_process_idx == 3 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 3 ? 1px : 0px;
@@ -2753,7 +2644,8 @@ export component MainWindow inherits Window {
                                 }
 
                                 Rectangle {
-                                    height: 34px;
+                                    visible: LiveProcesses.proc_4_name != "";
+                                    height: LiveProcesses.proc_4_name != "" ? 34px : 0px;
                                     background: root.selected_process_idx == 4 ? #1e293ecc : #00000000;
                                     border-radius: 4px;
                                     border-width: root.selected_process_idx == 4 ? 1px : 0px;
@@ -3097,10 +2989,7 @@ export component MainWindow inherits Window {
                                                 root.toggle_freeze_address(row.address, frozen);
                                             }
                                             pin_clicked => {
-                                                root.table_addr_0 = row.address;
-                                                root.table_val_0 = row.val;
-                                                root.table_type_0 = row.val_type;
-                                                root.rudra_status_text = "Pinned " + row.address + " to Cheat Table";
+                                                root.rudra_status_text = "Pinned " + row.address + " (" + row.val + ") to memory inquest log";
                                             }
                                             write_clicked(val) => {
                                                 root.rudra_status_text = "RAM Modified: " + row.address + " set to " + val;
@@ -3165,7 +3054,7 @@ export component MainWindow inherits Window {
                                         Text {
                                             text: root.is_ct_loaded
                                                 ? (root.ct_visible_entries + " / " + root.ct_total_entries + " rows · " + root.ct_table_count + " table(s)")
-                                                : (root.table_row_count + " Tracked Entries");
+                                                : "No Cheat Table Loaded";
                                             font-size: 10px;
                                             color: #64748b;
                                             vertical-alignment: center;
@@ -3289,28 +3178,25 @@ export component MainWindow inherits Window {
                                         text: "+ ADDRESS"; devanagari: "हस्त योजन"; btn_width: 76px; btn_height: 24px;
                                         bg_color: #1e293b; hover_color: #334155;
                                         clicked => {
-                                            root.table_row_count = min(3, root.table_row_count + 1);
-                                            root.rudra_status_text = "Manual Address Row Added to Cheat Table";
+                                            root.rudra_status_text = "Click LOAD .CT above to open a Cheat Table or inspect scan candidates";
                                         }
                                     }
                                     CompactActionButton {
                                         text: "FREEZE ALL"; devanagari: "सर्व स्तम्भन"; btn_width: 82px; btn_height: 24px;
                                         bg_color: #15803d; hover_color: #16a34a;
                                         clicked => {
-                                            root.table_active_0 = true;
-                                            root.table_active_1 = true;
-                                            root.table_active_2 = true;
-                                            root.rudra_status_text = "All Tracked Cheat Table Entries Frozen (Stambhana Armed)";
+                                            root.rudra_status_text = root.is_ct_loaded ?
+                                                "Stambhana: Freezing all tracked Cheat Table records..." :
+                                                "No Cheat Table loaded to freeze records";
                                         }
                                     }
                                     CompactActionButton {
                                         text: "UNFREEZE"; devanagari: "सर्व मोक्ष"; btn_width: 78px; btn_height: 24px;
                                         bg_color: #7f1d1d; hover_color: #991b1b;
                                         clicked => {
-                                            root.table_active_0 = false;
-                                            root.table_active_1 = false;
-                                            root.table_active_2 = false;
-                                            root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
+                                            root.rudra_status_text = root.is_ct_loaded ?
+                                                "Stambhana: Unfreezing all tracked Cheat Table records..." :
+                                                "No Cheat Table loaded to unfreeze records";
                                         }
                                     }
                                     CompactActionButton {
@@ -3395,149 +3281,29 @@ export component MainWindow inherits Window {
                                     }
                                 }
 
-                                if (!root.is_ct_loaded) : ScrollView {
+                                if (!root.is_ct_loaded || root.ct_rows.length == 0) : Rectangle {
+                                    background: #0d1524aa;
+                                    border-radius: 6px;
+                                    border-width: 1px;
+                                    border-color: #33415544;
                                     VerticalLayout {
-                                        spacing: 4px;
-
-                                            // Table Row 0
-                                            Rectangle {
-                                                height: 34px;
-                                                background: #141e2ecc;
-                                                border-radius: 4px;
-                                                HorizontalLayout {
-                                                    padding-left: 10px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Rectangle {
-                                                        width: 55px;
-                                                        TouchArea {
-                                                            mouse-cursor: pointer;
-                                                            clicked => {
-                                                                root.table_active_0 = !root.table_active_0;
-                                                                root.rudra_status_text = root.table_active_0 ?
-                                                                    "STAMBHANA: " + root.table_desc_0 + " frozen at " + root.table_val_0 :
-                                                                    root.table_desc_0 + " unfrozen";
-                                                                root.toggle_freeze_address(root.table_addr_0, root.table_active_0);
-                                                            }
-                                                        }
-                                                        Text {
-                                                            text: root.table_active_0 ? "☑" : "☐";
-                                                            font-size: 16px;
-                                                            font-weight: 700;
-                                                            color: root.table_active_0 ? #22c55e : #94a3b8;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-                                                    LineEdit { text <=> root.table_desc_0; width: 140px; font-size: 11px; height: 26px; }
-                                                    Text { text: root.table_addr_0; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                    Text { text: root.table_type_0; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                    LineEdit { text <=> root.table_val_0; width: 110px; font-size: 11px; height: 26px; }
-                                                    HorizontalLayout {
-                                                        spacing: 6px;
-                                                        horizontal-stretch: 1;
-                                                        alignment: start;
-                                                        ThematicActionButton {
-                                                            text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                            bg_color: #0369a1; hover_color: #0284c7;
-                                                            clicked => {
-                                                                root.rudra_status_text = "RAM Written: " + root.table_addr_0 + " set to " + root.table_val_0;
-                                                                root.write_memory_address(root.table_addr_0, root.table_val_0);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Table Row 1
-                                            Rectangle {
-                                                height: 34px;
-                                                background: transparent;
-                                                HorizontalLayout {
-                                                    padding-left: 10px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Rectangle {
-                                                        width: 55px;
-                                                        TouchArea {
-                                                            mouse-cursor: pointer;
-                                                            clicked => {
-                                                                root.table_active_1 = !root.table_active_1;
-                                                                root.toggle_freeze_address(root.table_addr_1, root.table_active_1);
-                                                            }
-                                                        }
-                                                        Text {
-                                                            text: root.table_active_1 ? "☑" : "☐";
-                                                            font-size: 16px;
-                                                            font-weight: 700;
-                                                            color: root.table_active_1 ? #22c55e : #94a3b8;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-                                                    LineEdit { text <=> root.table_desc_1; width: 140px; font-size: 11px; height: 26px; }
-                                                    Text { text: root.table_addr_1; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                    Text { text: root.table_type_1; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                    LineEdit { text <=> root.table_val_1; width: 110px; font-size: 11px; height: 26px; }
-                                                    HorizontalLayout {
-                                                        spacing: 6px;
-                                                        horizontal-stretch: 1;
-                                                        alignment: start;
-                                                        ThematicActionButton {
-                                                            text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                            bg_color: #0369a1; hover_color: #0284c7;
-                                                            clicked => {
-                                                                root.rudra_status_text = "RAM Written: " + root.table_addr_1 + " set to " + root.table_val_1;
-                                                                root.write_memory_address(root.table_addr_1, root.table_val_1);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Table Row 2
-                                            Rectangle {
-                                                height: 34px;
-                                                background: #141e2ecc;
-                                                border-radius: 4px;
-                                                HorizontalLayout {
-                                                    padding-left: 10px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Rectangle {
-                                                        width: 55px;
-                                                        TouchArea {
-                                                            mouse-cursor: pointer;
-                                                            clicked => {
-                                                                root.table_active_2 = !root.table_active_2;
-                                                                root.toggle_freeze_address(root.table_addr_2, root.table_active_2);
-                                                            }
-                                                        }
-                                                        Text {
-                                                            text: root.table_active_2 ? "☑" : "☐";
-                                                            font-size: 16px;
-                                                            font-weight: 700;
-                                                            color: root.table_active_2 ? #22c55e : #94a3b8;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-                                                    LineEdit { text <=> root.table_desc_2; width: 140px; font-size: 11px; height: 26px; }
-                                                    Text { text: root.table_addr_2; width: 130px; font-size: 11px; color: #ff7b00; vertical-alignment: center; font-family: "Consolas, monospace"; }
-                                                    Text { text: root.table_type_2; width: 85px; font-size: 10px; color: #94a3b8; vertical-alignment: center; }
-                                                    LineEdit { text <=> root.table_val_2; width: 110px; font-size: 11px; height: 26px; }
-                                                    HorizontalLayout {
-                                                        spacing: 6px;
-                                                        horizontal-stretch: 1;
-                                                        alignment: start;
-                                                        ThematicActionButton {
-                                                            text: "WRITE"; devanagari: "लेखन"; btn_width: 55px; btn_height: 26px;
-                                                            bg_color: #0369a1; hover_color: #0284c7;
-                                                            clicked => {
-                                                                root.rudra_status_text = "RAM Written: " + root.table_addr_2 + " set to " + root.table_val_2;
-                                                                root.write_memory_address(root.table_addr_2, root.table_val_2);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                        alignment: center;
+                                        spacing: 8px;
+                                        padding-top: 28px;
+                                        padding-bottom: 28px;
+                                        Text {
+                                            text: "No Cheat Table Records Loaded";
+                                            font-size: 13px;
+                                            font-weight: 700;
+                                            color: #94a3b8;
+                                            horizontal-alignment: center;
+                                        }
+                                        Text {
+                                            text: "Click LOAD .CT or MERGE .CT above to open a Cheat Engine table, or pin scan candidates.";
+                                            font-size: 11px;
+                                            color: #64748b;
+                                            horizontal-alignment: center;
+                                        }
                                     }
                                 }
                             }
@@ -4744,147 +4510,261 @@ export component MainWindow inherits Window {
                 }
 
                 LineEdit {
-                    placeholder-text: "Search verified game profiles, save signatures, or memory table offsets...";
+                    text <=> root.jnana_search_query;
+                    placeholder-text: "Search verified game profiles (Suzerain, Mass Effect, RE Engine, Unreal GVAS, Unity, RPG Maker)...";
                     height: 38px;
                 }
 
-                // Profile Grid
-                HorizontalLayout {
-                    spacing: 14px;
+                // Profile Grid (Scrollable, Genuine Agama Deterministic Registry)
+                ScrollView {
+                    VerticalLayout {
+                        spacing: 12px;
 
-                    // Profile 1: Elden Ring
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        background: #090e1899;
-                        border-radius: 8px;
-                        border-width: 1px;
-                        border-color: #eab30844;
+                        // Row 1: Suzerain & Mass Effect
+                        HorizontalLayout {
+                            spacing: 14px;
 
-                        VerticalLayout {
-                            padding: 16px;
-                            spacing: 8px;
+                            // Profile 0: Torpor Games Suzerain
+                            Rectangle {
+                                visible: root.matches_profile_query(root.jnana_search_query, 0);
+                                horizontal-stretch: 1;
+                                background: #090e1899;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: #eab30844;
 
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text { text: "ELDEN RING"; font-size: 13px; font-weight: 800; color: #facc15; }
-                                Text { text: "v1.12 Verified"; font-size: 10px; color: #22c55e; }
+                                VerticalLayout {
+                                    padding: 16px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "TORPOR GAMES SUZERAIN"; font-size: 13px; font-weight: 800; color: #facc15; }
+                                        Text { text: "Sordland & Rizia"; font-size: 10px; color: #22c55e; }
+                                    }
+                                    Text { text: "Save Format: Deterministic Key-Value UTF-8 Ledger\nOffsets Discovered: 35+ Ground-Truth Variables\nSchema: Budget, Authority, Energy, Wealth, Public Opinion"; font-size: 11px; color: #94a3b8; }
+
+                                    ThematicActionButton {
+                                        text: "LOAD PROFILE & BROWSE // अन्वेषण";
+                                        devanagari: "आगम प्रवेश";
+                                        btn_width: 0px;
+                                        btn_height: 32px;
+                                        bg_color: #ca8a04;
+                                        hover_color: #eab308;
+                                        sanskrit_title: "आगम प्रवेश // LOAD SUZERAIN PROFILE";
+                                        feature_name: "Feature: Suzerain Agama Schema";
+                                        explanation: "Selects Suzerain deterministic profile rules and opens the save file chooser.";
+                                        clicked => {
+                                            root.jnana_status_msg = "Selected Agama: Torpor Games Suzerain (Sordland & Rizia). Schema primed.";
+                                            root.open_save_file();
+                                            root.active_tab = 1;
+                                        }
+                                    }
+                                }
                             }
-                            Text { text: "Save Format: BND4 Encrypted Blob\nOffsets Discovered: 142\nMemory Table: Runes, HP, Stamina, FP"; font-size: 11px; color: #94a3b8; }
 
-                            ThematicActionButton {
-                                text: "LOAD AGAMA // Import";
-                                devanagari: "आगम प्रवेश";
-                                btn_width: 0px;
-                                btn_height: 32px;
-                                bg_color: #0369a1;
-                                hover_color: #0284c7;
-                                sanskrit_title: "आगम प्रवेश // LOAD PROFILE";
-                                feature_name: "Feature: Import Elden Ring Agama";
-                                explanation: "Loads Elden Ring deterministic temple profile into Kalyana Sthiti save editor.";
-                                clicked => {
-                                    root.save_filename = "ER0000.sl2";
-                                    root.save_game_title = "ELDEN RING (हिरण्यगर्भ आगम)";
-                                    root.save_checksum_info = "Sthiti Raksha: MD5 128-bit Slot Seal Armed";
-                                    root.save_runes_val = "950,000";
-                                    root.save_level_val = "175";
-                                    root.save_vigor_val = "60";
-                                    root.save_gold_val = "250,000";
-                                    root.save_view_mode = 0;
-                                    root.active_tab = 1;
-                                    root.save_commit_feedback = "Loaded Agama Profile: Elden Ring (v1.12) from SurrealDB Graph";
-                                    root.jnana_status_msg = "✓ Loaded Agama Profile: Elden Ring into Save Editor";
+                            // Profile 1: Mass Effect Legendary Edition
+                            Rectangle {
+                                visible: root.matches_profile_query(root.jnana_search_query, 1);
+                                horizontal-stretch: 1;
+                                background: #090e1899;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: #38bdf844;
+
+                                VerticalLayout {
+                                    padding: 16px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "MASS EFFECT LEGENDARY EDITION"; font-size: 13px; font-weight: 800; color: #38bdf8; }
+                                        Text { text: "ME1, ME2 & ME3"; font-size: 10px; color: #22c55e; }
+                                    }
+                                    Text { text: "Save Format: BioWare Binary Block Container\nOffsets Discovered: 28 Ground-Truth Variables\nSchema: Paragon, Renegade, Credits, Medigel, Minerals"; font-size: 11px; color: #94a3b8; }
+
+                                    ThematicActionButton {
+                                        text: "LOAD PROFILE & BROWSE // अन्वेषण";
+                                        devanagari: "आगम प्रवेश";
+                                        btn_width: 0px;
+                                        btn_height: 32px;
+                                        bg_color: #0369a1;
+                                        hover_color: #0284c7;
+                                        sanskrit_title: "आगम प्रवेश // LOAD MASS EFFECT PROFILE";
+                                        feature_name: "Feature: BioWare ME Agama Schema";
+                                        explanation: "Selects Mass Effect Legendary Edition deterministic profile and opens save chooser.";
+                                        clicked => {
+                                            root.jnana_status_msg = "Selected Agama: Mass Effect Legendary Edition (BioWare). Schema primed.";
+                                            root.open_save_file();
+                                            root.active_tab = 1;
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Profile 2: Baldur's Gate 3
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        background: #090e1899;
-                        border-radius: 8px;
-                        border-width: 1px;
-                        border-color: #38bdf844;
+                        // Row 2: Capcom RE Engine & Unreal Engine GVAS
+                        HorizontalLayout {
+                            spacing: 14px;
 
-                        VerticalLayout {
-                            padding: 16px;
-                            spacing: 8px;
+                            // Profile 2: Capcom RE Engine
+                            Rectangle {
+                                visible: root.matches_profile_query(root.jnana_search_query, 2);
+                                horizontal-stretch: 1;
+                                background: #090e1899;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: #ff7b0044;
 
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text { text: "BALDUR'S GATE 3"; font-size: 13px; font-weight: 800; color: #38bdf8; }
-                                Text { text: "Patch 7 Verified"; font-size: 10px; color: #22c55e; }
+                                VerticalLayout {
+                                    padding: 16px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "CAPCOM RE ENGINE"; font-size: 13px; font-weight: 800; color: #ff7b00; }
+                                        Text { text: "DD2, RE4, MHW, MHR"; font-size: 10px; color: #22c55e; }
+                                    }
+                                    Text { text: "Save Format: DSSS Container (v2, MurmurHash3_x86_32)\nIntegrity: Sthiti Raksha Checksum Rehash Guard\nSchema: Gold/Zenny, Rift Crystals, Items, Slot Records"; font-size: 11px; color: #94a3b8; }
+
+                                    ThematicActionButton {
+                                        text: "LOAD PROFILE & BROWSE // अन्वेषण";
+                                        devanagari: "आगम प्रवेश";
+                                        btn_width: 0px;
+                                        btn_height: 32px;
+                                        bg_color: #c2410c;
+                                        hover_color: #ea580c;
+                                        sanskrit_title: "आगम प्रवेश // LOAD RE ENGINE PROFILE";
+                                        feature_name: "Feature: Capcom DSSS Agama Schema";
+                                        explanation: "Selects Capcom RE Engine deterministic profile and opens save file chooser.";
+                                        clicked => {
+                                            root.jnana_status_msg = "Selected Agama: Capcom RE Engine (DSSS Container). Schema primed.";
+                                            root.open_save_file();
+                                            root.active_tab = 1;
+                                        }
+                                    }
+                                }
                             }
-                            Text { text: "Save Format: LSLIB PAK / LSF Struct\nOffsets Discovered: 388\nMemory Table: Gold, Inspiration, XP"; font-size: 11px; color: #94a3b8; }
 
-                            ThematicActionButton {
-                                text: "LOAD AGAMA // Import";
-                                devanagari: "आगम प्रवेश";
-                                btn_width: 0px;
-                                btn_height: 32px;
-                                bg_color: #0369a1;
-                                hover_color: #0284c7;
-                                sanskrit_title: "आगम प्रवेश // LOAD PROFILE";
-                                feature_name: "Feature: Import Baldur's Gate 3 Agama";
-                                explanation: "Loads Baldur's Gate 3 deterministic profile into Kalyana Sthiti save editor.";
-                                clicked => {
-                                    root.save_filename = "SaveGame.sav";
-                                    root.save_game_title = "BALDUR'S GATE 3 (माया संचय)";
-                                    root.save_checksum_info = "Sthiti Raksha: CRC32 IEEE Seal Armed";
-                                    root.save_runes_val = "0";
-                                    root.save_level_val = "12";
-                                    root.save_vigor_val = "45";
-                                    root.save_gold_val = "45,000";
-                                    root.save_view_mode = 0;
-                                    root.active_tab = 1;
-                                    root.save_commit_feedback = "Loaded Agama Profile: Baldur's Gate 3 from SurrealDB Graph";
-                                    root.jnana_status_msg = "✓ Loaded Agama Profile: Baldur's Gate 3 into Save Editor";
+                            // Profile 3: Unreal Engine 4 & 5
+                            Rectangle {
+                                visible: root.matches_profile_query(root.jnana_search_query, 3);
+                                horizontal-stretch: 1;
+                                background: #090e1899;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: #a855f744;
+
+                                VerticalLayout {
+                                    padding: 16px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "UNREAL ENGINE 4 & 5"; font-size: 13px; font-weight: 800; color: #c084fc; }
+                                        Text { text: "GVAS Binary Universal"; font-size: 10px; color: #22c55e; }
+                                    }
+                                    Text { text: "Save Format: GVAS Property Tag Container\nFeatures: Typed Property Trees, CustomVersions, Array/Struct\nIntegrity: UUID Header & Tag-Length Validations"; font-size: 11px; color: #94a3b8; }
+
+                                    ThematicActionButton {
+                                        text: "LOAD PROFILE & BROWSE // अन्वेषण";
+                                        devanagari: "आगम प्रवेश";
+                                        btn_width: 0px;
+                                        btn_height: 32px;
+                                        bg_color: #7e22ce;
+                                        hover_color: #9333ea;
+                                        sanskrit_title: "आगम प्रवेश // LOAD UNREAL PROFILE";
+                                        feature_name: "Feature: Unreal GVAS Engine";
+                                        explanation: "Selects Unreal Engine GVAS universal engine and opens save file chooser.";
+                                        clicked => {
+                                            root.jnana_status_msg = "Selected Agama: Unreal Engine 4/5 (GVAS Binary). Parser primed.";
+                                            root.open_save_file();
+                                            root.active_tab = 1;
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Profile 3: Cyberpunk 2077
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        background: #090e1899;
-                        border-radius: 8px;
-                        border-width: 1px;
-                        border-color: #ff4d2e44;
+                        // Row 3: Unity Engine & RPG Maker / Ren'Py
+                        HorizontalLayout {
+                            spacing: 14px;
 
-                        VerticalLayout {
-                            padding: 16px;
-                            spacing: 8px;
+                            // Profile 4: Unity Engine
+                            Rectangle {
+                                visible: root.matches_profile_query(root.jnana_search_query, 4);
+                                horizontal-stretch: 1;
+                                background: #090e1899;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: #10b98144;
 
-                            HorizontalLayout {
-                                alignment: space-between;
-                                Text { text: "CYBERPUNK 2077"; font-size: 13px; font-weight: 800; color: #f87171; }
-                                Text { text: "v2.13 Verified"; font-size: 10px; color: #22c55e; }
+                                VerticalLayout {
+                                    padding: 16px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "UNITY ENGINE"; font-size: 13px; font-weight: 800; color: #34d399; }
+                                        Text { text: "NRBF, ES3 & Prefs"; font-size: 10px; color: #22c55e; }
+                                    }
+                                    Text { text: "Save Format: BinaryFormatter NRBF / Easy Save 3 / PlayerPrefs\nFeatures: Class Metadata, Object Deserializer, XML/JSON\nIntegrity: Atomic Sthiti Sankalpa Swapping"; font-size: 11px; color: #94a3b8; }
+
+                                    ThematicActionButton {
+                                        text: "LOAD PROFILE & BROWSE // अन्वेषण";
+                                        devanagari: "आगम प्रवेश";
+                                        btn_width: 0px;
+                                        btn_height: 32px;
+                                        bg_color: #047857;
+                                        hover_color: #059669;
+                                        sanskrit_title: "आगम प्रवेश // LOAD UNITY PROFILE";
+                                        feature_name: "Feature: Unity NRBF/ES3 Engine";
+                                        explanation: "Selects Unity save engine and opens save file chooser.";
+                                        clicked => {
+                                            root.jnana_status_msg = "Selected Agama: Unity Engine (NRBF/ES3/PlayerPrefs). Engine primed.";
+                                            root.open_save_file();
+                                            root.active_tab = 1;
+                                        }
+                                    }
+                                }
                             }
-                            Text { text: "Save Format: Cyberpunk .dat Container\nOffsets Discovered: 215\nMemory Table: Eddies, Street Cred, RAM"; font-size: 11px; color: #94a3b8; }
 
-                            ThematicActionButton {
-                                text: "LOAD AGAMA // Import";
-                                devanagari: "आगम प्रवेश";
-                                btn_width: 0px;
-                                btn_height: 32px;
-                                bg_color: #0369a1;
-                                hover_color: #0284c7;
-                                sanskrit_title: "आगम प्रवेश // LOAD PROFILE";
-                                feature_name: "Feature: Import Cyberpunk 2077 Agama";
-                                explanation: "Loads Cyberpunk 2077 profile into Kalyana Sthiti save editor.";
-                                clicked => {
-                                    root.save_filename = "cyberpunk_manual.dat";
-                                    root.save_game_title = "CYBERPUNK 2077 (माया चक्र)";
-                                    root.save_checksum_info = "Sthiti Raksha: CRC32 Header Seal Armed";
-                                    root.save_runes_val = "0";
-                                    root.save_level_val = "50";
-                                    root.save_vigor_val = "20";
-                                    root.save_gold_val = "1,250,000";
-                                    root.save_view_mode = 0;
-                                    root.active_tab = 1;
-                                    root.save_commit_feedback = "Loaded Agama Profile: Cyberpunk 2077 from SurrealDB Graph";
-                                    root.jnana_status_msg = "✓ Loaded Agama Profile: Cyberpunk 2077 into Save Editor";
+                            // Profile 5: RPG Maker & Ren'Py
+                            Rectangle {
+                                visible: root.matches_profile_query(root.jnana_search_query, 5);
+                                horizontal-stretch: 1;
+                                background: #090e1899;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: #f43f5e44;
+
+                                VerticalLayout {
+                                    padding: 16px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text { text: "RPG MAKER & REN'PY NOVELS"; font-size: 13px; font-weight: 800; color: #fb7185; }
+                                        Text { text: "MV/MZ/XP & Pickles"; font-size: 10px; color: #22c55e; }
+                                    }
+                                    Text { text: "Save Format: LZ-String JSON, Ruby Marshal 4.8 & Python Pickle\nFeatures: Game Variables, Switches, Actors, Persistent\nIntegrity: Opcode Walker & Stream Decompressor"; font-size: 11px; color: #94a3b8; }
+
+                                    ThematicActionButton {
+                                        text: "LOAD PROFILE & BROWSE // अन्वेषण";
+                                        devanagari: "आगम प्रवेश";
+                                        btn_width: 0px;
+                                        btn_height: 32px;
+                                        bg_color: #be123c;
+                                        hover_color: #e11d48;
+                                        sanskrit_title: "आगम प्रवेश // LOAD RPG MAKER / REN'PY";
+                                        feature_name: "Feature: RPG Maker & Ren'Py Engine";
+                                        explanation: "Selects RPG Maker and Ren'Py engine and opens save file chooser.";
+                                        clicked => {
+                                            root.jnana_status_msg = "Selected Agama: RPG Maker & Ren'Py Novels. Engine primed.";
+                                            root.open_save_file();
+                                            root.active_tab = 1;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -5401,7 +5281,6 @@ export component MainWindow inherits Window {
                             shortcut_hint: "Scan";
                             clicked => {
                                 root.active_tab = 0;
-                                root.scan_result_count_str = "4 MATCHES";
                                 root.rudra_status_text = "First Scan Dispatched via Palette: " + root.scan_target_value;
                                 root.start_memory_scan(root.scan_target_value, root.data_type_name);
                                 root.show_command_palette = false;
@@ -5417,7 +5296,6 @@ export component MainWindow inherits Window {
                             shortcut_hint: "Rescan";
                             clicked => {
                                 root.active_tab = 0;
-                                root.scan_result_count_str = "1 MATCH";
                                 root.rudra_status_text = "Refined Rescan Dispatched via Palette";
                                 root.rescan_memory(root.scan_target_value, root.rescan_type_name);
                                 root.show_command_palette = false;
@@ -5449,10 +5327,9 @@ export component MainWindow inherits Window {
                             shortcut_hint: "Freeze";
                             clicked => {
                                 root.active_tab = 0;
-                                root.freeze_row1 = !root.freeze_row1;
-                                root.rudra_status_text = root.freeze_row1 ?
-                                    "STAMBHANA ACTIVE: 0x7FF74A8014E4 locked at " + root.scan_target_value :
-                                    "Stambhana Unlocked: Address 0x7FF74A8014E4 unfrozen";
+                                root.rudra_status_text = root.is_ct_loaded ?
+                                    "Stambhana: Toggling memory freeze lock on active table entries..." :
+                                    "Stambhana: No active table entries loaded to freeze";
                                 root.show_command_palette = false;
                             }
                         }
@@ -5626,8 +5503,7 @@ export component MainWindow inherits Window {
                             shortcut_hint: "Add";
                             clicked => {
                                 root.active_tab = 0;
-                                root.table_row_count = min(3, root.table_row_count + 1);
-                                root.rudra_status_text = "Manual Address Row Added to Cheat Table";
+                                root.rudra_status_text = "Cheat Table: Load .CT or pin scan candidates to track addresses";
                                 root.show_command_palette = false;
                             }
                         }
@@ -5656,10 +5532,9 @@ export component MainWindow inherits Window {
                             shortcut_hint: "Freeze";
                             clicked => {
                                 root.active_tab = 0;
-                                root.table_active_0 = true;
-                                root.table_active_1 = true;
-                                root.table_active_2 = true;
-                                root.rudra_status_text = "All Tracked Cheat Table Entries Frozen";
+                                root.rudra_status_text = root.is_ct_loaded ?
+                                    "Stambhana: Freezing all tracked Cheat Table records..." :
+                                    "No Cheat Table loaded to freeze";
                                 root.show_command_palette = false;
                             }
                         }
@@ -5673,10 +5548,9 @@ export component MainWindow inherits Window {
                             shortcut_hint: "Unfreeze";
                             clicked => {
                                 root.active_tab = 0;
-                                root.table_active_0 = false;
-                                root.table_active_1 = false;
-                                root.table_active_2 = false;
-                                root.rudra_status_text = "All Tracked Cheat Table Entries Unfrozen";
+                                root.rudra_status_text = root.is_ct_loaded ?
+                                    "Stambhana: Unfreezing all tracked Cheat Table records..." :
+                                    "No Cheat Table loaded to unfreeze";
                                 root.show_command_palette = false;
                             }
                         }
@@ -5847,6 +5721,7 @@ export component MainWindow inherits Window {
                                     category: "CORE";
                                     tag_color: #eab308;
                                     is_selected: root.docs_active_article_idx == 0;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 0);
                                     clicked => { root.docs_active_article_idx = 0; }
                                 }
 
@@ -5857,6 +5732,7 @@ export component MainWindow inherits Window {
                                     category: "RUDRA";
                                     tag_color: #ff4d2e;
                                     is_selected: root.docs_active_article_idx == 1;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 1);
                                     clicked => { root.docs_active_article_idx = 1; }
                                 }
 
@@ -5867,6 +5743,7 @@ export component MainWindow inherits Window {
                                     category: "RUDRA";
                                     tag_color: #ff4d2e;
                                     is_selected: root.docs_active_article_idx == 2;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 2);
                                     clicked => { root.docs_active_article_idx = 2; }
                                 }
 
@@ -5877,6 +5754,7 @@ export component MainWindow inherits Window {
                                     category: "RUDRA";
                                     tag_color: #ff7b00;
                                     is_selected: root.docs_active_article_idx == 3;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 3);
                                     clicked => { root.docs_active_article_idx = 3; }
                                 }
 
@@ -5887,6 +5765,7 @@ export component MainWindow inherits Window {
                                     category: "KALYANA";
                                     tag_color: #38bdf8;
                                     is_selected: root.docs_active_article_idx == 4;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 4);
                                     clicked => { root.docs_active_article_idx = 4; }
                                 }
 
@@ -5897,6 +5776,7 @@ export component MainWindow inherits Window {
                                     category: "METRICS";
                                     tag_color: #a855f7;
                                     is_selected: root.docs_active_article_idx == 5;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 5);
                                     clicked => { root.docs_active_article_idx = 5; }
                                 }
 
@@ -5907,6 +5787,7 @@ export component MainWindow inherits Window {
                                     category: "METRICS";
                                     tag_color: #a855f7;
                                     is_selected: root.docs_active_article_idx == 6;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 6);
                                     clicked => { root.docs_active_article_idx = 6; }
                                 }
 
@@ -5917,6 +5798,7 @@ export component MainWindow inherits Window {
                                     category: "SECURITY";
                                     tag_color: #10b981;
                                     is_selected: root.docs_active_article_idx == 7;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 7);
                                     clicked => { root.docs_active_article_idx = 7; }
                                 }
 
@@ -5927,6 +5809,7 @@ export component MainWindow inherits Window {
                                     category: "SECURITY";
                                     tag_color: #10b981;
                                     is_selected: root.docs_active_article_idx == 8;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 8);
                                     clicked => { root.docs_active_article_idx = 8; }
                                 }
 
@@ -5937,6 +5820,7 @@ export component MainWindow inherits Window {
                                     category: "SECURITY";
                                     tag_color: #10b981;
                                     is_selected: root.docs_active_article_idx == 9;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 9);
                                     clicked => { root.docs_active_article_idx = 9; }
                                 }
 
@@ -5947,6 +5831,7 @@ export component MainWindow inherits Window {
                                     category: "SCRIPTING";
                                     tag_color: #c084fc;
                                     is_selected: root.docs_active_article_idx == 10;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 10);
                                     clicked => { root.docs_active_article_idx = 10; }
                                 }
 
@@ -5957,6 +5842,7 @@ export component MainWindow inherits Window {
                                     category: "CORE";
                                     tag_color: #eab308;
                                     is_selected: root.docs_active_article_idx == 11;
+                                    visible_in_filter: root.matches_doc_tile(root.docs_selected_category, root.docs_search_query, 11);
                                     clicked => { root.docs_active_article_idx = 11; }
                                 }
                             }
@@ -6108,7 +5994,9 @@ export component MainWindow inherits Window {
                                             root.show_docs_modal = false;
                                         } else if root.docs_active_article_idx == 2 {
                                             root.active_tab = 0;
-                                            root.freeze_row1 = !root.freeze_row1;
+                                            root.rudra_status_text = root.is_ct_loaded ?
+                                                "Stambhana: Toggling memory freeze lock on active table entries..." :
+                                                "Stambhana: No active table entries loaded to freeze";
                                             root.show_docs_modal = false;
                                         } else if root.docs_active_article_idx == 3 {
                                             root.active_tab = 0;
@@ -6121,15 +6009,11 @@ export component MainWindow inherits Window {
                                             root.active_tab = 1;
                                             root.selected_metric = 1;
                                             root.metric_display_name = "SHANNON ENTROPY (संशय मान)";
-                                            root.metric_score_value = "1.393 bits/byte";
-                                            root.metric_verdict_value = "SparseOrText (शुद्ध पाठ/रिक्त)";
                                             root.show_docs_modal = false;
                                         } else if root.docs_active_article_idx == 6 {
                                             root.active_tab = 1;
                                             root.selected_metric = 2;
                                             root.metric_display_name = "CHI-SQUARE TEST (साम्य परीक्षा)";
-                                            root.metric_score_value = "χ² = 0.0 (p < 0.001)";
-                                            root.metric_verdict_value = "HighlyStructured (अत्यन्त व्यवस्थित)";
                                             root.show_docs_modal = false;
                                         } else if root.docs_active_article_idx == 7 {
                                             root.active_tab = 1;
@@ -6246,6 +6130,9 @@ export component MainWindow inherits Window {
                         font-size: 12px;
                         horizontal-stretch: 1;
                         height: 38px;
+                        accepted(q) => {
+                            root.filter_processes(q);
+                        }
                     }
 
                     ThematicActionButton {
@@ -6256,8 +6143,8 @@ export component MainWindow inherits Window {
                         bg_color: #1e293b;
                         hover_color: #334155;
                         clicked => {
-                            root.rudra_status_text = "Netra Inquest: Enumerating all active Win32 processes";
-                            root.refresh_processes();
+                            root.rudra_status_text = "Netra Inquest: Enumerating active Win32 processes";
+                            root.filter_processes(root.process_modal_search);
                         }
                     }
                 }
@@ -6427,6 +6314,18 @@ export component MainWindow inherits Window {
                             is_selected: root.modal_selected_proc_idx == 11;
                             clicked => {
                                 root.modal_selected_proc_idx = 11;
+                            }
+                        }
+
+                        if (LiveProcesses.proc_0_name == "") : Rectangle {
+                            height: 60px;
+                            background: transparent;
+                            Text {
+                                text: "No matching processes found for '" + root.process_modal_search + "'. Click REFRESH ⟳ or clear filter.";
+                                font-size: 12px;
+                                color: #64748b;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
                             }
                         }
                     }
@@ -7212,7 +7111,8 @@ export component MainWindow inherits Window {
                         bg_color: #991b1b;
                         hover_color: #dc2626;
                         clicked => {
-                            root.rudra_status_text = "Patched RIP with NOPs (शून्यकरण): Instruction suppressed";
+                            root.patch_memory_nop(LiveNetra.selected_rip, 3);
+                            root.rudra_status_text = "Patched RIP " + LiveNetra.selected_rip + " with NOPs (शून्यकरण): Instruction suppressed";
                         }
                     }
 
@@ -7224,6 +7124,7 @@ export component MainWindow inherits Window {
                         bg_color: #1e293b;
                         hover_color: #334155;
                         clicked => {
+                            root.disarm_hardware_watcher();
                             root.rudra_status_text = "Netra Drishtanta: DR0 Breakpoints Disarmed across all threads";
                             root.show_netra_modal = false;
                         }

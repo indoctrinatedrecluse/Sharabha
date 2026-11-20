@@ -1,6 +1,7 @@
 const std = @import("std");
 const fuzzy = @import("../save/fuzzy.zig");
 const switcher = @import("../save/switcher.zig");
+const vault_mod = @import("../security/vault.zig");
 
 pub const LandmarkHint = struct {
     offset: usize,
@@ -237,6 +238,348 @@ pub fn applyHintsToFuzzyFields(hints: *const AiSaveHints, fields: []fuzzy.Inferr
     }
 }
 
+// ============================================================================
+// NATIVE WINDOWS HTTPS NETWORK CLIENT (WININET)
+// ============================================================================
+
+pub const wininet = struct {
+    pub const INTERNET_OPEN_TYPE_PRECONFIG: u32 = 0;
+    pub const INTERNET_SERVICE_HTTP: u32 = 3;
+    pub const INTERNET_DEFAULT_HTTPS_PORT: u16 = 443;
+    pub const INTERNET_FLAG_SECURE: u32 = 0x00800000;
+    pub const INTERNET_FLAG_RELOAD: u32 = 0x80000000;
+    pub const INTERNET_FLAG_NO_CACHE_WRITE: u32 = 0x04000000;
+    pub const INTERNET_FLAG_KEEP_CONNECTION: u32 = 0x00400000;
+
+    pub extern "wininet" fn InternetOpenA(
+        lpszAgent: ?[*:0]const u8,
+        dwAccessType: u32,
+        lpszProxy: ?[*:0]const u8,
+        lpszProxyBypass: ?[*:0]const u8,
+        dwFlags: u32,
+    ) callconv(.winapi) ?*anyopaque;
+
+    pub extern "wininet" fn InternetConnectA(
+        hInternet: *anyopaque,
+        lpszServerName: [*:0]const u8,
+        nServerPort: u16,
+        lpszUserName: ?[*:0]const u8,
+        lpszPassword: ?[*:0]const u8,
+        dwService: u32,
+        dwFlags: u32,
+        dwContext: usize,
+    ) callconv(.winapi) ?*anyopaque;
+
+    pub extern "wininet" fn HttpOpenRequestA(
+        hConnect: *anyopaque,
+        lpszVerb: ?[*:0]const u8,
+        lpszObjectName: ?[*:0]const u8,
+        lpszVersion: ?[*:0]const u8,
+        lpszReferrer: ?[*:0]const u8,
+        lplpszAcceptTypes: ?*anyopaque,
+        dwFlags: u32,
+        dwContext: usize,
+    ) callconv(.winapi) ?*anyopaque;
+
+    pub extern "wininet" fn HttpSendRequestA(
+        hRequest: *anyopaque,
+        lpszHeaders: ?[*:0]const u8,
+        dwHeadersLength: u32,
+        lpOptional: ?[*]const u8,
+        dwOptionalLength: u32,
+    ) callconv(.winapi) i32;
+
+    pub extern "wininet" fn InternetReadFile(
+        hFile: *anyopaque,
+        lpBuffer: [*]u8,
+        dwNumberOfBytesToRead: u32,
+        lpdwNumberOfBytesRead: *u32,
+    ) callconv(.winapi) i32;
+
+    pub extern "wininet" fn InternetCloseHandle(
+        hInternet: *anyopaque,
+    ) callconv(.winapi) i32;
+};
+
+fn bufPrintZ(buf: []u8, comptime fmt: []const u8, args: anytype) ?[:0]const u8 {
+    if (buf.len < 2) return null;
+    const text = std.fmt.bufPrint(buf[0 .. buf.len - 1], fmt, args) catch return null;
+    buf[text.len] = 0;
+    return buf[0..text.len :0];
+}
+
+pub fn sendHttpsPost(
+    allocator: std.mem.Allocator,
+    host_z: [*:0]const u8,
+    path_z: [*:0]const u8,
+    extra_headers_z: ?[*:0]const u8,
+    json_payload: []const u8,
+) ![]u8 {
+    const hInternet = wininet.InternetOpenA(
+        "Sharabha-DivyaDrishti/1.0",
+        wininet.INTERNET_OPEN_TYPE_PRECONFIG,
+        null,
+        null,
+        0,
+    ) orelse return error.InternetOpenFailed;
+    defer _ = wininet.InternetCloseHandle(hInternet);
+
+    const hConnect = wininet.InternetConnectA(
+        hInternet,
+        host_z,
+        wininet.INTERNET_DEFAULT_HTTPS_PORT,
+        null,
+        null,
+        wininet.INTERNET_SERVICE_HTTP,
+        0,
+        0,
+    ) orelse return error.InternetConnectFailed;
+    defer _ = wininet.InternetCloseHandle(hConnect);
+
+    const flags = wininet.INTERNET_FLAG_SECURE |
+        wininet.INTERNET_FLAG_RELOAD |
+        wininet.INTERNET_FLAG_NO_CACHE_WRITE |
+        wininet.INTERNET_FLAG_KEEP_CONNECTION;
+
+    const hRequest = wininet.HttpOpenRequestA(
+        hConnect,
+        "POST",
+        path_z,
+        null,
+        null,
+        null,
+        flags,
+        0,
+    ) orelse return error.HttpOpenRequestFailed;
+    defer _ = wininet.InternetCloseHandle(hRequest);
+
+    const default_headers = "Content-Type: application/json\r\n";
+    var headers_buf: [1024]u8 = undefined;
+    const final_headers = if (extra_headers_z) |eh| blk: {
+        const combined = bufPrintZ(&headers_buf, "{s}{s}", .{ default_headers, std.mem.span(eh) }) orelse default_headers;
+        break :blk combined;
+    } else default_headers;
+
+    const send_res = wininet.HttpSendRequestA(
+        hRequest,
+        final_headers.ptr,
+        @intCast(final_headers.len),
+        json_payload.ptr,
+        @intCast(json_payload.len),
+    );
+    if (send_res == 0) return error.HttpSendRequestFailed;
+
+    var response: std.ArrayList(u8) = .empty;
+    errdefer response.deinit(allocator);
+
+    var read_buf: [4096]u8 = undefined;
+    while (true) {
+        var bytes_read: u32 = 0;
+        const read_res = wininet.InternetReadFile(
+            hRequest,
+            &read_buf,
+            @intCast(read_buf.len),
+            &bytes_read,
+        );
+        if (read_res == 0 or bytes_read == 0) break;
+        try response.appendSlice(allocator, read_buf[0..bytes_read]);
+        if (response.items.len > 10 * 1024 * 1024) break;
+    }
+
+    return response.toOwnedSlice(allocator);
+}
+
+fn escapeJsonString(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+    for (input) |ch| switch (ch) {
+        '\\' => try out.appendSlice(allocator, "\\\\"),
+        '"' => try out.appendSlice(allocator, "\\\""),
+        '\n' => try out.appendSlice(allocator, "\\n"),
+        '\r' => try out.appendSlice(allocator, "\\r"),
+        '\t' => try out.appendSlice(allocator, "\\t"),
+        else => {
+            if (ch < 0x20) {
+                var hex: [7]u8 = undefined;
+                const formatted = std.fmt.bufPrint(&hex, "\\u00{X:0>2}", .{ch}) catch "\\u0000";
+                try out.appendSlice(allocator, formatted);
+            } else {
+                try out.append(allocator, ch);
+            }
+        },
+    };
+    return out.toOwnedSlice(allocator);
+}
+
+fn extractResponseText(json: []const u8) []const u8 {
+    if (std.mem.indexOf(u8, json, "\"text\":")) |idx| {
+        const after = json[idx + "\"text\":".len ..];
+        if (std.mem.indexOfScalar(u8, after, '"')) |first_q| {
+            const body = after[first_q + 1 ..];
+            var i: usize = 0;
+            while (i < body.len) : (i += 1) {
+                if (body[i] == '\\') {
+                    i += 1;
+                    continue;
+                }
+                if (body[i] == '"') {
+                    return body[0..i];
+                }
+            }
+            return body;
+        }
+    }
+    if (std.mem.indexOf(u8, json, "\"content\":")) |idx| {
+        const after = json[idx + "\"content\":".len ..];
+        if (std.mem.indexOfScalar(u8, after, '"')) |first_q| {
+            const body = after[first_q + 1 ..];
+            var i: usize = 0;
+            while (i < body.len) : (i += 1) {
+                if (body[i] == '\\') {
+                    i += 1;
+                    continue;
+                }
+                if (body[i] == '"') {
+                    return body[0..i];
+                }
+            }
+            return body;
+        }
+    }
+    return json;
+}
+
+pub fn analyzeSaveOnline(
+    allocator: std.mem.Allocator,
+    filename: []const u8,
+    buffer: []const u8,
+    report: switcher.MetricAnalysisReport,
+    cfg: *const vault_mod.VaultConfig,
+) !AiSaveHints {
+    const raw_prompt = try buildAnalysisPrompt(allocator, filename, buffer, report);
+    defer allocator.free(raw_prompt);
+
+    const escaped_prompt = try escapeJsonString(allocator, raw_prompt);
+    defer allocator.free(escaped_prompt);
+
+    var raw_response: []u8 = undefined;
+
+    if (cfg.selected_provider == .Gemini or cfg.getGeminiKey().len > 0) {
+        const key = cfg.getGeminiKey();
+        var path_buf: [512]u8 = undefined;
+        const path_z = bufPrintZ(
+            &path_buf,
+            "/v1beta/models/gemini-2.5-flash:generateContent?key={s}",
+            .{key},
+        ) orelse return error.PathFormatFailed;
+        const payload = try std.fmt.allocPrint(
+            allocator,
+            "{{\"contents\":[{{\"parts\":[{{\"text\":\"{s}\"}}]}}]}}",
+            .{escaped_prompt},
+        );
+        defer allocator.free(payload);
+
+        raw_response = try sendHttpsPost(
+            allocator,
+            "generativelanguage.googleapis.com",
+            path_z.ptr,
+            null,
+            payload,
+        );
+    } else {
+        const key = if (cfg.selected_provider == .DeepSeek) cfg.getDeepSeekKey() else cfg.getOpenAiKey();
+        const host = if (cfg.selected_provider == .DeepSeek) "api.deepseek.com" else "api.openai.com";
+        const model = if (cfg.selected_provider == .DeepSeek) "deepseek-chat" else "gpt-4o-mini";
+
+        var auth_buf: [256]u8 = undefined;
+        const auth_z = bufPrintZ(&auth_buf, "Authorization: Bearer {s}\r\n", .{key}) orelse return error.AuthFormatFailed;
+
+        const payload = try std.fmt.allocPrint(
+            allocator,
+            "{{\"model\":\"{s}\",\"messages\":[{{\"role\":\"user\",\"content\":\"{s}\"}}]}}",
+            .{ model, escaped_prompt },
+        );
+        defer allocator.free(payload);
+
+        raw_response = try sendHttpsPost(
+            allocator,
+            host,
+            "/v1/chat/completions",
+            auth_z.ptr,
+            payload,
+        );
+    }
+    defer allocator.free(raw_response);
+
+    if (std.mem.indexOf(u8, raw_response, "\"error\":") != null) {
+        return error.ApiReturnedError;
+    }
+
+    const text_body = extractResponseText(raw_response);
+    if (std.mem.eql(u8, text_body, raw_response) and std.mem.indexOf(u8, raw_response, "\"text\":") == null and std.mem.indexOf(u8, raw_response, "\"content\":") == null) {
+        return error.NoContentInResponse;
+    }
+
+    const parsed = parseAiResponse(text_body);
+    if (parsed.container_len == 0 and parsed.key_count == 0) {
+        return error.AiResponseIncomplete;
+    }
+    return parsed;
+}
+
+pub fn deduceHeuristicHints(report: switcher.MetricAnalysisReport, buffer: []const u8) AiSaveHints {
+    var hints = AiSaveHints.default();
+
+    const c_name = report.container.displayName();
+    const c_len = @min(c_name.len, 64);
+    @memcpy(hints.container_format[0..c_len], c_name[0..c_len]);
+    hints.container_len = c_len;
+
+    const score = report.getScore();
+    if (std.mem.startsWith(u8, score, "Entropy: 7.") or std.mem.startsWith(u8, score, "Entropy: 8.")) {
+        const comp = "Zlib/Compressed";
+        @memcpy(hints.compression[0..comp.len], comp);
+        hints.compression_len = comp.len;
+    } else {
+        const comp = "None/Uncompressed";
+        @memcpy(hints.compression[0..comp.len], comp);
+        hints.compression_len = comp.len;
+    }
+
+    const end = "LittleEndian";
+    @memcpy(hints.endianness[0..end.len], end);
+    hints.endian_len = end.len;
+
+    const common_keys = [_][]const u8{
+        "Gold", "Money", "Level", "Health", "Mana", "Exp", "Score", "Inventory", "Credits", "Coins",
+    };
+    for (common_keys) |k| {
+        if (indexOfIgnoreCase(buffer, k)) |pos| {
+            hints.addKeyHint(k);
+            hints.addLandmark(pos, k);
+        }
+    }
+
+    return hints;
+}
+
+pub fn analyzeSave(
+    allocator: std.mem.Allocator,
+    filename: []const u8,
+    buffer: []const u8,
+    report: switcher.MetricAnalysisReport,
+    vault_opt: ?*const vault_mod.VaultConfig,
+) AiSaveHints {
+    if (vault_opt) |cfg| {
+        if (cfg.getGeminiKey().len > 0 or cfg.getOpenAiKey().len > 0 or cfg.getDeepSeekKey().len > 0) {
+            if (analyzeSaveOnline(allocator, filename, buffer, report, cfg)) |hints| {
+                return hints;
+            } else |_| {}
+        }
+    }
+    return deduceHeuristicHints(report, buffer);
+}
+
 test "buildAnalysisPrompt and parseAiResponse round-trip" {
     const allocator = std.testing.allocator;
 
@@ -291,4 +634,15 @@ test "buildAnalysisPrompt and parseAiResponse round-trip" {
     const prompt = try buildAnalysisPrompt(allocator, "save.sav", "GVAS\x00\x00\x00\x00", mock_report);
     defer allocator.free(prompt);
     try std.testing.expect(prompt.len > 100);
+
+    // Test offline heuristic deduction
+    const mock_buffer = "GVAS\x00\x00\x00\x00SomeHeaderDataHereGold\x00\x00\x00PlayerLevel";
+    const heur_hints = deduceHeuristicHints(mock_report, mock_buffer);
+    try std.testing.expect(heur_hints.container_len > 0);
+    try std.testing.expect(heur_hints.key_count >= 1);
+    try std.testing.expect(heur_hints.landmark_count >= 1);
+
+    // Test analyzeSave with null vault (offline fallback guarantee)
+    const fallback_hints = analyzeSave(allocator, "save.sav", mock_buffer, mock_report, null);
+    try std.testing.expect(fallback_hints.key_count >= 1);
 }

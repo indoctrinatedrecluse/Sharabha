@@ -89,11 +89,33 @@ const win = struct {
     pub extern "kernel32" fn LockResource(hResData: HGLOBAL) callconv(.winapi) ?*anyopaque;
     pub extern "kernel32" fn SizeofResource(hModule: HMODULE, hResInfo: HRSRC) callconv(.winapi) DWORD;
     pub extern "kernel32" fn GetExitCodeProcess(hProcess: HANDLE, lpExitCode: *DWORD) callconv(.winapi) BOOL;
+    pub extern "kernel32" fn GetCommandLineW() callconv(.winapi) [*:0]const u16;
+    pub extern "kernel32" fn ExitProcess(uExitCode: DWORD) callconv(.winapi) noreturn;
+    pub extern "kernel32" fn GetModuleFileNameW(hModule: ?HANDLE, lpFilename: [*]u16, nSize: DWORD) callconv(.winapi) DWORD;
 
     pub const MB_OK: DWORD = 0x00000000;
     pub const MB_ICONERROR: DWORD = 0x00000010;
     pub extern "user32" fn MessageBoxW(hWnd: ?HANDLE, lpText: LPCWSTR, lpCaption: LPCWSTR, uType: DWORD) callconv(.winapi) i32;
 };
+
+fn indexOfCaseInsensitiveU16(haystack: []const u16, needle: []const u16) ?usize {
+    if (needle.len == 0 or haystack.len < needle.len) return null;
+    var i: usize = 0;
+    while (i <= haystack.len - needle.len) : (i += 1) {
+        var match = true;
+        for (needle, 0..) |nc, j| {
+            const hc = haystack[i + j];
+            const h_lower = if (hc >= 'A' and hc <= 'Z') hc + 32 else hc;
+            const n_lower = if (nc >= 'A' and nc <= 'Z') nc + 32 else nc;
+            if (h_lower != n_lower) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return i;
+    }
+    return null;
+}
 
 fn showError(allocator: std.mem.Allocator, message: []const u8) void {
     const msg_w = std.unicode.utf8ToUtf16LeAllocZ(allocator, message) catch return;
@@ -141,6 +163,50 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+
+    // 0. Handle Silent IPC Callback Proxy Mode:
+    // When invoked with "--run-silent <cmd...>", execute target via CreateProcessW
+    // using CREATE_NO_WINDOW and SW_HIDE with zero console window flashing.
+    const full_cmd = win.GetCommandLineW();
+    var cmd_len: usize = 0;
+    while (full_cmd[cmd_len] != 0) : (cmd_len += 1) {}
+    const cmd_slice = full_cmd[0..cmd_len];
+
+    const silent_flag = std.unicode.utf8ToUtf16LeStringLiteral("--run-silent");
+    if (indexOfCaseInsensitiveU16(cmd_slice, silent_flag)) |flag_idx| {
+        var tail_idx = flag_idx + silent_flag.len;
+        while (tail_idx < cmd_slice.len and (cmd_slice[tail_idx] == ' ' or cmd_slice[tail_idx] == '\t')) : (tail_idx += 1) {}
+        if (tail_idx < cmd_slice.len) {
+            const child_cmd = cmd_slice[tail_idx..];
+            const child_cmd_w = try allocator.allocSentinel(u16, child_cmd.len, 0);
+            @memcpy(child_cmd_w[0..child_cmd.len], child_cmd);
+
+            var si_child: win.STARTUPINFOW = .{
+                .dwFlags = 0x00000001,
+                .wShowWindow = 0,
+            };
+            var pi_child: win.PROCESS_INFORMATION = undefined;
+
+            if (win.CreateProcessW(null, child_cmd_w.ptr, null, null, 0, win.CREATE_NO_WINDOW, null, null, &si_child, &pi_child) != 0) {
+                _ = win.WaitForSingleObject(pi_child.hProcess, win.INFINITE);
+                var exit_code: win.DWORD = 0;
+                _ = win.GetExitCodeProcess(pi_child.hProcess, &exit_code);
+                _ = win.CloseHandle(pi_child.hProcess);
+                _ = win.CloseHandle(pi_child.hThread);
+                win.ExitProcess(exit_code);
+            } else {
+                win.ExitProcess(1);
+            }
+        }
+        win.ExitProcess(0);
+    }
+
+    var self_buf: [1024]u16 = undefined;
+    const self_chars = win.GetModuleFileNameW(null, &self_buf, 1024);
+    var self_exe: []const u8 = "SharabhaSetup.exe";
+    if (self_chars > 0 and self_chars < 1024) {
+        self_exe = try std.unicode.utf16LeToUtf8Alloc(allocator, self_buf[0..self_chars]);
+    }
 
     var staging_dir: []const u8 = ".";
     var is_temp: bool = false;
@@ -229,11 +295,11 @@ pub fn main() !void {
     // Assemble Installer Slint Invocation launching interactive GUI installer
     const cmd = try std.fmt.allocPrint(allocator,
         "\"{s}\" \"{s}\\src\\ui\\installer.slint\" --auto-reload " ++
-        "--on browse_dir \"powershell.exe -Sta -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_browse.ps1\\\"\" " ++
-        "--on start_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_logic.ps1\\\" -SourcePath \\\"{s}\\\" -TargetPath \\\"$1\\\" -DesktopFlag \\\"$2\\\" -StartMenuFlag \\\"$3\\\" -LaunchFlag \\\"$4\\\"\" " ++
-        "--on finish_install \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_finish.ps1\\\" -InstallPath \\\"$1\\\" -LaunchFlag \\\"$2\\\"\" " ++
-        "--on cancel \"powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_cancel.ps1\\\"\"",
-        .{ slint_exe, staging_dir, staging_dir, staging_dir, staging_dir, staging_dir, staging_dir }
+        "--on browse_dir \"\\\"{s}\\\" --run-silent powershell.exe -Sta -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_browse.ps1\\\"\" " ++
+        "--on start_install \"\\\"{s}\\\" --run-silent powershell.exe -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_logic.ps1\\\" -SourcePath \\\"{s}\\\" -TargetPath \\\"$1\\\" -DesktopFlag \\\"$2\\\" -StartMenuFlag \\\"$3\\\" -LaunchFlag \\\"$4\\\"\" " ++
+        "--on finish_install \"\\\"{s}\\\" --run-silent powershell.exe -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_finish.ps1\\\" -InstallPath \\\"$1\\\" -LaunchFlag \\\"$2\\\"\" " ++
+        "--on cancel \"\\\"{s}\\\" --run-silent powershell.exe -NoProfile -ExecutionPolicy Bypass -File \\\"{s}\\tools\\installer_cancel.ps1\\\"\"",
+        .{ slint_exe, staging_dir, self_exe, staging_dir, self_exe, staging_dir, staging_dir, self_exe, staging_dir, self_exe, staging_dir }
     );
 
     const cmd_w = try std.unicode.utf8ToUtf16LeAllocZ(allocator, cmd);

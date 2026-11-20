@@ -58,7 +58,7 @@ if (-not $selectedPath) {
         $dialog.CheckFileExists = $true
         $dialog.RestoreDirectory = $true
 
-        $initialDir = "D:\Mods"
+        $initialDir = Join-Path $projectDir "assets\tables"
         if (Test-Path -LiteralPath $activeTableFile) {
             $lastSaved = (Get-Content -LiteralPath $activeTableFile -Raw).Trim()
             if ($lastSaved) {
@@ -67,8 +67,7 @@ if (-not $selectedPath) {
             }
         }
         if (-not (Test-Path -LiteralPath $initialDir)) {
-            $candDir = Join-Path $projectDir "assets\tables"
-            if (Test-Path -LiteralPath $candDir) { $initialDir = $candDir } else { $initialDir = $projectDir }
+            $initialDir = $projectDir
         }
         $dialog.InitialDirectory = $initialDir
 

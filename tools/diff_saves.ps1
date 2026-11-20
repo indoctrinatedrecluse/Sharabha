@@ -88,6 +88,36 @@ $textB = [System.Text.Encoding]::UTF8.GetString($bytesB, 0, [Math]::Min($bytesB.
 $isUnityA = ($bytesA.Length -ge 17 -and $bytesA[0] -eq 0 -and $bytesA[1] -eq 1 -and $bytesA[5] -eq 0xFF) -or ($textA -and ($textA.Contains('"__type"') -or $textA.Contains('<pref name=')))
 $isUnityB = ($bytesB.Length -ge 17 -and $bytesB[0] -eq 0 -and $bytesB[1] -eq 1 -and $bytesB[5] -eq 0xFF) -or ($textB -and ($textB.Contains('"__type"') -or $textB.Contains('<pref name=')))
 
+# Check if RPG Maker or Ren'Py saves
+$isRpgA = ($fileA.Extension -match '^\.(rpgsave|rmmzsave|rxdata|rvdata2|rvdata)$') -or ($textA -and ($textA.Contains('"_gold"') -or $textA.Contains('$gameParty')))
+$isRpgB = ($fileB.Extension -match '^\.(rpgsave|rmmzsave|rxdata|rvdata2|rvdata)$') -or ($textB -and ($textB.Contains('"_gold"') -or $textB.Contains('$gameParty')))
+
+$isRenpyA = ($fileA.Extension -eq '.save') -or ($textA -and $textA.StartsWith("Ren'Py Save Game"))
+$isRenpyB = ($fileB.Extension -eq '.save') -or ($textB -and $textB.StartsWith("Ren'Py Save Game"))
+
+function Parse-CliProps([string]$cliFlag, [string]$filePath) {
+    $props = @{}
+    $cliExe = Join-Path $projectDir "zig-out\bin\SharabhaCli.exe"
+    if (-not (Test-Path $cliExe)) { $cliExe = Join-Path $projectDir "bin\SharabhaCli.exe" }
+    if (-not (Test-Path $cliExe)) { return $props }
+
+    try {
+        $lines = & $cliExe $cliFlag $filePath 2>&1
+        foreach ($line in $lines) {
+            $lineStr = "$line"
+            if (-not $lineStr.StartsWith("PROP:")) { continue }
+            $parts = $lineStr.Substring("PROP:".Length).Split('|')
+            if ($parts.Count -lt 4) { continue }
+            $k = $parts[0]
+            $t = $parts[1]
+            $v = if ($parts.Count -gt 4) { ($parts[2..($parts.Count - 2)] -join '|') } else { $parts[2] }
+            $tag = $parts[$parts.Count - 1]
+            $props[$k] = @{ Type = $t; Val = $v; Tag = $tag }
+        }
+    } catch { }
+    return $props
+}
+
 function Parse-UnityProps([byte[]]$b, [string]$t) {
     $props = @{}
     if ($t -and $t.Contains('"__type"') -and $t.Contains('"value"')) {
@@ -308,6 +338,109 @@ if ($isGvasA -and $isGvasB) {
             })
         }
     }
+} elseif ($isRpgA -and $isRpgB) {
+    $pMapA = Parse-CliProps "--parse-rpg" $fileA.FullName
+    $pMapB = Parse-CliProps "--parse-rpg" $fileB.FullName
+
+    foreach ($k in $pMapB.Keys) {
+        $itemB = $pMapB[$k]
+        if ($pMapA.ContainsKey($k)) {
+            $itemA = $pMapA[$k]
+            if ($itemA.Val -ne $itemB.Val) {
+                $deltaStr = "Mutated"
+                if ($itemA.Val -match '^-?\d+$' -and $itemB.Val -match '^-?\d+$') {
+                    $diffNum = [long]$itemB.Val - [long]$itemA.Val
+                    $deltaStr = if ($diffNum -ge 0) { "+$diffNum" } else { "$diffNum" }
+                }
+                $mutations.Add([PSCustomObject]@{
+                    Offset = "RPG: $k"
+                    Field = $k
+                    Type = $itemB.Type
+                    Before = $itemA.Val
+                    After = $itemB.Val
+                    Delta = $deltaStr
+                    Conf = "100% Curated Maya Lila"
+                })
+            }
+        } else {
+            $mutations.Add([PSCustomObject]@{
+                Offset = "RPG: $k"
+                Field = $k
+                Type = $itemB.Type
+                Before = "(unset)"
+                After = $itemB.Val
+                Delta = "+New Property"
+                Conf = "100% Curated Maya Lila"
+            })
+        }
+    }
+    foreach ($k in $pMapA.Keys) {
+        if (-not $pMapB.ContainsKey($k)) {
+            $itemA = $pMapA[$k]
+            $mutations.Add([PSCustomObject]@{
+                Offset = "RPG: $k"
+                Field = $k
+                Type = $itemA.Type
+                Before = $itemA.Val
+                After = "(unset)"
+                Delta = "-Removed Property"
+                Conf = "100% Curated Maya Lila"
+            })
+        }
+    }
+} elseif ($isRenpyA -and $isRenpyB) {
+    $pMapA = Parse-CliProps "--parse-renpy" $fileA.FullName
+    $pMapB = Parse-CliProps "--parse-renpy" $fileB.FullName
+
+    foreach ($k in $pMapB.Keys) {
+        $itemB = $pMapB[$k]
+        if ($pMapA.ContainsKey($k)) {
+            $itemA = $pMapA[$k]
+            if ($itemA.Val -ne $itemB.Val) {
+                $deltaStr = "Mutated"
+                if ($itemA.Val -match '^-?\d+$' -and $itemB.Val -match '^-?\d+$') {
+                    $diffNum = [long]$itemB.Val - [long]$itemA.Val
+                    $deltaStr = if ($diffNum -ge 0) { "+$diffNum" } else { "$diffNum" }
+                } elseif ($itemA.Val -match '^-?\d+(\.\d+)?$' -and $itemB.Val -match '^-?\d+(\.\d+)?$') {
+                    $diffDbl = [double]$itemB.Val - [double]$itemA.Val
+                    $deltaStr = if ($diffDbl -ge 0) { ("+{0:N2}" -f $diffDbl) } else { ("{0:N2}" -f $diffDbl) }
+                }
+                $mutations.Add([PSCustomObject]@{
+                    Offset = "RENPY: $k"
+                    Field = $k
+                    Type = $itemB.Type
+                    Before = $itemA.Val
+                    After = $itemB.Val
+                    Delta = $deltaStr
+                    Conf = "100% Curated Kavya Sutra"
+                })
+            }
+        } else {
+            $mutations.Add([PSCustomObject]@{
+                Offset = "RENPY: $k"
+                Field = $k
+                Type = $itemB.Type
+                Before = "(unset)"
+                After = $itemB.Val
+                Delta = "+New Property"
+                Conf = "100% Curated Kavya Sutra"
+            })
+        }
+    }
+    foreach ($k in $pMapA.Keys) {
+        if (-not $pMapB.ContainsKey($k)) {
+            $itemA = $pMapA[$k]
+            $mutations.Add([PSCustomObject]@{
+                Offset = "RENPY: $k"
+                Field = $k
+                Type = $itemA.Type
+                Before = $itemA.Val
+                After = "(unset)"
+                Delta = "-Removed Property"
+                Conf = "100% Curated Kavya Sutra"
+            })
+        }
+    }
 } else {
     # Binary byte diff
     $minLen = [Math]::Min($bytesA.Length, $bytesB.Length)
@@ -424,7 +557,30 @@ $lines.Add('    ];')
 $lines.Add('}')
 
 $content = [string]::Join("`r`n", $lines)
-[System.IO.File]::WriteAllText($diffSlintPath, $content, (New-Object System.Text.UTF8Encoding $true))
+$tempDiff = "$diffSlintPath.tmp"
+$bakDiff = "$diffSlintPath.bak"
+$utf8WithBom = New-Object System.Text.UTF8Encoding $true
+[System.IO.File]::WriteAllText($tempDiff, $content, $utf8WithBom)
+
+for ($attempt = 0; $attempt -lt 5; $attempt++) {
+    try {
+        if ([System.IO.File]::Exists($diffSlintPath)) {
+            [System.IO.File]::Replace($tempDiff, $diffSlintPath, $bakDiff)
+            if (Test-Path $bakDiff) { Remove-Item $bakDiff -Force -ErrorAction SilentlyContinue }
+        } else {
+            [System.IO.File]::Move($tempDiff, $diffSlintPath)
+        }
+        break
+    } catch {
+        Start-Sleep -Milliseconds 50
+        if ($attempt -eq 4) {
+            try {
+                [System.IO.File]::Copy($tempDiff, $diffSlintPath, $true)
+                [System.IO.File]::Delete($tempDiff)
+            } catch {}
+        }
+    }
+}
 Write-Host "[OK] LiveDiff Slint module updated: $diffSlintPath"
 
 # Touch app.slint to trigger live reload

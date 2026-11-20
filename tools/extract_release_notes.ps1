@@ -1,8 +1,22 @@
 param(
-    [string]$Tag = "v0.5.4",
+    [string]$Tag = "",
     [string]$ChangelogPath = "CHANGELOG.md",
     [string]$OutputPath = "release_notes.md"
 )
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectDir = if ($scriptDir) { Split-Path -Parent $scriptDir } else { (Get-Location).Path }
+
+if (-not $Tag) {
+    $zon = Join-Path $projectDir "build.zig.zon"
+    if (Test-Path $zon) {
+        $txt = Get-Content $zon -Raw
+        if ($txt -match '\.version\s*=\s*"([^"]+)"') {
+            $Tag = "v" + $Matches[1].Trim().TrimStart('v', 'V')
+        }
+    }
+    if (-not $Tag) { $Tag = "v0.6.0" }
+}
 
 $ver = $Tag.TrimStart('v')
 $content = [System.IO.File]::ReadAllText($ChangelogPath, [System.Text.Encoding]::UTF8)
